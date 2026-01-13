@@ -13,16 +13,16 @@ import fs from 'fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.resolve(__dirname, '../public/data/qa-dashboard.db');
 
-console.log('🔍 Verificando configuración de SQLite...\n');
+console.log('🔍 Verifying SQLite configuration...\n');
 
 // Verificar que el archivo BD existe
 if (!fs.existsSync(dbPath)) {
-  console.error('❌ Base de datos no encontrada:', dbPath);
-  console.log('\n💡 Ejecuta: npm run db:setup\n');
+  console.error('❌ Database not found:', dbPath);
+  console.log('\n💡 Run: npm run db:setup\n');
   process.exit(1);
 }
 
-console.log('✅ Archivo de BD encontrado:', dbPath);
+console.log('✅ Database file found:', dbPath);
 
 // Conectar y verificar tablas
 const db = new (sqlite3.verbose().Database)(dbPath);
@@ -31,11 +31,11 @@ db.all(
   "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
   (err, tables) => {
     if (err) {
-      console.error('❌ Error al conectar a BD:', err.message);
+      console.error('❌ Error connecting to database:', err.message);
       process.exit(1);
     }
 
-    console.log('\n📊 Tablas encontradas:');
+    console.log('\n📊 Tables found:');
     tables.forEach(t => console.log(`   ✅ ${t.name}`));
 
     // Verificar datos

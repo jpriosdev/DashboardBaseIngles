@@ -231,75 +231,75 @@ export class QADataProcessor {
   static generateAlerts(data, config) {
     const alerts = [];
     
-    // Alert por bugs críticos
+    // Alert for critical bugs
     const criticalBugs = this.getCriticalBugsPending(data, config.priorities.critical);
     if (criticalBugs > config.thresholds.criticalBugsAlert) {
       alerts.push({
         id: 'critical-bugs-high',
         type: 'critical',
-        title: 'Bugs Críticos Elevados',
-        message: `${criticalBugs} bugs críticos pendientes requieren atención inmediata`,
-        action: 'Revisar y priorizar resolución',
+        title: 'High Critical Bugs',
+        message: `${criticalBugs} pending critical bugs require immediate attention`,
+        action: 'Review and prioritize resolution',
         priority: 1,
         createdAt: new Date().toISOString(),
         module: 'quality-control'
       });
     }
     
-    // Alert por concentración en desarrollador
+    // Alert for developer concentration
     const developerOverload = this.checkDeveloperOverload(data, config.thresholds.maxBugsDeveloper);
     if (developerOverload) {
       alerts.push({
         id: 'developer-overload',
         type: 'warning',
-        title: 'Concentración de Bugs',
-        message: `${developerOverload.name} tiene ${developerOverload.pending} bugs pendientes`,
-        action: 'Considerar redistribución de carga',
+        title: 'Bug Concentration',
+        message: `${developerOverload.name} has ${developerOverload.pending} pending bugs`,
+        action: 'Consider load redistribution',
         priority: 2,
         createdAt: new Date().toISOString(),
         module: 'team-management'
       });
     }
     
-    // Alert por módulo crítico
+    // Alert for critical module
     const criticalModule = this.checkCriticalModule(data, config.thresholds.criticalModulePercentage);
     if (criticalModule) {
       alerts.push({
         id: `module-critical-${criticalModule.name}`,
         type: 'warning',
-        title: `Módulo ${criticalModule.name} Crítico`,
-        message: `El módulo ${criticalModule.name} concentra ${criticalModule.percentage}% de los bugs`,
-        action: `Planificar refactoring del módulo ${criticalModule.name}`,
+        title: `${criticalModule.name} Module Critical`,
+        message: `Module ${criticalModule.name} concentrates ${criticalModule.percentage}% of bugs`,
+        action: `Plan refactoring of ${criticalModule.name} module`,
         priority: 2,
         createdAt: new Date().toISOString(),
         module: 'architecture'
       });
     }
     
-    // Alert por cobertura de pruebas baja
+    // Alert for low test coverage
     const testCoverage = this.calculateTestExecutionRate(data);
     if (testCoverage < config.thresholds.minTestCoverage) {
       alerts.push({
         id: 'low-test-coverage',
         type: 'warning',
-        title: 'Cobertura de Pruebas Baja',
-        message: `La cobertura de pruebas es ${testCoverage}%, por debajo del mínimo requerido (${config.thresholds.minTestCoverage}%)`,
-        action: 'Incrementar casos de prueba y automatización',
+        title: 'Low Test Coverage',
+        message: `Test coverage is ${testCoverage}%, below minimum required (${config.thresholds.minTestCoverage}%)`,
+        action: 'Increase test cases and automation',
         priority: 2,
         createdAt: new Date().toISOString(),
         module: 'test-coverage'
       });
     }
     
-    // Alert por tendencia negativa
+    // Alert for negative trend
     const sprintTrend = this.calculateSprintTrend(data.sprintData);
     if (sprintTrend > config.thresholds.maxBugTrendIncrease) {
       alerts.push({
         id: 'negative-trend',
         type: 'warning',
-        title: 'Tendencia Negativa de Bugs',
-        message: `Los bugs han aumentado ${sprintTrend}% en los últimos sprints`,
-        action: 'Revisar proceso de desarrollo y testing',
+        title: 'Negative Bug Trend',
+        message: `Bugs have increased ${sprintTrend}% in recent sprints`,
+        action: 'Review development and testing process',
         priority: 3,
         createdAt: new Date().toISOString(),
         module: 'process-improvement'
@@ -312,14 +312,14 @@ export class QADataProcessor {
   static generateRecommendations(data, config) {
     const recommendations = [];
     
-    // Recomendación basada en cobertura de pruebas
+    // Recommendation based on test coverage
     const testCoverage = this.calculateTestExecutionRate(data);
     if (testCoverage < config.thresholds.minTestCoverage) {
       recommendations.push({
         id: 'improve-test-coverage',
         type: 'quality',
-        title: 'Mejorar Cobertura de Pruebas',
-        description: `La cobertura actual es ${testCoverage}%. Se recomienda alcanzar al menos ${config.thresholds.minTestCoverage}%`,
+        title: 'Improve Test Coverage',
+        description: `Current coverage is ${testCoverage}%. Recommended to reach at least ${config.thresholds.minTestCoverage}%`,
         impact: 'high',
         effort: 'medium',
         estimatedDays: 14,
@@ -327,14 +327,14 @@ export class QADataProcessor {
       });
     }
     
-    // Recomendación basada en tendencia de bugs
+    // Recommendation based on bug trend
     const sprintTrend = this.calculateSprintTrend(data.sprintData);
     if (sprintTrend > config.thresholds.maxBugTrendIncrease) {
       recommendations.push({
         id: 'address-bug-trend',
         type: 'process',
-        title: 'Abordar Tendencia de Bugs',
-        description: `Los bugs han aumentado ${sprintTrend}% en los últimos sprints. Revisar proceso de desarrollo`,
+        title: 'Address Bug Trend',
+        description: `Bugs have increased ${sprintTrend}% in recent sprints. Review development process`,
         impact: 'high',
         effort: 'high',
         estimatedDays: 30,
@@ -342,14 +342,14 @@ export class QADataProcessor {
       });
     }
     
-    // Recomendación basada en densidad de defectos
+    // Recommendation based on defect density
     const defectDensity = parseFloat(data.summary?.totalBugs || 0) / (data.summary?.testCasesExecuted || 1);
     if (defectDensity > config.thresholds.maxDefectDensity) {
       recommendations.push({
         id: 'reduce-defect-density',
         type: 'quality',
-        title: 'Reducir Densidad de Defectos',
-        description: `La densidad actual es ${defectDensity.toFixed(2)}. Implementar revisiones de código más estrictas`,
+        title: 'Reduce Defect Density',
+        description: `Current density is ${defectDensity.toFixed(2)}. Implement stricter code reviews`,
         impact: 'medium',
         effort: 'medium',
         estimatedDays: 21,
@@ -357,14 +357,14 @@ export class QADataProcessor {
       });
     }
     
-    // Recomendación basada en automatización
+    // Recommendation based on automation
     const automationRate = data.qualityMetrics?.testAutomation || 0;
     if (automationRate < 60) {
       recommendations.push({
         id: 'increase-automation',
         type: 'efficiency',
-        title: 'Incrementar Automatización',
-        description: `Automatización actual: ${automationRate}%. Objetivo: 80% para mejorar eficiencia`,
+        title: 'Increase Automation',
+        description: `Current automation: ${automationRate}%. Goal: 80% to improve efficiency`,
         impact: 'high',
         effort: 'high',
         estimatedDays: 45,
@@ -372,14 +372,14 @@ export class QADataProcessor {
       });
     }
     
-    // Recomendación basada en distribución de carga
+    // Recommendation based on workload distribution
     const overloadedDev = this.checkDeveloperOverload(data, config.thresholds.maxBugsDeveloper);
     if (overloadedDev) {
       recommendations.push({
         id: 'balance-workload',
         type: 'team',
-        title: 'Balancear Carga de Trabajo',
-        description: `${overloadedDev.name} tiene sobrecarga. Redistribuir bugs entre el equipo`,
+        title: 'Balance Workload',
+        description: `${overloadedDev.name} is overloaded. Redistribute bugs among the team`,
         impact: 'medium',
         effort: 'low',
         estimatedDays: 3,

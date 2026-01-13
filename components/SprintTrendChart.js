@@ -40,7 +40,7 @@ export default function SprintTrendChart({ data }) {
     labels: data.map(item => item.sprint || item.name || `Sprint ${item.id}`),
     datasets: [
       {
-        label: 'Bugs Encontrados',
+        label: 'Bugs Found',
         data: data.map(item => item.bugs),
         borderColor: COLORS.bugsFound,
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -50,7 +50,7 @@ export default function SprintTrendChart({ data }) {
         pointHoverRadius: 6,
       },
       {
-        label: 'Bugs Resueltos',
+        label: 'Bugs Resolved',
         data: data.map(item => item.bugsResolved),
         borderColor: COLORS.bugsResolved,
         backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -60,7 +60,7 @@ export default function SprintTrendChart({ data }) {
         pointHoverRadius: 6,
       },
       {
-        label: 'Casos de Prueba',
+        label: 'Test Cases',
         data: data.map(item => item.testCases),
         borderColor: COLORS.testCases,
         backgroundColor: 'rgba(59, 130, 246, 0.1)',

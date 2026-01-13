@@ -4,12 +4,12 @@
  * Estructura normalizada SQL/CSV, seguridad mejorada, validación robusta.
  * 
  * @param {Object} props
- * @param {string} props.title - Nombre del KPI
+ * @param {string} props.title - KPI name
  * @param {string|number} props.value - Valor a mostrar (validado)
  * @param {JSX.Element} props.icon - Icono del componente
  * @param {number} props.trend - Porcentaje de tendencia
  * @param {string} props.status - 'success' | 'warning' | 'danger' | 'neutral'
- * @param {string} props.subtitle - Descripción opcional
+ * @param {string} props.subtitle - Optional description
  * @param {string} props.formula - Explicación de fórmula
  * @param {string} props.tooltip - Texto del tooltip
  * @param {Function} props.onClick - Manejador de clic
@@ -113,7 +113,7 @@ export default function KPICard({
               onBlur={() => setShowTooltip(false)}
               tabIndex={0}
               role="button"
-              aria-label={`Más información sobre ${title}`}
+              aria-label={`More information about ${title}`}
             >
               <Info className="w-3 h-3 text-gray-400 hover:text-blue-500" />
             </span>

@@ -36,10 +36,10 @@ export default function SprintComparison({ sprintData, selectedSprints }) {
 
   const metrics = [
     { key: 'bugs', label: 'Total Bugs', format: val => val, inverse: true },
-    { key: 'bugsResolved', label: 'Bugs Resueltos', format: val => val, inverse: false },
-    { key: 'testCases', label: 'Casos Ejecutados', format: val => val, inverse: false },
-    { key: 'resolutionRate', label: 'Tasa Resolución', format: val => `${val}%`, inverse: false },
-    { key: 'criticalBugs', label: 'Bugs Críticos', format: val => val, inverse: true }
+    { key: 'bugsResolved', label: 'Bugs Resolved', format: val => val, inverse: false },
+    { key: 'testCases', label: 'Executed Cases', format: val => val, inverse: false },
+    { key: 'resolutionRate', label: 'Resolution Rate', format: val => `${val}%`, inverse: false },
+    { key: 'criticalBugs', label: 'Critical Bugs', format: val => val, inverse: true }
   ];
 
   const ComparisonRow = ({ metric }) => {

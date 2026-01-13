@@ -64,7 +64,7 @@ export default function SettingsMenu({ onRefresh, loading }) {
     if (!file.name.toLowerCase().endsWith('.csv')) {
       setMessage({
         type: 'error',
-        text: 'Por favor selecciona un archivo CSV válido'
+        text: 'Please select a valid CSV file'
       });
       return;
     }
@@ -100,7 +100,7 @@ export default function SettingsMenu({ onRefresh, loading }) {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: `❌ Error al cargar archivo: ${error.message}`
+        text: `❌ Error uploading file: ${error.message}`
       });
     } finally {
       setUploading(false);

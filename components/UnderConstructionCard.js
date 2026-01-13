@@ -4,7 +4,7 @@ import { Construction } from 'lucide-react';
 
 /**
  * UnderConstructionCard.js - Refactorizado
- * Tarjeta placeholder para componentes en desarrollo
+ * Placeholder card for components in development
  * Mejorado: seguridad (typeof checks), tooltip mejorado, validación robusta
  */
 export default function UnderConstructionCard({
@@ -46,7 +46,7 @@ export default function UnderConstructionCard({
   const defaultHelpContent = (
     <div>
       <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-      <div className="text-xs text-gray-600 mb-2">Esta tarjeta mostrará la medida principal relacionada con &quot;{title}&quot;, por ejemplo una proporción, porcentaje o tiempo promedio que resume el estado de calidad.</div>
+      <div className="text-xs text-gray-600 mb-2">This card will display the main measure related to &quot;{title}&quot;, for example a ratio, percentage or average time that summarizes the quality state.</div>
       <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
       <div className="text-xs text-gray-600">Permite a responsables y equipos priorizar acciones, entender riesgos y comunicar el impacto en el negocio de forma simple y directa.</div>
     </div>

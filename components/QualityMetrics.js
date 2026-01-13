@@ -60,65 +60,65 @@ import KPICard from './KPICard';
     const metrics = [
       {
         key: 'defectDensity',
-        title: 'Densidad de Defectos',
+        title: 'Defect Density',
         value: defectDensityValue,
-        unit: 'bugs/caso',
+        unit: 'bugs/case',
         icon: <Target className="w-6 h-6" />,
         target: 0.15,
         status: defectDensityValue == null ? 'unknown' : (defectDensityValue <= 0.15 ? 'success' : defectDensityValue <= 0.25 ? 'warning' : 'danger'),
-        description: 'Número de bugs por caso de prueba ejecutado'
+        description: 'Number of bugs per executed test case'
       },
       {
         key: 'testEfficiency',
-        title: 'Tasa de Ejecución',
-        // For now show this KPI as 'En desarrollo' (no datos reales)
+        title: 'Execution Rate',
+        // For now show this KPI as 'In development' (no actual data)
         value: null,
         unit: '%',
         icon: <CheckCircle className="w-6 h-6" />,
         target: 85,
         status: testEfficiencyValue == null ? 'unknown' : (testEfficiencyValue >= 85 ? 'success' : testEfficiencyValue >= 70 ? 'warning' : 'danger'),
-        description: 'Porcentaje de casos de prueba ejecutados vs planeados'
+        description: 'Percentage of test cases executed vs planned'
       },
       {
         key: 'bugLeakage',
-        title: 'Tasa de Fuga',
+        title: 'Leak Rate',
         value: bugLeakageValue,
         unit: '%',
         icon: <Shield className="w-6 h-6" />,
         target: 5,
         status: bugLeakageValue == null ? 'unknown' : (bugLeakageValue <= 5 ? 'success' : bugLeakageValue <= 10 ? 'warning' : 'danger'),
-        description: 'Porcentaje de bugs que escapan a producción'
+        description: 'Percentage of bugs that escape to production'
       },
       {
         key: 'testAutomation',
-        title: 'Automatización',
+        title: 'Automation',
         // Mark automation as in development UI-wise
         value: null,
         unit: '%',
         icon: <Zap className="w-6 h-6" />,
         target: 60,
         status: testAutomationValue == null ? 'unknown' : (testAutomationValue >= 60 ? 'success' : testAutomationValue >= 40 ? 'warning' : 'danger'),
-        description: 'Porcentaje de pruebas automatizadas'
+        description: 'Percentage of automated tests'
       },
       {
         key: 'codeCoverage',
-        title: 'Cobertura de Código',
+        title: 'Code Coverage',
         value: codeCoverageValue,
         unit: '%',
         icon: <BarChart3 className="w-6 h-6" />,
         target: 80,
         status: codeCoverageValue == null ? 'unknown' : (codeCoverageValue >= 80 ? 'success' : codeCoverageValue >= 65 ? 'warning' : 'danger'),
-        description: 'Porcentaje de código cubierto por pruebas'
+        description: 'Percentage of code covered by tests'
       },
       {
         key: 'cycleTime',
-        title: 'Tiempo de Ciclo',
+        title: 'Cycle Time',
         value: cycleTimeValue,
-        unit: 'días',
+        unit: 'days',
         icon: <Clock className="w-6 h-6" />,
         target: 2,
         status: cycleTimeValue == null ? 'unknown' : (cycleTimeValue <= 2 ? 'success' : cycleTimeValue <= 3 ? 'warning' : 'danger'),
-        description: 'Tiempo promedio desde detección hasta resolución'
+        description: 'Average time from detection to resolution'
       }
     ];
   
@@ -178,10 +178,10 @@ import KPICard from './KPICard';
       const rect = e.currentTarget.getBoundingClientRect();
       const content = helpByKey[metric.key] || (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Esta métrica resume un aspecto clave de la calidad.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Permite priorizar acciones y comunicar estado al negocio.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">This metric summarizes a key aspect of quality.</div>
+          <div className="font-semibold mt-2">Why it's useful:</div>
+          <div className="text-xs">Allows you to prioritize actions and communicate status to business.</div>
         </div>
       );
       setTooltip({ visible: true, content, pos: { top: rect.bottom + 8, left: rect.left + rect.width / 2 } });
@@ -193,10 +193,10 @@ import KPICard from './KPICard';
     const helpByKey = {
       defectDensity: (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Promedio de hallazgos por caso de prueba ejecutado.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Ayuda a identificar si la calidad del producto está mejorando o empeorando entre sprints.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">Average findings per executed test case.</div>
+          <div className="font-semibold mt-2">Why it's useful:</div>
+          <div className="text-xs">Helps identify if product quality is improving or deteriorating between sprints.</div>
         </div>
       ),
       testEfficiency: (
