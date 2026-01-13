@@ -1218,7 +1218,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Number of findings with priority 'Highest' and 'High'.</div>
+              <div className="text-xs text-gray-600 mb-2">Number of findings with priority &apos;Highest&apos; and &apos;High&apos;.</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
               <div className="text-xs text-gray-600">Measures the volume of severe incidents that can impact releases and require immediate prioritization.</div>
             </div>
@@ -1320,7 +1320,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
               <div className="text-xs text-gray-600 mb-2">Percentage of findings resolved relative to total reported.</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Evaluates the team's effectiveness in closing incidents and maintaining product stability.</div>
+              <div className="text-xs text-gray-600">Evaluates the team&apos;s effectiveness in closing incidents and maintaining product stability.</div>
             </div>
           }
           onClick={() => setDetailModal({

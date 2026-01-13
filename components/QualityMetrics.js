@@ -180,7 +180,7 @@ import KPICard from './KPICard';
         <div>
           <div className="font-semibold">What it measures:</div>
           <div className="text-xs">This metric summarizes a key aspect of quality.</div>
-          <div className="font-semibold mt-2">Why it's useful:</div>
+          <div className="font-semibold mt-2">Why it&apos;s useful:</div>
           <div className="text-xs">Allows you to prioritize actions and communicate status to business.</div>
         </div>
       );
@@ -195,7 +195,7 @@ import KPICard from './KPICard';
         <div>
           <div className="font-semibold">What it measures:</div>
           <div className="text-xs">Average findings per executed test case.</div>
-          <div className="font-semibold mt-2">Why it's useful:</div>
+          <div className="font-semibold mt-2">Why it&apos;s useful:</div>
           <div className="text-xs">Helps identify if product quality is improving or deteriorating between sprints.</div>
         </div>
       ),
