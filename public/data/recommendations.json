@@ -2,7 +2,7 @@
   "mediaCasosEjecutados": [
     {
       "condition": "avg < 120",
-      "text": "Definir estrategia de testing: Establecer qué funcionalidades requieren testing manual vs automatizado",
+      "text": "Define testing strategy: Establish which functionalities require manual vs automated testing",
       "priority": "alta",
       "parametros": {
         "rangoExcelente": ">=170",
@@ -12,34 +12,34 @@
     },
     {
       "condition": "avg < 120",
-      "text": "Crear repositorio de casos de prueba: Documentar casos reutilizables en formato estándar",
+      "text": "Create test case repository: Document reusable cases in standard format",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Integrar QA en planning: Participar desde definición de HUs para identificar criterios de aceptación",
+      "text": "Integrate QA in planning: Participate from user story definition to identify acceptance criteria",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Establecer Definition of Done: Incluir criterios de calidad antes de pasar a producción",
+      "text": "Establish Definition of Done: Include quality criteria before moving to production",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Capacitar al equipo de desarrollo: Promover ownership de calidad desde el código",
+      "text": "Train development team: Promote quality ownership from code",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Implementar smoke tests: Validar funcionalidades críticas después de cada deploy",
+      "text": "Implement smoke tests: Validate critical functionalities after each deploy",
       "priority": "media"
     }
   ],
   "densidadDefectos": [
     {
       "condition": "avg > 2.0",
-      "text": "Implementar code reviews: Revisión por pares antes de merge para prevenir bugs",
+      "text": "Implement code reviews: Peer review before merge to prevent bugs",
       "priority": "alta",
       "parametros": {
         "rangoExcelente": "<0.5",
@@ -50,44 +50,44 @@
     },
     {
       "condition": "avg > 2.0",
-      "text": "Definir Definition of Done: Criterios claros de calidad antes de considerar HU terminada",
+      "text": "Define Definition of Done: Clear quality criteria before considering story finished",
       "priority": "alta"
     },
     {
       "condition": "avg > 1.0 && avg <= 2.0",
-      "text": "Capacitar en testing unitario: Desarrolladores deben validar su código antes de QA",
+      "text": "Train in unit testing: Developers must validate their code before QA",
       "priority": "media"
     },
     {
       "condition": "avg > 1.0 && avg <= 2.0",
-      "text": "Implementar integration testing: Validar interfaces entre módulos automáticamente",
+      "text": "Implement integration testing: Validate module interfaces automatically",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Analizar módulos problemáticos: Identificar áreas con mayor concentración de bugs para refactorización",
+      "text": "Analyze problematic modules: Identify areas with higher bug concentration for refactoring",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Establecer métricas de calidad de código: Complejidad ciclomática, code smells, deuda técnica",
+      "text": "Establish code quality metrics: Cyclomatic complexity, code smells, technical debt",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Implementar shift-left testing: Involucrar QA desde diseño de HUs para prevenir defectos",
+      "text": "Implement shift-left testing: Involve QA from user story design to prevent defects",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Crear ambiente de desarrollo similar a producción: Reducir bugs por diferencias de ambiente",
+      "text": "Create production-like development environment: Reduce bugs from environment differences",
       "priority": "baja"
     }
   ],
   "tiempoPromedioResolucion": [
     {
       "condition": "avg > 10",
-      "text": "Mejorar comunicación QA-Dev: Acortar tiempo desde reporte hasta inicio de trabajo",
+      "text": "Improve QA-Dev communication: Reduce time from report to work start",
       "priority": "alta",
       "parametros": {
         "rangoExcelente": "<=5",
@@ -97,138 +97,138 @@
     },
     {
       "condition": "byPriority.critical > 5",
-      "text": "Establecer SLA críticos: Bugs de máxima prioridad deben resolverse en máximo 48h",
+      "text": "Establish critical SLAs: Maximum priority bugs must be resolved in 48 hours",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Estandarizar reporte de bugs: Incluir pasos claros, screenshots y logs para acelerar reproducción",
+      "text": "Standardize bug reporting: Include clear steps, screenshots and logs for faster reproduction",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Implementar ambiente de testing estable: Evitar demoras por problemas de infraestructura",
+      "text": "Implement stable testing environment: Avoid delays from infrastructure issues",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Crear matriz de responsabilidades: Definir quién atiende cada tipo de bug para evitar rebotes",
+      "text": "Create responsibility matrix: Define who handles each bug type to avoid bounces",
       "priority": "media"
     }
   ],
   "bugsCriticosDetectados": [
     {
       "condition": "total > 20",
-      "text": "Implementar gate de calidad: No pasar a producción con bugs críticos abiertos",
+      "text": "Implement quality gate: No production release with open critical bugs",
       "priority": "alta"
     },
     {
       "condition": "total > 20",
-      "text": "Establecer war room: Sesiones enfocadas con Dev para resolver bugs críticos en tiempo real",
+      "text": "Establish war room: Focused sessions with Dev to resolve critical bugs in real time",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Definir criterios de severidad: Alinear con desarrollo qué es crítico, alto, medio, bajo",
+      "text": "Define severity criteria: Align with development on what is critical, high, medium, low",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Implementar regression testing: Validar que fixes no generen nuevos bugs",
+      "text": "Implement regression testing: Validate that fixes do not generate new bugs",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Crear checklist pre-producción: Validaciones mínimas antes de cada release",
+      "text": "Create pre-production checklist: Minimum validations before each release",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Analizar root cause: Documentar patrones comunes de bugs críticos para prevención",
+      "text": "Analyze root cause: Document common critical bug patterns for prevention",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Implementar code reviews: Peer review obligatorio para funcionalidades críticas",
+      "text": "Implement code reviews: Mandatory peer review for critical functionalities",
       "priority": "media"
     }
   ],
   "estadoBugsCriticos": [
     {
       "condition": "pending > 10",
-      "text": "Urgente: Congelar nuevos features y enfocar equipo en estabilización",
+      "text": "Urgent: Freeze new features and focus team on stabilization",
       "priority": "alta"
     },
     {
       "condition": "pending > 10",
-      "text": "Establecer triage diario: Priorizar y asignar recursos a bugs críticos pendientes",
+      "text": "Establish daily triage: Prioritize and allocate resources to pending critical bugs",
       "priority": "alta"
     },
     {
       "condition": "pending > 5",
-      "text": "Revisar priorización: Validar que todos los bugs críticos realmente lo sean",
+      "text": "Review prioritization: Validate that all critical bugs really are",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Implementar sistema de notificaciones: Alertar a stakeholders sobre bugs críticos nuevos",
+      "text": "Implement notification system: Alert stakeholders about new critical bugs",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Definir proceso de escalamiento: Qué hacer cuando bugs críticos superan SLA",
+      "text": "Define escalation process: What to do when critical bugs exceed SLA",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Crear knowledge base: Documentar bugs recurrentes y sus soluciones",
+      "text": "Create knowledge base: Document recurring bugs and their solutions",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Implementar post-mortem: Analizar cada bug crítico para prevenir recurrencia",
+      "text": "Implement post-mortem: Analyze each critical bug to prevent recurrence",
       "priority": "baja"
     },
     {
       "condition": "pending === 0",
-      "text": "¡Excelente trabajo! Continuar con este nivel de respuesta",
+      "text": "Excellent work! Continue with this level of response",
       "priority": "baja"
     }
   ],
   "eficienciaResolucion": [
     {
       "condition": "efficiency < 70",
-      "text": "Establecer flujo de trabajo: Definir proceso claro desde reporte hasta cierre de bugs",
+      "text": "Establish workflow: Define clear process from report to bug closure",
       "priority": "alta"
     },
     {
       "condition": "efficiency < 70",
-      "text": "Implementar daily syncs: Reuniones breves QA-Dev para desbloquear impedimentos",
+      "text": "Implement daily syncs: Brief QA-Dev meetings to unblock obstacles",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Definir SLAs por prioridad: Establecer tiempo máximo de resolución según criticidad",
+      "text": "Define SLAs by priority: Establish maximum resolution time by criticality",
       "priority": "alta"
     },
     {
       "condition": "default",
-      "text": "Estandarizar reporte de bugs: Plantilla con pasos, evidencia y ambiente para reproducir",
+      "text": "Standardize bug reporting: Template with steps, evidence and reproduction environment",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Crear canal de comunicación: Slack/Teams dedicado para triage rápido de bugs",
+      "text": "Create communication channel: Slack/Teams dedicated for quick bug triage",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Implementar retrospectivas QA-Dev: Identificar mejoras en el proceso cada sprint",
+      "text": "Implement QA-Dev retrospectives: Identify process improvements each sprint",
       "priority": "media"
     },
     {
       "condition": "default",
-      "text": "Capacitar en herramientas: Azure DevOps, Jira o sistema de tracking que usen",
+      "text": "Train on tools: Azure DevOps, Jira or tracking system you use",
       "priority": "baja"
     }
   ],
