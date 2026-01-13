@@ -1,0 +1,243 @@
+{
+  "mediaCasosEjecutados": [
+    {
+      "condition": "avg < 120",
+      "text": "Definir estrategia de testing: Establecer qué funcionalidades requieren testing manual vs automatizado",
+      "priority": "alta",
+      "parametros": {
+        "rangoExcelente": ">=170",
+        "rangoAceptable": "120-169",
+        "rangoBajo": "<120"
+      }
+    },
+    {
+      "condition": "avg < 120",
+      "text": "Crear repositorio de casos de prueba: Documentar casos reutilizables en formato estándar",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Integrar QA en planning: Participar desde definición de HUs para identificar criterios de aceptación",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Establecer Definition of Done: Incluir criterios de calidad antes de pasar a producción",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Capacitar al equipo de desarrollo: Promover ownership de calidad desde el código",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar smoke tests: Validar funcionalidades críticas después de cada deploy",
+      "priority": "media"
+    }
+  ],
+  "densidadDefectos": [
+    {
+      "condition": "avg > 2.0",
+      "text": "Implementar code reviews: Revisión por pares antes de merge para prevenir bugs",
+      "priority": "alta",
+      "parametros": {
+        "rangoExcelente": "<0.5",
+        "rangoBueno": "0.5-1.0",
+        "rangoMejorable": "1.0-2.0",
+        "rangoCritico": ">2.0"
+      }
+    },
+    {
+      "condition": "avg > 2.0",
+      "text": "Definir Definition of Done: Criterios claros de calidad antes de considerar HU terminada",
+      "priority": "alta"
+    },
+    {
+      "condition": "avg > 1.0 && avg <= 2.0",
+      "text": "Capacitar en testing unitario: Desarrolladores deben validar su código antes de QA",
+      "priority": "media"
+    },
+    {
+      "condition": "avg > 1.0 && avg <= 2.0",
+      "text": "Implementar integration testing: Validar interfaces entre módulos automáticamente",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Analizar módulos problemáticos: Identificar áreas con mayor concentración de bugs para refactorización",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Establecer métricas de calidad de código: Complejidad ciclomática, code smells, deuda técnica",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar shift-left testing: Involucrar QA desde diseño de HUs para prevenir defectos",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Crear ambiente de desarrollo similar a producción: Reducir bugs por diferencias de ambiente",
+      "priority": "baja"
+    }
+  ],
+  "tiempoPromedioResolucion": [
+    {
+      "condition": "avg > 10",
+      "text": "Mejorar comunicación QA-Dev: Acortar tiempo desde reporte hasta inicio de trabajo",
+      "priority": "alta",
+      "parametros": {
+        "rangoExcelente": "<=5",
+        "rangoAceptable": "6-10",
+        "rangoCritico": ">10"
+      }
+    },
+    {
+      "condition": "byPriority.critical > 5",
+      "text": "Establecer SLA críticos: Bugs de máxima prioridad deben resolverse en máximo 48h",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Estandarizar reporte de bugs: Incluir pasos claros, screenshots y logs para acelerar reproducción",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar ambiente de testing estable: Evitar demoras por problemas de infraestructura",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Crear matriz de responsabilidades: Definir quién atiende cada tipo de bug para evitar rebotes",
+      "priority": "media"
+    }
+  ],
+  "bugsCriticosDetectados": [
+    {
+      "condition": "total > 20",
+      "text": "Implementar gate de calidad: No pasar a producción con bugs críticos abiertos",
+      "priority": "alta"
+    },
+    {
+      "condition": "total > 20",
+      "text": "Establecer war room: Sesiones enfocadas con Dev para resolver bugs críticos en tiempo real",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Definir criterios de severidad: Alinear con desarrollo qué es crítico, alto, medio, bajo",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar regression testing: Validar que fixes no generen nuevos bugs",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Crear checklist pre-producción: Validaciones mínimas antes de cada release",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Analizar root cause: Documentar patrones comunes de bugs críticos para prevención",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar code reviews: Peer review obligatorio para funcionalidades críticas",
+      "priority": "media"
+    }
+  ],
+  "estadoBugsCriticos": [
+    {
+      "condition": "pending > 10",
+      "text": "Urgente: Congelar nuevos features y enfocar equipo en estabilización",
+      "priority": "alta"
+    },
+    {
+      "condition": "pending > 10",
+      "text": "Establecer triage diario: Priorizar y asignar recursos a bugs críticos pendientes",
+      "priority": "alta"
+    },
+    {
+      "condition": "pending > 5",
+      "text": "Revisar priorización: Validar que todos los bugs críticos realmente lo sean",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar sistema de notificaciones: Alertar a stakeholders sobre bugs críticos nuevos",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Definir proceso de escalamiento: Qué hacer cuando bugs críticos superan SLA",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Crear knowledge base: Documentar bugs recurrentes y sus soluciones",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar post-mortem: Analizar cada bug crítico para prevenir recurrencia",
+      "priority": "baja"
+    },
+    {
+      "condition": "pending === 0",
+      "text": "¡Excelente trabajo! Continuar con este nivel de respuesta",
+      "priority": "baja"
+    }
+  ],
+  "eficienciaResolucion": [
+    {
+      "condition": "efficiency < 70",
+      "text": "Establecer flujo de trabajo: Definir proceso claro desde reporte hasta cierre de bugs",
+      "priority": "alta"
+    },
+    {
+      "condition": "efficiency < 70",
+      "text": "Implementar daily syncs: Reuniones breves QA-Dev para desbloquear impedimentos",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Definir SLAs por prioridad: Establecer tiempo máximo de resolución según criticidad",
+      "priority": "alta"
+    },
+    {
+      "condition": "default",
+      "text": "Estandarizar reporte de bugs: Plantilla con pasos, evidencia y ambiente para reproducir",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Crear canal de comunicación: Slack/Teams dedicado para triage rápido de bugs",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Implementar retrospectivas QA-Dev: Identificar mejoras en el proceso cada sprint",
+      "priority": "media"
+    },
+    {
+      "condition": "default",
+      "text": "Capacitar en herramientas: Azure DevOps, Jira o sistema de tracking que usen",
+      "priority": "baja"
+    }
+  ],
+  "_legacy": {
+    "testCases": "mediaCasosEjecutados",
+    "defectDensity": "densidadDefectos",
+    "cycleTime": "tiempoPromedioResolucion",
+    "criticalBugs": "bugsCriticosDetectados",
+    "criticalBugsStatus": "estadoBugsCriticos",
+    "resolutionEfficiency": "eficienciaResolucion"
+  }
+}
