@@ -1,7 +1,7 @@
 /**
  * API Endpoint: POST /api/switch-data-version
  * 
- * Permite cambiar entre versión actual y anterior de datos
+ * Allows switching between current and previous versions of data
  */
 
 import fs from 'fs';
@@ -16,7 +16,7 @@ export default function handler(req, res) {
     const { versionId } = req.body;
 
     if (!versionId || (versionId !== 'current' && !versionId.startsWith('data-backup-'))) {
-      return res.status(400).json({ error: 'ID de versión inválido' });
+      return res.status(400).json({ error: 'Invalid version ID' });
     }
 
     const VERSIONS_DIR = path.join(process.cwd(), 'data', 'versions');
@@ -28,18 +28,18 @@ export default function handler(req, res) {
     if (versionId === 'current') {
       return res.status(200).json({
         success: true,
-        message: 'Ya estás usando la versión actual',
+        message: 'You are already using the current version',
         version: 'current'
       });
     } else {
-      // Cargar versión anterior (backup)
+      // Load previous version (backup)
       sourceFile = path.join(VERSIONS_DIR, versionId);
       
       if (!fs.existsSync(sourceFile)) {
-        return res.status(404).json({ error: 'Versión no encontrada' });
+        return res.status(404).json({ error: 'Version not found' });
       }
 
-      // Hacer backup de la versión actual
+      // Backup current version
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupName = `data-backup-${timestamp}.json`;
       const backupPath = path.join(VERSIONS_DIR, backupName);
@@ -48,15 +48,15 @@ export default function handler(req, res) {
         fs.copyFileSync(currentJsonPath, backupPath);
       }
 
-      // Copiar versión anterior a la actual
+      // Copy previous version to current
       const versionData = fs.readFileSync(sourceFile, 'utf8');
       fs.writeFileSync(currentJsonPath, versionData);
 
-      console.log(`✅ Cambiado a versión: ${versionId}`);
+      console.log(`✅ Switched to version: ${versionId}`);
 
       return res.status(200).json({
         success: true,
-        message: 'Versión cambiada exitosamente',
+        message: 'Version changed successfully',
         version: versionId,
         timestamp: new Date().toISOString()
       });
@@ -64,7 +64,7 @@ export default function handler(req, res) {
   } catch (error) {
     console.error('Error switching version:', error);
     return res.status(500).json({
-      error: 'Error al cambiar versión',
+      error: 'Error changing version',
       details: error.message
     });
   }

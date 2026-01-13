@@ -1,6 +1,6 @@
 /**
  * API Endpoint: /api/verify-data
- * Verifica la integridad de datos entre Excel, JSON y SQLite
+ * Verifies data integrity between Excel, JSON and SQLite
  */
 
 import DAL from '../../lib/database/dal.js';
@@ -100,29 +100,29 @@ export default async function handler(req, res) {
       verification.differences.matchPercentage = Math.round((matches / comparisons.length) * 100);
     }
 
-    // Generar recomendaciones
+    // Generate recommendations
     if (!verification.database.exists) {
-      verification.recommendations.push('❌ Base de datos SQLite no encontrada. Ejecuta: npm run db:setup');
+      verification.recommendations.push('❌ SQLite database not found. Run: npm run db:setup');
     } else {
-      verification.recommendations.push('✅ Base de datos SQLite encontrada y funcional');
+      verification.recommendations.push('✅ SQLite database found and functional');
     }
 
     if (!verification.differences.totalBugsMatch) {
-      verification.recommendations.push(`⚠️ Total de bugs diferente: SQLite=${verification.sources.sqlite.totalBugs}, JSON=${verification.sources.json.totalBugs}`);
+      verification.recommendations.push(`⚠️ Total bugs different: SQLite=${verification.sources.sqlite.totalBugs}, JSON=${verification.sources.json.totalBugs}`);
     } else {
-      verification.recommendations.push('✅ Total de bugs coincide');
+      verification.recommendations.push('✅ Total bugs matches');
     }
 
     if (!verification.differences.sprintsMatch) {
-      verification.recommendations.push(`⚠️ Cantidad de sprints diferente: SQLite=${verification.sources.sqlite.sprints}, JSON=${verification.sources.json.sprints}`);
+      verification.recommendations.push(`⚠️ Number of sprints different: SQLite=${verification.sources.sqlite.sprints}, JSON=${verification.sources.json.sprints}`);
     } else {
-      verification.recommendations.push('✅ Cantidad de sprints coincide');
+      verification.recommendations.push('✅ Number of sprints matches');
     }
 
     if (verification.differences.matchPercentage === 100) {
-      verification.recommendations.push('✅ Todos los sprints coinciden 100%');
-    } else if (verification.differences.matchPercentage > 0) {
-      verification.recommendations.push(`⚠️ Solo ${verification.differences.matchPercentage}% de sprints coinciden completamente`);
+      verification.recommendations.push('✅ All sprints match 100%');
+    } else if (verification.differences.matchPercentage >= 0) {
+      verification.recommendations.push(`⚠️ Only ${verification.differences.matchPercentage}% of sprints match completely`);
     }
 
     verification.status = verification.database.exists && verification.differences.matchPercentage > 80 ? 'success' : 'warning';

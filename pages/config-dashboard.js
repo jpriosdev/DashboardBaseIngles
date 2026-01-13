@@ -28,52 +28,52 @@ export default function ConfigDashboard() {
       });
 
       if (resp.ok) {
-        alert('Configuración guardada ✅');
+        alert('Configuration saved ✅');
         try { window.dispatchEvent(new Event('config:updated')); } catch (e) {}
       } else {
         // Fallback: persist locally if server doesn't accept POST
         try {
           localStorage.setItem('qa-config', JSON.stringify(config));
-          alert('Configuración guardada localmente (server no permite POST) ✅');
+          alert('Configuration saved locally (server does not allow POST) ✅');
           try { window.dispatchEvent(new Event('config:updated')); } catch (e) {}
         } catch (e) {
-          alert('No se pudo guardar configuración en el servidor ni en localStorage');
+          alert('Could not save configuration to server or localStorage');
         }
       }
     } catch (error) {
       // Network error: try localStorage fallback
       try {
         localStorage.setItem('qa-config', JSON.stringify(config));
-        alert('Configuración guardada localmente (error de red) ✅');
+        alert('Configuration saved locally (network error) ✅');
         try { window.dispatchEvent(new Event('config:updated')); } catch (e) {}
       } catch (e) {
-        alert('Error guardando configuración ❌');
+        alert('Error saving configuration ❌');
       }
     }
   };
 
-  if (loading) return <div>Cargando configuración...</div>;
+  if (loading) return <div>Loading configuration...</div>;
 
   const availableOverviewKpis = [
-    { id: 'cobertura', label: 'Cobertura de Pruebas (Media casos/sprint)' },
-    { id: 'densidad', label: 'Densidad de Hallazgos' },
-    { id: 'testExecutionRate', label: 'Tasa de Ejecución' },
-    { id: 'bugLeakage', label: 'Tasa de Fuga' },
-    { id: 'bugsCriticos', label: 'Hallazgos Críticos' },
-    { id: 'criticosPendientes', label: 'Estado Hallazgos Críticos' },
-    { id: 'tiempoSolucion', label: 'Tiempo Promedio de Resolución' },
-    { id: 'resolutionEfficiency', label: 'Eficiencia de Resolución' },
-    { id: 'regressionRate', label: 'Tasa de Regresión' },
-    { id: 'automatizacion', label: 'Cobertura de Automatización' },
+    { id: 'cobertura', label: 'Test Coverage (Average cases/sprint)' },
+    { id: 'densidad', label: 'Finding Density' },
+    { id: 'testExecutionRate', label: 'Execution Rate' },
+    { id: 'bugLeakage', label: 'Leak Rate' },
+    { id: 'bugsCriticos', label: 'Critical Findings' },
+    { id: 'criticosPendientes', label: 'Critical Findings Status' },
+    { id: 'tiempoSolucion', label: 'Average Resolution Time' },
+    { id: 'resolutionEfficiency', label: 'Resolution Efficiency' },
+    { id: 'regressionRate', label: 'Regression Rate' },
+    { id: 'automatizacion', label: 'Automation Coverage' },
   ];
 
   const availableQualityKpis = [
-    { id: 'defectDensity', label: 'Densidad de Defectos' },
-    { id: 'testEfficiency', label: 'Eficiencia de Pruebas' },
-    { id: 'bugLeakage', label: 'Tasa de Fuga' },
-    { id: 'testAutomation', label: 'Automatización de Pruebas' },
-    { id: 'codeCoverage', label: 'Cobertura de Código' },
-    { id: 'cycleTime', label: 'Tiempo de Ciclo' },
+    { id: 'defectDensity', label: 'Defect Density' },
+    { id: 'testEfficiency', label: 'Test Efficiency' },
+    { id: 'bugLeakage', label: 'Leak Rate' },
+    { id: 'testAutomation', label: 'Test Automation' },
+    { id: 'codeCoverage', label: 'Code Coverage' },
+    { id: 'cycleTime', label: 'Cycle Time' },
   ];
 
   const ensureVisibleStructure = (cfg) => {
@@ -118,21 +118,21 @@ export default function ConfigDashboard() {
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link href="/" className="inline-flex items-center px-3 py-2 border rounded-lg bg-gray-50 hover:bg-gray-100 text-sm">
-              ← Volver al Dashboard
+              ← Back to Dashboard
             </Link>
-            <h2 className="text-sm font-medium text-gray-700">Configuración</h2>
+            <h2 className="text-sm font-medium text-gray-700">Configuration</h2>
           </div>
         </div>
       </div>
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold mb-6">Configuración del Dashboard</h1>
+        <h1 className="text-2xl font-bold mb-6">Dashboard Configuration</h1>
 
         <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold mb-4">Pesos de KPIs</h2>
+          <h2 className="text-lg font-semibold mb-4">KPI Weights</h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Tasa de Resolución</label>
+              <label className="block text-sm font-medium mb-1">Resolution Rate</label>
               <input
                 type="number"
                 step="0.01"
@@ -145,7 +145,7 @@ export default function ConfigDashboard() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Cobertura de Pruebas</label>
+              <label className="block text-sm font-medium mb-1">Test Coverage</label>
               <input
                 type="number"
                 step="0.01"
@@ -160,13 +160,13 @@ export default function ConfigDashboard() {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold mb-4">Visibilidad de Fichas</h2>
+          <h2 className="text-lg font-semibold mb-4">Card Visibility</h2>
 
-          <p className="text-sm text-gray-600 mb-3">Selecciona qué fichas se muestran en el <strong>Resumen Ejecutivo</strong> y en <strong>Métricas de Calidad</strong>.</p>
+          <p className="text-sm text-gray-600 mb-3">Select which cards are displayed in the <strong>Executive Summary</strong> and <strong>Quality Metrics</strong>.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
             <div>
-              <h3 className="font-medium mb-2">Resumen Ejecutivo</h3>
+              <h3 className="font-medium mb-2">Executive Summary</h3>
               <div className="space-y-2">
                 {availableOverviewKpis.map(k => (
                   <label key={k.id} className="flex items-center space-x-3">
@@ -183,7 +183,7 @@ export default function ConfigDashboard() {
             </div>
 
             <div>
-              <h3 className="font-medium mb-2">Métricas de Calidad</h3>
+              <h3 className="font-medium mb-2">Quality Metrics</h3>
               <div className="space-y-2">
                 {availableQualityKpis.map(k => (
                   <label key={k.id} className="flex items-center space-x-3">
@@ -202,11 +202,11 @@ export default function ConfigDashboard() {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold mb-4">Umbrales de Alerta</h2>
+          <h2 className="text-lg font-semibold mb-4">Alert Thresholds</h2>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Bugs Críticos Máximo</label>
+              <label className="block text-sm font-medium mb-1">Maximum Critical Bugs</label>
               <input
                 type="number"
                 value={config?.thresholds?.criticalBugsAlert ?? ''}
@@ -216,7 +216,7 @@ export default function ConfigDashboard() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Cobertura Mínima (%)</label>
+              <label className="block text-sm font-medium mb-1">Minimum Coverage (%)</label>
               <input
                 type="number"
                 value={config?.thresholds?.minTestCoverage ?? ''}
@@ -234,14 +234,14 @@ export default function ConfigDashboard() {
             onClick={saveConfig}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Guardar Configuración
+            Save Configuration
           </button>
 
           <button
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-gray-100 rounded-lg"
           >
-            Cancelar
+            Cancel
           </button>
         </div>
       </div>

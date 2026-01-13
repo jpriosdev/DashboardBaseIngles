@@ -26,7 +26,7 @@ export default function handler(req, res) {
       
       versions.push({
         id: 'current',
-        label: 'Versión Actual',
+        label: 'Current Version',
         timestamp: stats.mtime.toISOString(),
         totalBugs: data.summary?.totalBugs || 0,
         sprints: data.sprintData?.length || 0,
@@ -49,7 +49,7 @@ export default function handler(req, res) {
         
         versions.push({
           id: backups[0],
-          label: 'Versión Anterior',
+          label: 'Previous Version',
           timestamp: stats.mtime.toISOString(),
           totalBugs: data.summary?.totalBugs || 0,
           sprints: data.sprintData?.length || 0,

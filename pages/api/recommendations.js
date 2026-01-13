@@ -8,7 +8,7 @@ export default function handler(req, res) {
     
     // Verificar si existe el archivo
     if (!fs.existsSync(filePath)) {
-      // Retornar recomendaciones por defecto si no existe el archivo
+      // Return default recommendations if file doesn't exist
       return res.status(200).json({});
     }
     
@@ -17,7 +17,7 @@ export default function handler(req, res) {
     
     res.status(200).json(recommendations);
   } catch (error) {
-    console.error('Error al leer recomendaciones:', error);
-    res.status(500).json({ error: 'Error al cargar recomendaciones' });
+    console.error('Error reading recommendations:', error);
+    res.status(500).json({ error: 'Error loading recommendations' });
   }
 }

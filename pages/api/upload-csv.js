@@ -1,12 +1,12 @@
 /**
  * API Endpoint: POST /api/upload-csv
  * 
- * Permite al usuario cargar un nuevo archivo CSV y actualizar los datos del dashboard.
- * Automáticamente:
- * 1. Respalda la versión anterior de datos
- * 2. Carga nuevos datos en SQLite
- * 3. Regenera el JSON
- * 4. Actualiza el dashboard
+ * Allows user to upload a new CSV file and update dashboard data.
+ * Automatically:
+ * 1. Backs up previous version of data
+ * 2. Loads new data into SQLite
+ * 3. Regenerates JSON
+ * 4. Updates the dashboard
  */
 
 import fs from 'fs';
@@ -19,13 +19,13 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execAsync = promisify(exec);
 
-// Configuración de directorios
+// Directory configuration
 const UPLOADS_DIR = path.join(process.cwd(), 'data', 'uploads');
 const VERSIONS_DIR = path.join(process.cwd(), 'data', 'versions');
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_PATH = path.join(process.cwd(), 'public', 'data', 'qa-dashboard.db');
 
-// Crear directorios si no existen
+// Create directories if they don't exist
 [UPLOADS_DIR, VERSIONS_DIR, DATA_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -34,7 +34,7 @@ const DB_PATH = path.join(process.cwd(), 'public', 'data', 'qa-dashboard.db');
 
 export const config = {
   api: {
-    bodyParser: false, // Desabilitar bodyParser para formidable
+    bodyParser: false, // Disable bodyParser for formidable
   },
 };
 
@@ -44,49 +44,49 @@ async function backupCurrentVersion() {
     const backupName = `data-backup-${timestamp}.json`;
     const backupPath = path.join(VERSIONS_DIR, backupName);
 
-    // Leer JSON actual
+    // Read current JSON
     const currentJsonPath = path.join(DATA_DIR, 'qa-data.json');
     if (fs.existsSync(currentJsonPath)) {
       const content = fs.readFileSync(currentJsonPath, 'utf8');
       fs.writeFileSync(backupPath, content);
       
-      // Mantener solo 2 versiones: actual y anterior
+      // Keep only 2 versions: current and previous
       const backups = fs.readdirSync(VERSIONS_DIR)
         .filter(f => f.startsWith('data-backup-') && f.endsWith('.json'))
         .sort()
         .reverse();
       
-      // Si hay más de 2, eliminar las antiguas
+      // If there are more than 2, delete the old ones
       if (backups.length > 2) {
         backups.slice(2).forEach(oldBackup => {
           fs.unlinkSync(path.join(VERSIONS_DIR, oldBackup));
         });
       }
       
-      console.log(`✅ Backup creado: ${backupName}`);
+      console.log(`✅ Backup created: ${backupName}`);
       return backupPath;
     }
   } catch (error) {
-    console.error('Error creando backup:', error);
+    console.error('Error creating backup:', error);
     throw error;
   }
 }
 
 async function processCsvFile(filePath) {
   try {
-    console.log(`\n📁 Procesando CSV: ${filePath}`);
+    console.log(`\n📁 Processing CSV: ${filePath}`);
     
-    // 1. Hacer backup de versión anterior
-    console.log('📝 Creando backup de versión anterior...');
+    // 1. Backup previous version
+    console.log('📝 Creating backup of previous version...');
     await backupCurrentVersion();
     
-    // 2. Copiar nuevo CSV a carpeta de datos
+    // 2. Copy new CSV to data folder
     const newCsvPath = path.join(DATA_DIR, 'MockDataV0.csv');
     fs.copyFileSync(filePath, newCsvPath);
-    console.log('✅ Archivo CSV actualizado');
+    console.log('✅ CSV file updated');
     
-    // 3. Ejecutar migración a SQLite
-    console.log('🗄️ Migrando datos a SQLite...');
+    // 3. Run SQLite migration
+    console.log('🗄️ Migrating data to SQLite...');
     const migrationScript = path.join(process.cwd(), 'scripts', 'migrateToSqliteCSV.mjs');
     const { stdout, stderr } = await execAsync(`node ${migrationScript}`, {
       cwd: process.cwd(),
@@ -96,10 +96,10 @@ async function processCsvFile(filePath) {
     if (stderr && stderr.includes('Error')) {
       throw new Error(`Migration error: ${stderr}`);
     }
-    console.log('✅ Datos migrados a SQLite');
+    console.log('✅ Data migrated to SQLite');
     
-    // 4. Regenerar JSON
-    console.log('📊 Regenerando JSON...');
+    // 4. Regenerate JSON
+    console.log('📊 Regenerating JSON...');
     const jsonScript = path.join(process.cwd(), 'scripts', 'generateJsonFromSqlite.mjs');
     const { stdout: jsonOut, stderr: jsonErr } = await execAsync(`node ${jsonScript}`, {
       cwd: process.cwd(),
@@ -109,18 +109,18 @@ async function processCsvFile(filePath) {
     if (jsonErr && jsonErr.includes('Error')) {
       throw new Error(`JSON generation error: ${jsonErr}`);
     }
-    console.log('✅ JSON regenerado');
+    console.log('✅ JSON regenerated');
     
-    // 5. Limpiar archivo temporal
+    // 5. Clean up temporary file
     fs.unlinkSync(filePath);
     
     return {
       success: true,
-      message: 'Datos cargados y procesados exitosamente',
+      message: 'Data loaded and processed successfully',
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error('Error procesando CSV:', error);
+    console.error('Error processing CSV:', error);
     throw error;
   }
 }
@@ -145,10 +145,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Validar que es CSV
+    // Validate that it's a CSV
     if (!uploadedFile.originalFilename?.toLowerCase().endsWith('.csv')) {
       fs.unlinkSync(uploadedFile.filepath);
-      return res.status(400).json({ error: 'Solo se aceptan archivos CSV' });
+      return res.status(400).json({ error: 'Only CSV files are accepted' });
     }
 
     // Procesar el archivo

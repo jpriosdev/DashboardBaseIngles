@@ -302,12 +302,12 @@ export default function ExecutiveDashboard({
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="text-gray-400 text-xl mb-4">📊</div>
-            <p className="text-gray-600 mb-4">No hay datos disponibles</p>
+            <p className="text-gray-600 mb-4">No data available</p>
             <button 
               onClick={handleRefresh}
               className="px-4 py-2 bg-executive-600 text-white rounded-lg hover:bg-executive-700"
             >
-              Cargar Datos
+              Load Data
             </button>
           </div>
         </div>
@@ -322,11 +322,11 @@ export default function ExecutiveDashboard({
   const { kpis, summary, alerts } = currentData;
 
   const tabs = [
-    { id: 'overview', label: 'Resumen Ejecutivo', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'quality', label: 'Métricas de Calidad', icon: <Target className="w-4 h-4" /> },
-    { id: 'teams', label: 'Análisis de Equipos', icon: <Users className="w-4 h-4" /> },
-    { id: 'trends', label: 'Tendencias', icon: <Activity className="w-4 h-4" /> },
-    { id: 'recommendations', label: 'Recomendaciones', icon: <CheckCircle className="w-4 h-4" /> }
+    { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
+    { id: 'teams', label: 'Team Analysis', icon: <Users className="w-4 h-4" /> },
+    { id: 'trends', label: 'Trends', icon: <Activity className="w-4 h-4" /> },
+    { id: 'recommendations', label: 'Recommendations', icon: <CheckCircle className="w-4 h-4" /> }
   ];
 
   return (
@@ -927,13 +927,13 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
                 <div className="text-xs text-gray-600 mb-2">Número de pruebas que ejecutamos cada sprint. Meta: ≥170 pruebas/sprint.</div>
-                <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-                <div className="text-xs text-gray-600">Permite evaluar la cobertura de testing y detectar reducciones en la ejecución de pruebas que pueden afectar la calidad.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                <div className="text-xs text-gray-600">Allows evaluating test coverage and detecting reductions in test execution that may affect quality.</div>
               </div>
             }
             onClick={() => setDetailModal({
               type: 'testCases',
-              title: 'Análisis de Casos de Prueba Ejecutados',
+              title: 'Analysis of Executed Test Cases',
               data: {
                 avg: avgTestCasesPerSprint,
                 total: totalTestCases,
@@ -952,12 +952,12 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 
   return (
     <div className="space-y-8">
-      {/* Filtros: agrupa Tipo de Prueba + Sprint */}
+      {/* Filters: groups Test Type + Sprint */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
             <Settings className="w-4 h-4 inline mr-2" />
-            <h3 className="text-sm font-medium text-gray-700">Filtros</h3>
+            <h3 className="text-sm font-medium text-gray-700">Filters</h3>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -1030,81 +1030,91 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
                     testTypeFilter === 'uat' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
                   }`}
                 >
-                  Pruebas UAT
+                  System Tests
                 </button>
-              </div>
-            )}
-
-            <p className="text-xs text-gray-500 mt-3">💡 Filtra por tipo de prueba para ver métricas específicas de Pruebas de Sistema o Pruebas UAT.</p>
-          </div>
-
-          {/* Panel: Sprints */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">Sprints</span>
-                {!selectedSprints.includes('Todos') && selectedSprints.length > 0 && (
-                  <span className="text-xs text-executive-600 font-medium">📊 {selectedSprints.length}</span>
-                )}
-              </div>
-
+              )}
+              
               <button
-                onClick={() => setSprintCollapsed(prev => !prev)}
-                className="inline-flex items-center text-xs text-gray-600 hover:text-gray-800 focus:outline-none"
-                aria-expanded={!sprintCollapsed}
-                aria-controls="sprint-filter-panel"
+                onClick={() => setTestTypeFilter('uat')}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                    testTypeFilter === 'uat' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
+                  }`}
               >
-                {sprintCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                UAT Tests
               </button>
             </div>
+          )}
 
-            {!sprintCollapsed && (
-              <div id="sprint-filter-panel" className="flex gap-2 overflow-x-auto overflow-y-visible items-center py-1">
-                {/* 'Todos' chip */}
-                <label
-                  className={`flex items-center px-2 py-1 rounded-full border text-xs cursor-pointer transition-colors ${
-                    selectedSprints.includes('Todos') ? 'bg-executive-50 border-executive-500 text-executive-700' : 'border-gray-200 bg-white text-gray-700'
-                  }`}
-                  title="Seleccionar todos los sprints"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedSprints.includes('Todos')}
-                    onChange={() => handleSprintToggle('Todos')}
-                    className="sr-only"
-                  />
-                  <span>Todos</span>
-                </label>
+          <p className="text-xs text-gray-500 mt-3">💡 Filter by test type to see specific metrics for System Tests or UAT Tests.</p>
+        </div>
 
-                {availableSprints.map((sprint) => {
-                  const sprintData = data.sprintData?.find(s => (s.sprint || s.name || s.id) === sprint);
-                  const active = selectedSprints.includes(sprint) && !selectedSprints.includes('Todos');
-                  return (
-                    <label
-                      key={sprint}
-                      className={`relative flex items-center px-2 py-1 rounded-full text-xs cursor-pointer transition-colors whitespace-nowrap ${
-                        active ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                      }`}
-                      onClick={() => handleSprintToggle(sprint)}
-                      onMouseEnter={(e) => showSprintTooltip(e, sprint, sprintData)}
-                      onMouseLeave={() => hideSprintTooltip()}
-                      onFocus={(e) => showSprintTooltip(e, sprint, sprintData)}
-                      onBlur={() => hideSprintTooltip()}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={active}
-                        onChange={() => handleSprintToggle(sprint)}
-                        className="sr-only"
-                      />
-                      <span className="text-xs">{sprint}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
+        {/* Panel: Sprints */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">Sprints</span>
+              {!selectedSprints.includes('All') && selectedSprints.length > 0 && (
+                <span className="text-xs text-executive-600 font-medium">📊 {selectedSprints.length}</span>
+              )}
+            </div>
 
-            <p className="text-xs text-gray-500 mt-3">💡 Selecciona &quot;Todos&quot; o elige sprints específicos. Los indicadores y gráficos se actualizarán automáticamente.</p>
+            <button
+              onClick={() => setSprintCollapsed(prev => !prev)}
+              className="inline-flex items-center text-xs text-gray-600 hover:text-gray-800 focus:outline-none"
+              aria-expanded={!sprintCollapsed}
+              aria-controls="sprint-filter-panel"
+            >
+              {sprintCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {!sprintCollapsed && (
+            <div id="sprint-filter-panel" className="flex gap-2 overflow-x-auto overflow-y-visible items-center py-1">
+              {/* 'All' chip */}
+              <label
+                className={`flex items-center px-2 py-1 rounded-full border text-xs cursor-pointer transition-colors ${
+                  selectedSprints.includes('All') ? 'bg-executive-50 border-executive-500 text-executive-700' : 'border-gray-200 bg-white text-gray-700'
+                }`}
+                title="Select all sprints"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedSprints.includes('All')}
+                  onChange={() => handleSprintToggle('All')}
+                  className="sr-only"
+                />
+                <span>All</span>
+              </label>
+
+              {availableSprints.map((sprint) => {
+                const sprintData = data.sprintData?.find(s => (s.sprint || s.name || s.id) === sprint);
+                const active = selectedSprints.includes(sprint) && !selectedSprints.includes('All');
+                return (
+                  <label
+                    key={sprint}
+                    className={`relative flex items-center px-2 py-1 rounded-full text-xs cursor-pointer transition-colors whitespace-nowrap ${
+                      active ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
+                    }`}
+                    onClick={() => handleSprintToggle(sprint)}
+                    onMouseEnter={(e) => showSprintTooltip(e, sprint, sprintData)}
+                    onMouseLeave={() => hideSprintTooltip()}
+                    onFocus={(e) => showSprintTooltip(e, sprint, sprintData)}
+                    onBlur={() => hideSprintTooltip()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => handleSprintToggle(sprint)}
+                      className="sr-only"
+                    />
+                    <span className="text-xs">{sprint}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500 mt-3">💡 Select &quot;All&quot; or choose specific sprints. Indicators and charts will update automatically.</p>
           </div>
         </div>
       </div>
@@ -1144,27 +1154,27 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         />
         )}
         
-        {/* 2. CALIDAD DEL PRODUCTO: Densidad de Hallazgos */}
+        {/* 2. PRODUCT QUALITY: Finding Density */}
         {isKpiVisible('densidad') && (
           <KPICard
-          title="Densidad de Hallazgos por Sprint"
+          title="Finding Density per Sprint"
           value={defectDensityData.avg}
           icon={<Target className="w-6 h-6 text-orange-600" />}
           trend={defectDensityData.avg <= 20 ? 5 : -5}
           status={defectDensityData.avg <= 20 ? "success" : defectDensityData.avg <= 30 ? "warning" : "danger"}
-          subtitle={`Máx: ${defectDensityData.max} | Mín: ${defectDensityData.min} hallazgos/sprint`}
-          formula={`Media = ${defectDensityData.total} hallazgos / ${defectDensityData.sprints} sprints`}
+          subtitle={`Max: ${defectDensityData.max} | Min: ${defectDensityData.min} findings/sprint`}
+          formula={`Average = ${defectDensityData.total} findings / ${defectDensityData.sprints} sprints`}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Promedio de hallazgos detectados por sprint. Objetivo: ≤20 hallazgos/sprint.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Indica la calidad del producto; valores altos sugieren revisar desarrollo, testing o requerimientos.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Average findings detected per sprint. Target: ≤20 findings/sprint.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Indicates product quality; high values suggest reviewing development, testing or requirements.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'defectDensity',
-            title: 'Análisis de Densidad de Hallazgos por Sprint',
+            title: 'Analysis of Finding Density per Sprint',
             data: defectDensityData,
             sparklineData: getSparklineData('defectDensity'),
             sprints: filteredSprintData
@@ -1173,16 +1183,16 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         />
         )}
         
-        {/* 3. TASA DE EJECUCIÓN - UNDER CONSTRUCTION */}
+        {/* 3. EXECUTION RATE - UNDER CONSTRUCTION */}
         {isKpiVisible('testExecutionRate') && (
           <UnderConstructionCard
-            title="Tasa de Ejecución"
+            title="Execution Rate"
             value={`${kpis.testExecutionRate || 0}%`}
             icon={<Activity className="w-6 h-6 text-blue-600" />}
-            subtitle="Pruebas ejecutadas vs planeadas"
+            subtitle="Executed vs planned tests"
             onClick={() => setDetailModal({
               type: 'testExecutionRate',
-              title: 'Análisis de Tasa de Ejecución',
+              title: 'Analysis of Execution Rate',
               data: {
                 executionRate: kpis.testExecutionRate,
                 executed: data.summary?.testCasesExecuted || 0,
@@ -1421,21 +1431,21 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
             })}
             help={(
               <div>
-                <div className="font-semibold">Qué mide:</div>
-                <div className="text-xs">Porcentaje de defectos detectados en producción respecto al total.</div>
-                <div className="font-semibold mt-2">Por qué es útil:</div>
-                <div className="text-xs">Indica el impacto en usuarios reales y ayuda a priorizar correcciones urgentes.</div>
+                <div className="font-semibold">What it measures:</div>
+                <div className="text-xs">Percentage of defects detected in production versus total.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Indicates impact on real users and helps prioritize urgent fixes.</div>
               </div>
             )}
           />
         )}
       </div>
 
-      {/* Gráficos principales filtrados */}
+      {/* Main filtered charts */}
       <div className="grid grid-cols-1 gap-8">
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Tendencia de Sprints Seleccionados
+            Trend of Selected Sprints
           </h3>
           <SprintTrendChart data={filteredSprintData || data.sprintData || data.trends?.bugsPerSprint} />
         </div>
@@ -1449,17 +1459,17 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         />
       )}
 
-      {/* Resumen de módulos críticos */}
+      {/* Summary of critical modules */}
       {data.moduleData && (
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Análisis de Módulos
+            Module Analysis
           </h3>
           <ModuleAnalysis data={data.moduleData} />
         </div>
       )}
 
-      {/* Recomendaciones Accionables */}
+      {/* Actionable Recommendations */}
       <ActionableRecommendations data={data} filteredSprintData={filteredSprintData} />
 
       {/* Modal de detalles */}
@@ -1485,48 +1495,48 @@ function QualityTab({ data, config, setDetailModal, detailModal }) {
         onOpenDetail={setDetailModal}
       />
       
-      {/* Métricas adicionales de calidad */}
+      {/* Additional quality metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Densidad de Defectos</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Defect Density</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-executive-600 mb-2">
               {data.kpis?.defectDensity || '0.00'}
             </div>
-            <p className="text-sm text-gray-600">bugs por caso de prueba</p>
+            <p className="text-sm text-gray-600">bugs per test case</p>
           </div>
         </div>
         
         <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Automatización</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Automation</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-success-600 mb-2">
               {data.qualityMetrics?.testAutomation || 0}%
             </div>
-            <p className="text-sm text-gray-600">cobertura automatizada</p>
+            <p className="text-sm text-gray-600">automated coverage</p>
           </div>
         </div>
         
         <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Tiempo de Ciclo</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Cycle Time</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-warning-600 mb-2">
               {data.qualityMetrics?.cycleTime || data.kpis?.averageResolutionTime || 0}
             </div>
-            <p className="text-sm text-gray-600">días promedio</p>
+            <p className="text-sm text-gray-600">average days</p>
           </div>
         </div>
       </div>
       
-      {/* Módulos - Nivel de calidad por módulo */}
+      {/* Modules - Quality level by module */}
       <div className="executive-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Módulos</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Modules</h3>
         <div className="space-y-4">
           {Object.entries(data.moduleData || {}).slice(0, 8).map(([moduleName, module]) => {
             const pct = module.percentage ?? (module.total && data.summary?.totalBugs ? Math.round((module.total / data.summary.totalBugs) * 100) : 0);
-            const level = pct >= 60 ? 'Alto' : pct >= 40 ? 'Medio' : 'Bajo';
-            const badgeClass = level === 'Alto' ? 'bg-red-100 text-red-800' : level === 'Medio' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
-            const Icon = level === 'Alto' || level === 'Medio' ? AlertTriangle : CheckCircle;
+            const level = pct >= 60 ? 'High' : pct >= 40 ? 'Medium' : 'Low';
+            const badgeClass = level === 'High' ? 'bg-red-100 text-red-800' : level === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+            const Icon = level === 'High' || level === 'Medium' ? AlertTriangle : CheckCircle;
 
             return (
               <div
@@ -1558,7 +1568,7 @@ function QualityTab({ data, config, setDetailModal, detailModal }) {
             );
           })}
           {(!data.moduleData || Object.keys(data.moduleData).length === 0) && (
-            <div className="text-sm text-gray-600">No hay datos de módulos disponibles</div>
+            <div className="text-sm text-gray-600">No module data available</div>
           )}
         </div>
       </div>
@@ -1760,11 +1770,11 @@ function RecommendationsTab({ data, setDetailModal, detailModal }) {
   
   return (
     <div className="space-y-8">
-      {/* Recomendaciones mejoradas */}
+      {/* Improved recommendations */}
       {recommendations.length > 0 ? (
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Recomendaciones Inteligentes
+            Smart Recommendations
           </h3>
           <div className="space-y-4">
             {recommendations.map((rec, index) => (
