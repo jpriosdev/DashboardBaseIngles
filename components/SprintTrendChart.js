@@ -1,6 +1,6 @@
 /**
  * SprintTrendChart Component - Refactorizado
- * Visualiza tendencias de sprint: bugs encontrados, resueltos, casos ejecutados
+ * Visualizes sprint trends: bugs found, resolved, executed cases
  * Estructura normalizada con SQL/CSV, todos los cálculos validados
  * Multi-eje para comparación side-by-side de métricas
  * 
@@ -85,7 +85,7 @@ export default function SprintTrendChart({ data }) {
       },
       title: {
         display: true,
-        text: 'Tendencia de Calidad por Sprint',
+        text: 'Quality Trend by Sprint',
         font: {
           size: 16,
           weight: 'bold',

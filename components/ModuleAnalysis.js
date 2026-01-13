@@ -2,7 +2,7 @@ import { Package, AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react';
 
 /**
  * ModuleAnalysis Component - Refactorizado
- * Análisis detallado de bugs, eficiencia y riesgo por módulos del sistema.
+ * Detailed analysis of bugs, efficiency and risk by system modules.
  * Alineado con nueva estructura SQL/CSV, validación segura de datos.
  */
 export default function ModuleAnalysis({ data }) {
@@ -15,7 +15,7 @@ export default function ModuleAnalysis({ data }) {
     );
   }
 
-  // Normalizar datos del módulo con nombres SQL/CSV
+  // Normalize module data with SQL/CSV names
   const modules = Object.entries(data).map(([name, moduleData]) => ({
     name,
     ...moduleData,
@@ -37,7 +37,7 @@ export default function ModuleAnalysis({ data }) {
   return (
     <div className="executive-card">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">
-        Análisis por Módulos del Sistema
+        Analysis by System Modules
       </h3>
       
       {/* Resumen general */}
@@ -137,11 +137,11 @@ export default function ModuleAnalysis({ data }) {
         </div>
       </div>
 
-      {/* Análisis y recomendaciones */}
+      {/* Analysis and Recommendations */}
       <div className="bg-gray-50 rounded-lg p-4">
         <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
           <TrendingUp className="w-4 h-4 mr-2" />
-          Análisis y Recomendaciones
+          Analysis and Recommendations
         </h4>
         
         <div className="space-y-3">
@@ -149,11 +149,11 @@ export default function ModuleAnalysis({ data }) {
             <div className="flex items-start p-3 bg-red-50 border border-red-200 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-red-500 mr-3 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-red-800">Módulo Crítico Identificado</p>
+                <p className="text-sm font-medium text-red-800">Critical Module Identified</p>
                 <p className="text-sm text-red-700">
-                  El módulo {modules.find(m => m.percentage >= 60)?.name} concentra el{' '}
-                  {modules.find(m => m.percentage >= 60)?.percentage}% de los bugs.{' '}
-                  <strong>Acción recomendada:</strong> Planificar refactoring inmediato.
+                  The module {modules.find(m => m.percentage >= 60)?.name} concentrates{' '}
+                  {modules.find(m => m.percentage >= 60)?.percentage}% of the bugs.{' '}
+                  <strong>Recommended action:</strong> Plan immediate refactoring.
                 </p>
               </div>
             </div>

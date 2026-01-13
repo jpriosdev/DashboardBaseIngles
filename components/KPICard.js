@@ -1,18 +1,18 @@
 /**
  * KPICard Component - Refactorizado y alineado
- * Muestra una métrica KPI individual con indicador de tendencia, estado y tooltip.
+ * Displays an individual KPI metric with trend indicator, status and tooltip.
  * Estructura normalizada SQL/CSV, seguridad mejorada, validación robusta.
  * 
  * @param {Object} props
  * @param {string} props.title - KPI name
- * @param {string|number} props.value - Valor a mostrar (validado)
- * @param {JSX.Element} props.icon - Icono del componente
- * @param {number} props.trend - Porcentaje de tendencia
+ * @param {string|number} props.value - Value to display (validated)
+ * @param {JSX.Element} props.icon - Component icon
+ * @param {number} props.trend - Trend percentage
  * @param {string} props.status - 'success' | 'warning' | 'danger' | 'neutral'
  * @param {string} props.subtitle - Optional description
- * @param {string} props.formula - Explicación de fórmula
- * @param {string} props.tooltip - Texto del tooltip
- * @param {Function} props.onClick - Manejador de clic
+ * @param {string} props.formula - Formula explanation
+ * @param {string} props.tooltip - Tooltip text
+ * @param {Function} props.onClick - Click handler
  * @param {Array} props.sparklineData - Datos para sparkline
  * @param {boolean} props.isEstimated - Badge (est.)
  */

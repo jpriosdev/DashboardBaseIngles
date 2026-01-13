@@ -1,5 +1,5 @@
 // ExecutiveDashboard.js - Refactorizado y alineado
-// Componente principal del dashboard, normalizado con estructura SQL/CSV
+// Main dashboard component, normalized with SQL/CSV structure
 // Todas las variables, cálculos y referencias actualizadas
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -36,22 +36,22 @@ import SettingsMenu from './SettingsMenu';
 import { QADataProcessor } from '../utils/dataProcessor'; // Nueva importación
 
 export default function ExecutiveDashboard({ 
-  // Props originales
+  // Original props
   data: externalData, 
   lastUpdated: externalLastUpdated, 
   onRefresh: externalOnRefresh, 
   loading: externalLoading,
   
-  // Nuevas props para modo paramétrico
+  // New props for parametric mode
   dataSource = '/api/qa-data',
   configSource = '/api/config',
   refreshInterval = 300000
 }) {
-  // Estados originales
+  // Original states
   const [activeTab, setActiveTab] = useState('overview');
   const [autoRefresh, setAutoRefresh] = useState(true);
   
-  // Nuevos estados para modo paramétrico
+  // New states for parametric mode
   const [parametricData, setParametricData] = useState(null);
   const [config, setConfig] = useState(null);
   const [parametricLoading, setParametricLoading] = useState(false);
@@ -216,7 +216,7 @@ export default function ExecutiveDashboard({
     };
   }, [loadConfiguration]);
 
-  // Cargar recomendaciones al montar
+  // Load recommendations on mount
   useEffect(() => {
     loadRecommendations();
   }, []);
@@ -278,13 +278,13 @@ export default function ExecutiveDashboard({
       if (response.ok) {
         const data = await response.json();
         setRecommendations(data);
-        console.log('✅ Recomendaciones cargadas desde archivo');
+        console.log('✅ Recommendations loaded from file');
       } else {
-        console.warn('No se pudieron cargar recomendaciones, usando valores por defecto');
+        console.warn('Could not load recommendations, using default values');
       }
     } catch (error) {
-      console.warn('Error al cargar recomendaciones:', error);
-      // No establecer error porque las recomendaciones son opcionales
+      console.warn('Error loading recommendations:', error);
+      // Do not set error because recommendations are optional
     }
   }
 
@@ -353,7 +353,7 @@ export default function ExecutiveDashboard({
                 <div className="border-t border-gray-700 pt-1 mt-1">🐞 {tooltipInfo.sprintData.bugs || 0} • 🧪 {tooltipInfo.sprintData.testCases || 0}</div>
               </div>
             ) : (
-              <div className="text-xs">Sin información adicional</div>
+              <div className="text-xs">No additional information</div>
             )}
           </div>
         </div>
@@ -367,11 +367,11 @@ export default function ExecutiveDashboard({
               {/* Logo Tiendas 3B */}
               <div className="flex-shrink-0">
                 <Image
-                  src="/logo-abstracta.png"
+                  src="/abstracta.png"
                   alt="Abstracta.us"
-                  width={80}
-                  height={80}
-                  className="h-20 w-auto"
+                  width={50}
+                  height={50}
+                  className="h-15 w-auto"
                 />
               </div>
               
@@ -382,7 +382,7 @@ export default function ExecutiveDashboard({
               <div>
                 <div className="flex items-center space-x-3">
                   <h1 className="text-2xl font-bold" style={{ color: '#754bde' }}>
-                    Dashboard Ejecutivo QA
+                    QA Executive Dashboard
                   </h1>
                   {/* Modo Paramétrico - Oculto temporalmente */}
                   {false && isParametricMode && (
@@ -392,7 +392,7 @@ export default function ExecutiveDashboard({
                   )}
                 </div>
                 <p className="text-sm font-medium mt-0.5" style={{ color: '#80868d' }}>
-                  Control de Calidad y Trazabilidad del Proceso de Pruebas
+                  Quality Control and Test Process Traceability
                 </p>
               </div>
             </div>
@@ -402,13 +402,13 @@ export default function ExecutiveDashboard({
               {error && (
                 <div className="flex items-center px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg text-red-700">
                   <AlertTriangle className="w-4 h-4 mr-2" />
-                  <span className="text-xs font-medium">Error de conexión</span>
+                  <span className="text-xs font-medium">Connection Error</span>
                 </div>
               )}
               
               {/* Última actualización */}
               <div className="text-right hidden sm:block">
-                <p className="text-xs text-slate-500 font-medium">Último incidente reportado</p>
+                <p className="text-xs text-slate-500 font-medium">Last reported incident</p>
                 <p className="text-sm font-semibold text-slate-900 mt-0.5">
                   {currentLastUpdated ? format(currentLastUpdated, 'dd/MM/yyyy HH:mm', { locale: es }) : 'Sin reportar'}
                 </p>
@@ -423,7 +423,7 @@ export default function ExecutiveDashboard({
         </div>
       </div>
 
-      {/* Alertas Críticas mejoradas */}
+      {/* Critical Alerts (improved) */}
       {alerts && alerts.length > 0 && (
         <div className="bg-red-50 border-l-4 border-red-400 p-3 mb-3">
           <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -431,7 +431,7 @@ export default function ExecutiveDashboard({
               <AlertTriangle className="w-5 h-5 text-red-400 mr-3 mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-sm font-medium text-red-800 mb-1">
-                  Alertas Críticas ({alerts.filter(a => a.type === 'critical').length})
+                  Critical Alerts ({alerts.filter(a => a.type === 'critical').length})
                 </h3>
                 <div className="space-y-1 text-sm">
                   {alerts.slice(0, 3).map((alert, index) => (
@@ -515,7 +515,7 @@ export default function ExecutiveDashboard({
 }
 
 // ===============================
-// COMPONENTES DE TABS (mantén los existentes)
+// TAB COMPONENTS (keep existing ones)
 // ===============================
 
 function OverviewTab({ data, recommendations, config, setDetailModal, detailModal, tooltipInfo, showSprintTooltip, hideSprintTooltip, setTooltipInfo }) {
@@ -695,7 +695,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
     ? Math.round((criticalBugsPending / totalBugs) * 100) 
     : kpis.criticalBugsRatio || 0;
 
-  // Calcular tendencias comparando primera mitad vs segunda mitad de sprints seleccionados
+  // Calculate trends comparing first half vs second half of selected sprints
   const calculateTrend = (getData) => {
     if (!filteredSprintData || filteredSprintData.length < 2) return 0;
     
@@ -925,8 +925,8 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
             formula={`${avgTestCasesPerSprint} pruebas/sprint promedio`}
             tooltip={
               <div>
-                <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-                <div className="text-xs text-gray-600 mb-2">Número de pruebas que ejecutamos cada sprint. Meta: ≥170 pruebas/sprint.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                <div className="text-xs text-gray-600 mb-2">Number of tests we execute each sprint. Target: ≥170 tests/sprint.</div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
                 <div className="text-xs text-gray-600">Allows evaluating test coverage and detecting reductions in test execution that may affect quality.</div>
               </div>
@@ -962,7 +962,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 
           <div className="flex items-center space-x-4">
             <div className="text-xs text-gray-600">Sprints: {availableSprints.length}</div>
-            <div className="text-xs text-gray-600">Seleccionados: {selectedSprints.includes('Todos') ? 'Todos' : selectedSprints.length}</div>
+            <div className="text-xs text-gray-600">Selected: {selectedSprints.includes('Todos') ? 'All' : selectedSprints.length}</div>
           </div>
         </div>
 
@@ -972,11 +972,11 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
                 <label className="text-sm font-medium text-gray-700 mr-2">
-                  Tipo de Prueba
+                  Test Type
                 </label>
                 {testTypeFilter !== 'all' && (
                   <span className="text-sm text-executive-600 font-medium">
-                    📋 {testTypeFilter === 'system' ? 'Pruebas de Sistema' : 'Pruebas UAT'}
+                    📋 {testTypeFilter === 'system' ? 'System Tests' : 'UAT Tests'}
                   </span>
                 )}
               </div>
@@ -990,12 +990,12 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
                 {filterCollapsed ? (
                   <>
                     <ChevronDown className="w-4 h-4 mr-2" />
-                    Mostrar
+                    Show
                   </>
                 ) : (
                   <>
                     <ChevronUp className="w-4 h-4 mr-2" />
-                    Ocultar
+                    Hide
                   </>
                 )}
               </button>
@@ -1010,7 +1010,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
                     testTypeFilter === 'all' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
                   }`}
                 >
-                  Toda la Información
+                  All Information
                 </button>
 
                 <button
@@ -1020,7 +1020,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
                     testTypeFilter === 'system' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
                   }`}
                 >
-                  Pruebas de Sistema
+                  System Tests
                 </button>
 
                 <button
@@ -1030,20 +1030,10 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
                     testTypeFilter === 'uat' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
                   }`}
                 >
-                  System Tests
+                  UAT Tests
                 </button>
-              )}
-              
-              <button
-                onClick={() => setTestTypeFilter('uat')}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    testTypeFilter === 'uat' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-              >
-                UAT Tests
-              </button>
-            </div>
-          )}
+              </div>
+            )}
 
           <p className="text-xs text-gray-500 mt-3">💡 Filter by test type to see specific metrics for System Tests or UAT Tests.</p>
         </div>
@@ -1119,29 +1109,29 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         </div>
       </div>
 
-      {/* Métricas de Cobertura */}
+      {/* Coverage Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* 1. COBERTURA: Media de Casos */}
         {isKpiVisible('cobertura') && (
           <KPICard
-          title="Media de Casos Ejecutados por Sprint"
+          title="Average Test Cases Executed per Sprint"
           value={avgTestCasesPerSprint}
           icon={<Activity className="w-6 h-6 text-blue-600" />}
           trend={testCasesTrend}
           status={avgTestCasesPerSprint >= 170 ? "success" : "warning"}
-          subtitle={`${totalTestCases} casos ejecutados total`}
-          formula={`Media = ${totalTestCases} / ${filteredSprintData?.length || 1}`}
+          subtitle={`${totalTestCases} total executed test cases`}
+          formula={`Average = ${totalTestCases} / ${filteredSprintData?.length || 1}`}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Cantidad promedio de casos ejecutados por sprint.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Mide la productividad del equipo de pruebas y ayuda a dimensionar la planificación y cobertura por sprint.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Average number of test cases executed per sprint.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Measures the productivity of the test team and helps dimension planning and coverage per sprint.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'testCases',
-            title: 'Análisis de Casos de Prueba Ejecutados',
+            title: 'Analysis of Executed Test Cases',
             data: {
               avg: avgTestCasesPerSprint,
               total: totalTestCases,
@@ -1204,38 +1194,38 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
             })}
             help={(
               <div>
-                <div className="font-semibold">Qué mide:</div>
-                <div className="text-xs">Porcentaje de casos de prueba que se ejecutaron respecto a lo planeado.</div>
-                <div className="font-semibold mt-2">Por qué es útil:</div>
-                <div className="text-xs">Permite saber si las pruebas programadas se completan y ayuda a ajustar recursos y plazos.</div>
+                <div className="font-semibold">What it measures:</div>
+                <div className="text-xs">Percentage of test cases executed relative to what was planned.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Allows you to know if scheduled tests are completed and helps adjust resources and timelines.</div>
               </div>
             )}
           />
         )}
       </div>
 
-      {/* Métricas principales y de seguimiento */}
+      {/* Main and tracking metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {isKpiVisible('bugsCriticos') && (
           <KPICard
-          title="Hallazgos Críticos Detectados"
+          title="Critical Findings Detected"
           value={criticalBugsTotal}
           icon={<Bug className="w-6 h-6 text-danger-600" />}
           trend={criticalBugsTrend}
           status={criticalBugsTotal <= 20 ? "success" : "danger"}
-          subtitle={`${criticalBugsTotal} críticos de ${totalBugs}`}
-          formula={`Críticos = Más alta (${criticalBugsMasAlta}) + Alta (${criticalBugsAlta})`}
+          subtitle={`${criticalBugsTotal} critical findings of ${totalBugs}`}
+          formula={`Critical = Highest (${criticalBugsMasAlta}) + High (${criticalBugsAlta})`}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Número de hallazgos con prioridad &apos;Más alta&apos; y &apos;Alta&apos;.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Mide el volumen de incidencias graves que pueden impactar releases y requieren priorización inmediata.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Number of findings with priority 'Highest' and 'High'.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Measures the volume of severe incidents that can impact releases and require immediate prioritization.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'criticalBugs',
-            title: 'Análisis de Hallazgos Críticos Detectados',
+            title: 'Analysis of Critical Findings Detected',
             data: {
               total: criticalBugsTotal,
               highest: criticalBugsMasAlta,
@@ -1250,27 +1240,27 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         />
         )}
         
-        {/* 2. SEGUIMIENTO CRÍTICO: Estado de Hallazgos Críticos */}
+        {/* 2. CRITICAL TRACKING: Critical Findings Status */}
         {isKpiVisible('criticosPendientes') && (
           <KPICard
-          title="Estado Hallazgos Críticos"
+          title="Critical Findings Status"
           value={`${criticalBugsPending}`}
           icon={<AlertTriangle className="w-6 h-6 text-warning-600" />}
           trend={criticalBugsTrend}
           status={criticalBugsPending <= 10 ? "success" : "danger"}
-          subtitle={`${criticalBugsTotal - criticalBugsPending} resueltos de ${criticalBugsTotal} críticos`}
-          formula={`Pendientes = ${criticalBugsPending} | Resueltos = ${criticalBugsTotal - criticalBugsPending}`}
+          subtitle={`${criticalBugsTotal - criticalBugsPending} resolved of ${criticalBugsTotal} critical findings`}
+          formula={`Pending = ${criticalBugsPending} | Resolved = ${criticalBugsTotal - criticalBugsPending}`}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Estado de los hallazgos críticos: pendientes vs resueltos.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Ayuda a priorizar asignación de recursos y reducir bloqueos que afecten la entrega.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Status of critical findings: pending vs resolved.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Helps prioritize resource allocation and reduce blockages affecting delivery.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'criticalBugsStatus',
-            title: 'Estado de Hallazgos Críticos',
+            title: 'Critical Findings Status',
             data: {
               total: criticalBugsTotal,
               pending: criticalBugsPending,
@@ -1286,27 +1276,27 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         />
         )}
         
-        {/* 3. VELOCIDAD: Tiempo Promedio de Resolución */}
+        {/* 3. VELOCITY: Average Resolution Time */}
         {isKpiVisible('tiempoSolucion') && (
           <KPICard
-          title="Tiempo Promedio de Resolución"
-          value={`${cycleTimeData.avg} días`}
+          title="Average Resolution Time"
+          value={`${cycleTimeData.avg} days`}
           icon={<Clock className="w-6 h-6 text-executive-600" />}
           trend={cycleTimeData.avg <= 7 ? 10 : -10}
           status={cycleTimeData.avg <= 7 ? "success" : cycleTimeData.avg <= 10 ? "warning" : "danger"}
-          subtitle={`Críticos: ${cycleTimeData.byPriority.critical}d | Altos: ${cycleTimeData.byPriority.high}d`}
-          formula={`Basado en eficiencia: ${resolutionEfficiency}%`}
+          subtitle={`Critical: ${cycleTimeData.byPriority.critical}d | High: ${cycleTimeData.byPriority.high}d`}
+          formula={`Based on efficiency: ${resolutionEfficiency}%`}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Tiempo promedio (en días) desde la detección hasta la resolución de un hallazgo.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Mide la capacidad de respuesta del equipo; valores menores indican mayor agilidad operativa.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Average time (in days) from detection to resolution of a finding.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Measures team response capacity; lower values indicate greater operational agility.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'cycleTime',
-            title: 'Análisis Detallado de Tiempo de Resolución',
+            title: 'Detailed Resolution Time Analysis',
             data: cycleTimeData,
             sparklineData: getSparklineData('cycleTime'),
             sprints: filteredSprintData
@@ -1318,24 +1308,24 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         {/* 4. EFICIENCIA: Eficiencia de Resolución */}
         {isKpiVisible('resolutionEfficiency') && (
           <KPICard
-          title="Eficiencia de Resolución"
+          title="Resolution Efficiency"
           value={`${resolutionEfficiency}%`}
           icon={<CheckCircle className="w-6 h-6 text-success-600" />}
           trend={resolutionTrend}
           status={resolutionEfficiency >= 70 ? "success" : "warning"}
-          subtitle={`${bugsClosed} resueltos de ${totalBugs} total (${totalBugs - bugsClosed} abiertos)`}
-          formula={`Eficiencia = ${bugsClosed} / ${totalBugs} × 100`}
+          subtitle={`${bugsClosed} resolved of ${totalBugs} total (${totalBugs - bugsClosed} open)`}
+          formula={`Efficiency = ${bugsClosed} / ${totalBugs} × 100`}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Porcentaje de hallazgos solucionados respecto al total reportado.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Evalúa la efectividad del equipo para cerrar incidencias y mantener la estabilidad del producto.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Percentage of findings resolved relative to total reported.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Evaluates the team's effectiveness in closing incidents and maintaining product stability.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'resolutionEfficiency',
-            title: 'Análisis de Eficiencia de Resolución',
+            title: 'Resolution Efficiency Analysis',
             data: {
               efficiency: resolutionEfficiency,
               total: totalBugs,
@@ -1353,28 +1343,28 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
       {/* Comparación Sprint-over-Sprint */}
       <SprintComparison data={data} filteredSprintData={filteredSprintData} />
 
-      {/* Segunda fila de métricas adicionales */}
+      {/* Second row of additional metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Ficha 7: Cobertura de Automatización - UNDER CONSTRUCTION */}
         {/* Moved: Tasa de Regresión */}
         {isKpiVisible('regressionRate') && (
           <KPICard
-          title="Tasa de Regresión"
+          title="Regression Rate"
           value={"2.4%"}
           icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
           trend={-3}
           status={"success"}
           tooltip={
             <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
-              <div className="text-xs text-gray-600 mb-2">Porcentaje de hallazgos reabiertos tras cerrarse.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-              <div className="text-xs text-gray-600">Indica la calidad de las correcciones; altas tasas sugieren problemas en la resolución o pruebas insuficientes.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Percentage of findings reopened after closure.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Indicates correction quality; high rates suggest issues in resolution or insufficient testing.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'regressionRate',
-            title: 'Análisis de Tasa de Regresión',
+            title: 'Regression Rate Analysis',
             data: {
               regressionRate: 2.4,
               reopened: Math.round(bugsClosed * 0.024),
@@ -1389,23 +1379,23 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         )}
         {isKpiVisible('automatizacion') && (
           <UnderConstructionCard
-          title="Cobertura de Automatización"
+          title="Automation Coverage"
           value={`${automationData.coverage}%`}
           icon={<Settings className="w-6 h-6 text-purple-600" />}
-          subtitle={`${automationData.automated} automatizados | ${automationData.manual} manuales`}
+          subtitle={`${automationData.automated} automated | ${automationData.manual} manual`}
           onClick={() => setDetailModal({
             type: 'automationCoverage',
-            title: 'Análisis de Cobertura de Automatización',
+            title: 'Automation Coverage Analysis',
             data: automationData,
             sparklineData: getSparklineData('automationCoverage'),
             sprints: filteredSprintData
           })}
           help={(
             <div>
-              <div className="font-semibold">Qué mide:</div>
-              <div className="text-xs">Porcentaje de pruebas que se ejecutan automáticamente.</div>
-              <div className="font-semibold mt-2">Por qué es útil:</div>
-              <div className="text-xs">Muestra cuánto del trabajo de pruebas puede correr sin intervención manual, acelerando validaciones.</div>
+              <div className="font-semibold">What it measures:</div>
+              <div className="text-xs">Percentage of tests executed automatically.</div>
+              <div className="font-semibold mt-2">Why it matters:</div>
+              <div className="text-xs">Shows how much test work can run without manual intervention, speeding up validations.</div>
             </div>
           )}
           />
@@ -1413,13 +1403,13 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         
         {kpis.bugLeakageRate !== undefined && (
           <UnderConstructionCard
-            title="Tasa de Fuga"
+            title="Leak Rate"
             value={`${kpis.bugLeakageRate}%`}
             icon={<TrendingUp className="w-6 h-6 text-red-600" />}
-            subtitle="Hallazgos en producción"
+            subtitle="Findings in production"
             onClick={() => setDetailModal({
               type: 'bugLeakageRate',
-              title: 'Análisis de Tasa de Fuga',
+              title: 'Leak Rate Analysis',
               data: {
                 leakageRate: kpis.bugLeakageRate,
                 productionBugs: data.summary?.totalBugs ? Math.round((kpis.bugLeakageRate / 100) * data.summary.totalBugs) : 0,
@@ -1581,11 +1571,11 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
     <div className="space-y-8">
       <DeveloperAnalysis data={data.developerData} />
       
-      {/* Análisis de productividad */}
+      {/* Productivity Analysis */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Distribución de Carga de Trabajo
+            Workload Distribution
           </h3>
           <div className="space-y-3">
             {(data.developerData || []).map((dev, index) => (
@@ -1653,7 +1643,7 @@ function TrendsTab({ data, setDetailModal, detailModal }) {
   
   return (
     <div className="space-y-8">
-      {/* Tendencias de Sprint */}
+      {/* Sprint Trends */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -1695,7 +1685,7 @@ function TrendsTab({ data, setDetailModal, detailModal }) {
               <div className="flex items-center">
                 <TrendingDown className="w-5 h-5 text-green-600 mr-2" />
                 <p className="text-sm text-green-800 font-medium">
-                  Tendencia: {data.kpis?.sprintTrend > 0 ? 'ASCENDENTE' : 'DESCENDENTE'} 
+                  Trend: {data.kpis?.sprintTrend > 0 ? 'UPWARD' : 'DOWNWARD'} 
                   ({data.kpis?.sprintTrend || 0}%)
                 </p>
               </div>
@@ -1739,11 +1729,11 @@ function TrendsTab({ data, setDetailModal, detailModal }) {
         </div>
       </div>
       
-      {/* Análisis de categorías */}
+      {/* Categories Analysis */}
       {data.bugsByCategory && (
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Distribución por Categorías
+            Distribution by Categories
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {Object.entries(data.bugsByCategory).map(([category, categoryData]) => (
@@ -1765,7 +1755,7 @@ function TrendsTab({ data, setDetailModal, detailModal }) {
 }
 
 function RecommendationsTab({ data, setDetailModal, detailModal }) {
-  // Usar tanto recomendaciones existentes como nuevas
+  // Use both existing and new recommendations
   const recommendations = data.recommendations || [];
   
   return (
@@ -1814,11 +1804,11 @@ function RecommendationsTab({ data, setDetailModal, detailModal }) {
           </div>
         </div>
       ) : (
-        // Usar el componente existente si no hay recomendaciones nuevas
+        // Use existing component if no new recommendations
         <ExecutiveRecommendations data={data.recommendations} />
       )}
       
-      {/* ROI y Métricas de Valor */}
+      {/* ROI and Value Metrics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -1849,14 +1839,14 @@ function RecommendationsTab({ data, setDetailModal, detailModal }) {
                 -{data.roi?.hotfixReduction || '80'}%
               </span>
             </div>
-            {/* Nuevas métricas de ROI si están disponibles */}
+            {/* New ROI metrics if available */}
             {data.kpis?.averageResolutionTime && (
               <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                 <span className="text-sm font-medium text-gray-700">
-                  Tiempo Promedio Resolución
+                  Average Resolution Time
                 </span>
                 <span className="text-lg font-bold text-orange-600">
-                  {data.kpis.averageResolutionTime} días
+                  {data.kpis.averageResolutionTime} days
                 </span>
               </div>
             )}
@@ -1887,7 +1877,7 @@ function RecommendationsTab({ data, setDetailModal, detailModal }) {
             </div>
             
             <div className="pt-4 border-t border-gray-200">
-              <h4 className="font-medium text-gray-900 mb-2">Próximos Hitos</h4>
+              <h4 className="font-medium text-gray-900 mb-2">Next Milestones</h4>
               <ul className="text-sm text-gray-600 space-y-1">
                 {data.processMaturity?.milestones ? (
                   data.processMaturity.milestones.map((milestone, index) => (
@@ -1897,7 +1887,7 @@ function RecommendationsTab({ data, setDetailModal, detailModal }) {
                   <>
                     <li>• Automatización 60% (actual: {data.qualityMetrics?.testAutomation || 25}%)</li>
                     <li>• Reducir tiempo ciclo a 1.5 días</li>
-                    <li>• Implementar métricas predictivas</li>
+                    <li>• Implement predictive metrics</li>
                   </>
                 )}
               </ul>
@@ -1906,11 +1896,11 @@ function RecommendationsTab({ data, setDetailModal, detailModal }) {
         </div>
       </div>
 
-      {/* Análisis predictivo si está disponible */}
+      {/* Predictive analysis if available */}
       {data.predictions && (
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Análisis Predictivo
+            Predictive Analysis
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {data.predictions.map((prediction, index) => (

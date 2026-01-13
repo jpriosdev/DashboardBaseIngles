@@ -15,7 +15,7 @@ export default function Home() {
 
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <p className="text-gray-600">Redirigiendo al dashboard...</p>
+      <p className="text-gray-600">Redirecting to dashboard...</p>
     </div>
   );
 }

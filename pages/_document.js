@@ -4,7 +4,7 @@ export default function Document() {
   return (
     <Html lang="es">
       <Head>
-        <meta name="description" content="Dashboard Ejecutivo QA - Control de Calidad y Trazabilidad" />
+        <meta name="description" content="QA Executive Dashboard - Quality Control and Test Process Traceability" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <body>

@@ -11,7 +11,7 @@ export default function DeveloperAnalysis({ data }) {
     );
   }
 
-  // Refactor: nombres de campos alineados con estructura SQL/CSV
+  // Refactor: field names aligned with SQL/CSV structure
   const sortedDevelopers = [...data].sort((a, b) => (b.pending || 0) - (a.pending || 0));
   const totalBugs = data.reduce((sum, dev) => sum + (dev.totalBugs || dev.total_bugs || 0), 0);
   const totalPending = data.reduce((sum, dev) => sum + (dev.pending || dev.tareas_pendientes || 0), 0);
@@ -60,10 +60,10 @@ export default function DeveloperAnalysis({ data }) {
         </div>
       </div>
 
-      {/* Análisis detallado por desarrollador */}
+      {/* Detailed analysis by developer */}
       <div className="executive-card">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">
-          Análisis Detallado por Desarrollador
+          Detailed Analysis by Developer
         </h3>
         
         <div className="overflow-x-auto">
@@ -172,10 +172,10 @@ export default function DeveloperAnalysis({ data }) {
         </div>
       </div>
 
-      {/* Recomendaciones para el equipo */}
+      {/* Recommendations for the team */}
       <div className="executive-card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Recomendaciones para el Equipo
+          Team Recommendations
         </h3>
         
         <div className="space-y-3">

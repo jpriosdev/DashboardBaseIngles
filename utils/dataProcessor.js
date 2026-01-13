@@ -128,11 +128,11 @@ export class QADataProcessor {
       resolutionTrend: this.calculateKPITrend(rawData, 'resolution'),
       criticalBugsTrend: this.calculateKPITrend(rawData, 'criticalBugs'),
       
-      // Métricas de velocidad
+      // Velocity metrics
       velocityTrend: this.calculateVelocityTrend(rawData.sprintData),
       burndownEfficiency: this.calculateBurndownEfficiency(rawData.sprintData),
       
-      // Métricas de calidad adicionales
+      // Additional quality metrics
       reworkRate: this.calculateReworkRate(rawData),
       firstPassYield: this.calculateFirstPassYield(rawData),
       escapeRate: this.calculateEscapeRate(rawData)
@@ -417,10 +417,10 @@ export class QADataProcessor {
       confidence: 85
     });
     
-    // Predicción de calidad
+    // Quality prediction
     const qualityTrend = this.calculateQualityTrendPrediction(data);
     predictions.push({
-      metric: 'Índice de Calidad',
+      metric: 'Quality Index',
       value: `${qualityTrend.predicted}%`,
       trend: qualityTrend.direction,
       confidence: qualityTrend.confidence
@@ -455,7 +455,7 @@ export class QADataProcessor {
     maturityScore += consistency; // Max 1 punto
     factors++;
     
-    // Factor 5: Métricas predictivas disponibles
+    // Factor 5: Available predictive metrics
     if (data.predictions || data.trends) {
       maturityScore += 1;
     }
@@ -480,8 +480,8 @@ export class QADataProcessor {
       milestones: [
         `Automatización ${Math.min(automation + 20, 80)}% (actual: ${automation}%)`,
         'Reducir tiempo ciclo a 1.5 días',
-        'Implementar métricas predictivas',
-        'Establecer baseline de calidad',
+        'Implement predictive metrics',
+        'Establish quality baseline',
         'Optimización continua'
       ]
     };
@@ -807,7 +807,7 @@ export class QADataProcessor {
     const bugVariance = bugs.reduce((sum, bug) => sum + Math.pow(bug - avgBugs, 2), 0) / bugs.length;
     const bugCV = avgBugs > 0 ? Math.sqrt(bugVariance) / avgBugs : 1;
     
-    // Calcular coeficiente de variación para velocidad
+    // Calculate coefficient of variation for velocity
     const avgVelocity = velocities.reduce((a, b) => a + b, 0) / velocities.length;
     const velocityVariance = velocities.reduce((sum, vel) => sum + Math.pow(vel - avgVelocity, 2), 0) / velocities.length;
     const velocityCV = avgVelocity > 0 ? Math.sqrt(velocityVariance) / avgVelocity : 1;

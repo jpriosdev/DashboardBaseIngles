@@ -201,42 +201,42 @@ import KPICard from './KPICard';
       ),
       testEfficiency: (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Porcentaje de casos de prueba ejecutados respecto a lo planeado.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Muestra si el equipo está completando las pruebas previstas y permite ajustar planificación.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">Percentage of test cases executed versus planned.</div>
+          <div className="font-semibold mt-2">Why it matters:</div>
+          <div className="text-xs">Shows if the team is completing planned tests and allows planning adjustments.</div>
         </div>
       ),
       bugLeakage: (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Porcentaje de defectos que llegan a producción.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Indica el riesgo que enfrentan los usuarios y qué tan efectiva es la prevención de fallos.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">Percentage of defects that reach production.</div>
+          <div className="font-semibold mt-2">Why it matters:</div>
+          <div className="text-xs">Indicates the risk users face and how effective failure prevention is.</div>
         </div>
       ),
       testAutomation: (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Porcentaje de pruebas que están automatizadas.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Acelera la ejecución de regresiones y libera tiempo para pruebas exploratorias.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">Percentage of tests that are automated.</div>
+          <div className="font-semibold mt-2">Why it matters:</div>
+          <div className="text-xs">Accelerates regression execution and frees time for exploratory testing.</div>
         </div>
       ),
       codeCoverage: (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Porcentaje de código cubierto por pruebas automatizadas.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Ayuda a entender la confianza en cambios de código y áreas que necesitan más pruebas.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">Percentage of code covered by automated tests.</div>
+          <div className="font-semibold mt-2">Why it matters:</div>
+          <div className="text-xs">Helps understand confidence in code changes and areas needing more testing.</div>
         </div>
       ),
       cycleTime: (
         <div>
-          <div className="font-semibold">Qué mide:</div>
-          <div className="text-xs">Tiempo promedio desde que se detecta un hallazgo hasta que se resuelve.</div>
-          <div className="font-semibold mt-2">Por qué es útil:</div>
-          <div className="text-xs">Mide la agilidad del equipo para solucionar problemas y reducir el tiempo de exposición a riesgos.</div>
+          <div className="font-semibold">What it measures:</div>
+          <div className="text-xs">Average time from finding a defect to resolution.</div>
+          <div className="font-semibold mt-2">Why it matters:</div>
+          <div className="text-xs">Measures team agility in solving problems and reducing risk exposure time.</div>
         </div>
       )
     };
@@ -315,18 +315,18 @@ import KPICard from './KPICard';
           <div className="mb-4 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
-                <label className="text-sm font-medium text-gray-700 mr-2">Filtrar por Sprint:</label>
-                {!selectedSprints.includes('Todos') && selectedSprints.length > 0 && (
-                  <span className="text-sm text-executive-600 font-medium">{selectedSprints.length} seleccionado{selectedSprints.length > 1 ? 's' : ''}</span>
-                )}
-              </div>
-              <div className="text-sm text-gray-500">Seleccione uno o varios</div>
+                  <label className="text-sm font-medium text-gray-700 mr-2">Filter by Sprint:</label>
+                  {!selectedSprints.includes('Todos') && selectedSprints.length > 0 && (
+                    <span className="text-sm text-executive-600 font-medium">{selectedSprints.length} selected</span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-500">Select one or more</div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <label className="flex items-center p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
                 <input type="checkbox" checked={selectedSprints.includes('Todos')} onChange={() => handleSprintToggle('Todos')} className="w-4 h-4 text-executive-600" />
-                <span className="ml-2 text-sm text-gray-700">Todos</span>
+                <span className="ml-2 text-sm text-gray-700">All</span>
               </label>
               {sprintList.map(s => (
                 <label key={s} className={`flex items-center p-2 rounded-lg border transition-colors cursor-pointer ${selectedSprints.includes(s) && !selectedSprints.includes('Todos') ? 'border-executive-500 bg-executive-50' : 'border-gray-200 hover:bg-gray-50'}`}>
@@ -345,10 +345,10 @@ import KPICard from './KPICard';
             if (metric.value === null || metric.value === undefined) {
               const helpContent = helpByKey[metric.key] || (
                 <div>
-                  <div className="font-semibold">Qué mide:</div>
-                  <div className="text-xs">Esta métrica resume un aspecto clave de la calidad.</div>
-                  <div className="font-semibold mt-2">Por qué es útil:</div>
-                  <div className="text-xs">Permite priorizar acciones y comunicar estado al negocio.</div>
+                  <div className="font-semibold">What it measures:</div>
+                  <div className="text-xs">This metric summarizes a key quality aspect.</div>
+                  <div className="font-semibold mt-2">Why it matters:</div>
+                  <div className="text-xs">Allows prioritizing actions and communicating status to the business.</div>
                 </div>
               );
 
@@ -358,7 +358,7 @@ import KPICard from './KPICard';
                     title={metric.title}
                     value={'--'}
                     icon={metric.icon}
-                    subtitle="Datos no disponibles"
+                    subtitle="Data not available"
                     onClick={() => openMetricDetail(metric)}
                     help={helpContent}
                   />
@@ -370,10 +370,10 @@ import KPICard from './KPICard';
             const trendValue = spark.length >= 2 ? Math.round(((spark[spark.length-1] - spark[0]) / (Math.abs(spark[0]) || 1)) * 100) : undefined;
             const tooltipContent = helpByKey[metric.key] || (
               <div>
-                <div className="font-semibold">Qué mide:</div>
+                <div className="font-semibold">What it measures:</div>
                 <div className="text-xs">{metric.description}</div>
-                <div className="font-semibold mt-2">Por qué es útil:</div>
-                <div className="text-xs">Permite priorizar acciones y comunicar estado al negocio.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Allows prioritizing actions and communicating status to the business.</div>
               </div>
             );
 
@@ -410,12 +410,12 @@ import KPICard from './KPICard';
         {/* Resumen de calidad general */}
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">
-            Índice de Calidad General
+            Overall Quality Index
           </h3>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
-              <h4 className="font-medium text-gray-900 mb-4">Estado Actual</h4>
+              <h4 className="font-medium text-gray-900 mb-4">Current Status</h4>
               <div className="space-y-3">
                 {metricsToShow.map((metric) => (
                   <div key={metric.key} className="flex items-center justify-between">
@@ -435,23 +435,23 @@ import KPICard from './KPICard';
             </div>
             
             <div>
-              <h4 className="font-medium text-gray-900 mb-4">Objetivos 2025</h4>
+              <h4 className="font-medium text-gray-900 mb-4">2025 Targets</h4>
               <div className="space-y-3">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <h5 className="font-medium text-blue-800 mb-2">Q1 2025</h5>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Automatización: 45% → 60%</li>
-                    <li>• Tiempo de ciclo: 2.3 → 2.0 días</li>
-                    <li>• Cobertura código: 68% → 75%</li>
+                    <li>• Automation: 45% → 60%</li>
+                    <li>• Cycle time: 2.3 → 2.0 days</li>
+                    <li>• Code coverage: 68% → 75%</li>
                   </ul>
                 </div>
                 
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <h5 className="font-medium text-green-800 mb-2">Meta Anual</h5>
+                  <h5 className="font-medium text-green-800 mb-2">Annual Goal</h5>
                   <ul className="text-sm text-green-700 space-y-1">
-                    <li>• Automatización: 80%</li>
-                    <li>• Fuga de bugs: &lt; 3%</li>
-                    <li>• Eficiencia pruebas: &gt; 90%</li>
+                    <li>• Automation: 80%</li>
+                    <li>• Bug leakage: &lt; 3%</li>
+                    <li>• Test efficiency: &gt; 90%</li>
                   </ul>
                 </div>
               </div>

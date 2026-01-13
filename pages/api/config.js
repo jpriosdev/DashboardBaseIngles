@@ -11,7 +11,7 @@ export default function handler(req, res) {
         const configData = fs.readFileSync(configPath, 'utf8');
         res.status(200).json(JSON.parse(configData));
       } else {
-        // Configuración por defecto
+        // Default configuration
         const defaultConfig = {
           weights: {
             resolutionRate: 0.3,

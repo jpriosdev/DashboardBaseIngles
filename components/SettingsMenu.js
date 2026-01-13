@@ -150,7 +150,7 @@ export default function SettingsMenu({ onRefresh, loading }) {
           className="flex items-center px-4 py-2 bg-executive-600 text-white rounded-lg hover:bg-executive-700 transition-colors gap-2"
         >
           <Settings className="w-4 h-4" />
-          <span className="hidden sm:inline text-sm font-medium">Opciones</span>
+          <span className="hidden sm:inline text-sm font-medium">Options</span>
           <span className="sm:hidden">⚙️</span>
         </button>
 
@@ -165,8 +165,8 @@ export default function SettingsMenu({ onRefresh, loading }) {
               >
                 <History className="w-4 h-4 text-blue-600" />
                 <div className="text-left">
-                  <div className="font-medium">Gestión de Datos</div>
-                  <div className="text-xs text-gray-500">Cargar archivos y versiones</div>
+                  <div className="font-medium">Data Management</div>
+                  <div className="text-xs text-gray-500">Upload files and versions</div>
                 </div>
               </button>
 
@@ -183,8 +183,8 @@ export default function SettingsMenu({ onRefresh, loading }) {
               >
                 <RefreshCw className={`w-4 h-4 text-green-600 ${loading ? 'animate-spin' : ''}`} />
                 <div className="text-left">
-                  <div className="font-medium">Actualizar</div>
-                  <div className="text-xs text-gray-500">Recargar datos actuales</div>
+                  <div className="font-medium">Refresh</div>
+                  <div className="text-xs text-gray-500">Reload current data</div>
                 </div>
               </button>
             </div>
@@ -197,22 +197,17 @@ export default function SettingsMenu({ onRefresh, loading }) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-10" ref={modalRef}>
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between border-b border-blue-800 z-10">
+              <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between border-b border-blue-800 z-10">
               <div className="flex items-center gap-3">
                 <History className="w-6 h-6" />
-                <h2 className="text-2xl font-bold">Gestión de Datos</h2>
+                <h2 className="text-2xl font-bold">Data Management</h2>
               </div>
-              <button
-                onClick={() => setShowDataManagement(false)}
-                className="text-white hover:bg-blue-600 p-2 rounded-lg transition-colors flex-shrink-0"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowDataManagement(false)} className="text-white hover:bg-blue-600 p-2 rounded-lg transition-colors flex-shrink-0">✕</button>
             </div>
 
             {/* Contenido */}
             <div className="p-6 space-y-6">
-              {/* Mensaje de estado */}
+              {/* Status message */}
               {message && (
                 <div
                   className={`flex items-center gap-3 p-4 rounded-lg ${
@@ -234,27 +229,18 @@ export default function SettingsMenu({ onRefresh, loading }) {
               <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                   <Upload className="w-5 h-5 text-blue-600" />
-                  Cargar Nuevo Archivo
+                  Upload New File
                 </h3>
 
                 {!showUploadForm ? (
-                  <button
-                    onClick={() => setShowUploadForm(true)}
-                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base"
-                  >
-                    + Seleccionar Archivo CSV
-                  </button>
+                  <button onClick={() => setShowUploadForm(true)} className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base">+ Select CSV File</button>
                 ) : (
                   <div className="space-y-3">
                     <label className="block cursor-pointer">
                       <div className="text-center py-8 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-100 transition-all bg-white">
                         <Upload className="w-10 h-10 text-blue-600 mx-auto mb-3" />
-                        <p className="text-base font-medium text-gray-700">
-                          Haz click para seleccionar archivo
-                        </p>
-                        <p className="text-sm text-gray-500 mt-2">
-                          o arrastra un archivo CSV aquí
-                        </p>
+                        <p className="text-base font-medium text-gray-700">Click to select file</p>
+                        <p className="text-sm text-gray-500 mt-2">or drag a CSV file here</p>
                       </div>
                       <input
                         type="file"
@@ -262,16 +248,14 @@ export default function SettingsMenu({ onRefresh, loading }) {
                         onChange={handleUpload}
                         disabled={uploading}
                         className="hidden"
-                        aria-label="Selecciona archivo CSV"
+                        aria-label="Select CSV file"
                       />
                     </label>
-                    <p className="text-sm text-gray-600 text-center bg-yellow-50 p-3 rounded border border-yellow-200">
-                      📌 El archivo debe tener las mismas columnas que MockDataV0.csv
-                    </p>
+                    <p className="text-sm text-gray-600 text-center bg-yellow-50 p-3 rounded border border-yellow-200">📌 The file must have the same columns as MockDataV0.csv</p>
                     {uploading && (
                       <div className="mt-3 flex items-center justify-center gap-2 bg-blue-100 p-4 rounded-lg">
                         <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
-                        <span className="text-blue-700 font-medium">Procesando archivo...</span>
+                        <span className="text-blue-700 font-medium">Processing file...</span>
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -280,7 +264,7 @@ export default function SettingsMenu({ onRefresh, loading }) {
                         disabled={uploading}
                         className="flex-1 px-3 py-2 text-sm bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition-colors disabled:opacity-50"
                       >
-                        Cancelar
+                        Cancel
                       </button>
                     </div>
                   </div>
@@ -347,8 +331,8 @@ export default function SettingsMenu({ onRefresh, loading }) {
               {/* Info */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-800">
-                  <strong>ℹ️ Nota:</strong> Solo se guardan 2 versiones (actual + anterior).
-                  Al cargar un nuevo archivo, la versión anterior se reemplaza.
+                  <strong>ℹ️ Note:</strong> Only 2 versions are kept (current + previous).
+                  When loading a new file, the previous version is replaced.
                 </p>
               </div>
             </div>

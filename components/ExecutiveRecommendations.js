@@ -1,6 +1,6 @@
 /**
  * ExecutiveRecommendations Component - Refactorizado
- * Genera recomendaciones de nivel ejecutivo basadas en KPIs y tendencias
+ * Generates executive-level recommendations based on KPIs and trends
  * Estructura normalizada SQL/CSV, lógica validada y robusta
  */
 import { 
@@ -16,6 +16,11 @@ import {
   } from 'lucide-react';
   
   export default function ExecutiveRecommendations({ data }) {
+    const displayType = {
+      'Inmediata': 'Immediate',
+      'Corto Plazo': 'Short Term',
+      'Mediano Plazo': 'Mid Term'
+    };
     const getRecommendationIcon = (type) => {
       switch (type) {
         case 'Inmediata':
@@ -84,8 +89,38 @@ import {
           return 'bg-gray-50 border-gray-200';
       }
     };
+
+    const mapPriorityText = (p) => {
+      switch (p) {
+        case 'Crítica': return 'Critical';
+        case 'Alta': return 'High';
+        case 'Media': return 'Medium';
+        case 'Baja': return 'Low';
+        default: return p;
+      }
+    };
+
+    const mapEffortText = (e) => {
+      switch (e) {
+        case 'Alto': return 'High';
+        case 'Medio': return 'Medium';
+        case 'Bajo': return 'Low';
+        default: return e;
+      }
+    };
+
+    const mapImpactText = (i) => {
+      switch (i) {
+        case 'Crítico': return 'Critical';
+        case 'Muy Alto': return 'Very High';
+        case 'Alto': return 'High';
+        case 'Medio': return 'Medium';
+        case 'Bajo': return 'Low';
+        default: return i;
+      }
+    };
   
-    // Agrupar recomendaciones por tipo
+    // Group recommendations by type
     const groupedRecommendations = data.reduce((acc, rec) => {
       if (!acc[rec.type]) {
         acc[rec.type] = [];
@@ -101,37 +136,31 @@ import {
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
             <Target className="w-6 h-6 text-executive-600 mr-2" />
-            Recomendaciones Ejecutivas
+            Executive Recommendations
           </h3>
           
-          {/* Resumen de recomendaciones */}
+          {/* Recommendations summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
               <AlertTriangle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-red-600">
-                {data.filter(r => r.type === 'Inmediata').length}
-              </div>
-              <div className="text-sm text-red-700 font-medium">Acciones Inmediatas</div>
+                  <div className="text-2xl font-bold text-red-600">{data.filter(r => r.type === 'Inmediata').length}</div>
+                  <div className="text-sm text-red-700 font-medium">Immediate Actions</div>
             </div>
             
             <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <Clock className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-yellow-600">
-                {data.filter(r => r.type === 'Corto Plazo').length}
-              </div>
-              <div className="text-sm text-yellow-700 font-medium">Corto Plazo</div>
+              <div className="text-2xl font-bold text-yellow-600">{data.filter(r => r.type === 'Corto Plazo').length}</div>
+              <div className="text-sm text-yellow-700 font-medium">Short Term</div>
             </div>
             
             <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <Calendar className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-blue-600">
-                {data.filter(r => r.type === 'Mediano Plazo').length}
-              </div>
-              <div className="text-sm text-blue-700 font-medium">Mediano Plazo</div>
+              <div className="text-2xl font-bold text-blue-600">{data.filter(r => r.type === 'Mediano Plazo').length}</div>
+              <div className="text-sm text-blue-700 font-medium">Mid Term</div>
             </div>
           </div>
   
-          {/* Recomendaciones agrupadas por tipo */}
+          {/* Recommendations grouped by type */}
           <div className="space-y-6">
             {typeOrder.map((type) => {
               const recommendations = groupedRecommendations[type] || [];
@@ -141,12 +170,8 @@ import {
                 <div key={type} className={`border-2 rounded-lg p-6 ${getTypeColor(type)}`}>
                   <div className="flex items-center mb-4">
                     {getRecommendationIcon(type)}
-                    <h4 className="text-lg font-semibold text-gray-900 ml-2">
-                      {type}
-                    </h4>
-                    <span className="ml-auto text-sm text-gray-600">
-                      {recommendations.length} recomendación{recommendations.length !== 1 ? 'es' : ''}
-                    </span>
+                    <h4 className="text-lg font-semibold text-gray-900 ml-2">{displayType[type] || type}</h4>
+                    <span className="ml-auto text-sm text-gray-600">{recommendations.length} recommendation{recommendations.length !== 1 ? 's' : ''}</span>
                   </div>
   
                   <div className="space-y-4">
@@ -158,7 +183,7 @@ import {
                           </h5>
                           <div className="flex items-center space-x-2 ml-4">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(recommendation.priority)}`}>
-                              {recommendation.priority}
+                              {mapPriorityText(recommendation.priority)}
                             </span>
                           </div>
                         </div>
@@ -171,23 +196,17 @@ import {
                           <div className="flex items-center space-x-4">
                             <div className="flex items-center text-sm">
                               <Zap className="w-4 h-4 text-gray-400 mr-1" />
-                              <span className="text-gray-600">Esfuerzo:</span>
-                              <span className={`ml-1 font-medium ${getEffortColor(recommendation.effort)}`}>
-                                {recommendation.effort}
-                              </span>
+                              <span className="text-gray-600">Effort:</span>
+                              <span className={`ml-1 font-medium ${getEffortColor(recommendation.effort)}`}>{mapEffortText(recommendation.effort)}</span>
                             </div>
-                            
                             <div className="flex items-center text-sm">
                               <TrendingUp className="w-4 h-4 text-gray-400 mr-1" />
-                              <span className="text-gray-600">Impacto:</span>
-                              <span className={`ml-1 px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(recommendation.impact)}`}>
-                                {recommendation.impact}
-                              </span>
+                              <span className="text-gray-600">Impact:</span>
+                              <span className={`ml-1 px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(recommendation.impact)}`}>{mapImpactText(recommendation.impact)}</span>
                             </div>
                           </div>
-                          
                           <button className="flex items-center px-3 py-1 text-sm font-medium text-executive-600 hover:text-executive-700 transition-colors">
-                            Ver detalles
+                            View details
                             <ArrowRight className="w-4 h-4 ml-1" />
                           </button>
                         </div>
@@ -208,9 +227,9 @@ import {
           </h3>
           
           <div className="space-y-6">
-            {/* Esta semana */}
+            {/* This Week */}
             <div className="border-l-4 border-red-500 pl-4">
-              <h4 className="font-semibold text-red-700 mb-2">Esta Semana</h4>
+              <h4 className="font-semibold text-red-700 mb-2">This Week</h4>
               <ul className="space-y-2 text-sm text-gray-700">
                 {data.filter(r => r.type === 'Inmediata').map((rec, index) => (
                   <li key={index} className="flex items-start">
@@ -221,9 +240,9 @@ import {
               </ul>
             </div>
   
-            {/* Próximas 2-4 semanas */}
+            {/* Next 2-4 Weeks */}
             <div className="border-l-4 border-yellow-500 pl-4">
-              <h4 className="font-semibold text-yellow-700 mb-2">Próximas 2-4 Semanas</h4>
+              <h4 className="font-semibold text-yellow-700 mb-2">Next 2-4 Weeks</h4>
               <ul className="space-y-2 text-sm text-gray-700">
                 {data.filter(r => r.type === 'Corto Plazo').map((rec, index) => (
                   <li key={index} className="flex items-start">
@@ -250,22 +269,22 @@ import {
   
           {/* Métricas de seguimiento */}
           <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <h4 className="font-semibold text-gray-900 mb-3">Métricas de Seguimiento</h4>
+            <h4 className="font-semibold text-gray-900 mb-3">Tracking Metrics</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="font-medium text-gray-700">KPIs a Monitorear:</span>
+                <span className="font-medium text-gray-700">KPIs to Monitor:</span>
                 <ul className="mt-1 space-y-1 text-gray-600">
-                  <li>• Reducción de bugs críticos (-50%)</li>
-                  <li>• Mejora en tiempo de resolución (-30%)</li>
-                  <li>• Incremento en automatización (+35%)</li>
+                  <li>• Reduce critical bugs (-50%)</li>
+                  <li>• Improve resolution time (-30%)</li>
+                  <li>• Increase automation (+35%)</li>
                 </ul>
               </div>
               <div>
-                <span className="font-medium text-gray-700">Revisiones Programadas:</span>
+                <span className="font-medium text-gray-700">Scheduled Reviews:</span>
                 <ul className="mt-1 space-y-1 text-gray-600">
-                  <li>• Semanal: Acciones inmediatas</li>
-                  <li>• Quincenal: Progreso corto plazo</li>
-                  <li>• Mensual: Evaluación estratégica</li>
+                  <li>• Weekly: Immediate actions</li>
+                  <li>• Bi-weekly: Short term progress</li>
+                  <li>• Monthly: Strategic review</li>
                 </ul>
               </div>
             </div>

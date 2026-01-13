@@ -34,7 +34,7 @@ export default function UploadData() {
     const base64 = await getBase64(file);
 
     // Upload
-    // Guardar archivo cargado con nombre estándar para procesamiento
+    // Save uploaded file with standard name for processing
     const targetFilename = 'qa-data-upload.xlsx';
     setLogs(l => [...l, `Uploading and saving as ${targetFilename}...`]);
     const resp = await fetch('/api/upload-data', {
@@ -110,7 +110,7 @@ export default function UploadData() {
       <div className="mt-2 flex items-center space-x-2 text-sm">
         <label className="inline-flex items-center">
           <input type="checkbox" className="mr-2" checked={keepOriginal} onChange={(e) => setKeepOriginal(e.target.checked)} />
-          Guardar copia con nombre original
+          Save copy with original name
         </label>
       </div>
 

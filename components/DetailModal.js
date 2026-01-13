@@ -1,6 +1,6 @@
 /**
  * DetailModal.js - Refactorizado y alineado
- * Modal de drill-down detallado para KPIs y métricas
+ * Detailed drill-down modal for KPIs and metrics
  * Estructura normalizada SQL/CSV, lógica mejorada, validación robusta
  * Todas las referencias alineadas con nueva estructura de datos
  */
@@ -44,12 +44,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   const TrendChart = ({ data: chartData, label, color = '#754bde', sprints, yAxisLabel = 'Valor' }) => {
     if (!chartData || chartData.length === 0) return null;
     
-    // Si hay pocos datos, mostrar advertencia
+    // If there is little data, show warning
     if (chartData.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Nota:</strong> {label} requiere múltiples sprints para mostrar tendencia. Selecciona más sprints en el filtro.
+            <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
           </p>
         </div>
       );
@@ -179,15 +179,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   };
 
   // Componente de gráfico con puntos de cumplimiento (verde/rojo según target)
-  const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Días', targets }) => {
+  const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Days', targets }) => {
     if (!datasets || datasets.length === 0) return null;
     
-    // Si hay pocos sprints, mostrar advertencia
+    // If there are few sprints, show warning
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Nota:</strong> {label} requiere múltiples sprints para mostrar tendencia. Selecciona más sprints en el filtro.
+            <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
           </p>
         </div>
       );
@@ -351,7 +351,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Nota:</strong> {label} requiere múltiples sprints para mostrar tendencia. Sprints disponibles: {sprints?.length || 0}
+            <strong>Note:</strong> {label} requires multiple sprints to show trend. Available sprints: {sprints?.length || 0}
           </p>
         </div>
       );
@@ -497,24 +497,24 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Resumen general */}
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
         <h3 className="text-2xl font-bold text-executive-600 mb-2">
-          {data.avg} días
+          {data.avg} days
         </h3>
-        <p className="text-sm text-gray-600">Tiempo promedio de resolución</p>
+        <p className="text-sm text-gray-600">Average resolution time</p>
       </div>
 
-      {/* Desglose por prioridad */}
+      {/* Breakdown by priority */}
       <div>
         <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
           <BarChart3 className="w-5 h-5 mr-2 text-executive-600" />
-          Tiempo de Ciclo por Prioridad
+          Cycle Time by Priority
         </h4>
         <div className="grid grid-cols-2 gap-4">
           {Object.entries(data.byPriority || {}).map(([priority, days]) => {
             const priorityConfig = {
-              critical: { label: 'Crítico', color: 'bg-danger-500', target: 3 },
-              high: { label: 'Alto', color: 'bg-warning-500', target: 5 },
-              medium: { label: 'Medio', color: 'bg-blue-500', target: 7 },
-              low: { label: 'Bajo', color: 'bg-gray-500', target: 10 }
+              critical: { label: 'Critical', color: 'bg-danger-500', target: 3 },
+              high: { label: 'High', color: 'bg-warning-500', target: 5 },
+              medium: { label: 'Medium', color: 'bg-blue-500', target: 7 },
+              low: { label: 'Low', color: 'bg-gray-500', target: 10 }
             };
             const config = priorityConfig[priority];
             if (!config) return null;
@@ -532,13 +532,13 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                 </div>
                 <div className="flex items-baseline">
                   <span className="text-2xl font-bold text-gray-900">{days}</span>
-                  <span className="text-sm text-gray-500 ml-1">días</span>
+                  <span className="text-sm text-gray-500 ml-1">days</span>
                 </div>
                 <div className="mt-2">
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                     <span>Target: {config.target}d</span>
                     <span className={isGood ? 'text-success-600 font-medium' : 'text-warning-600 font-medium'}>
-                      {isGood ? '✓ En target' : `+${days - config.target}d`}
+                      {isGood ? '✓ Ok' : `+${days - config.target}d`}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -582,39 +582,39 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         });
         
         const datasets = [
-          { label: 'Crítico', data: criticalData, color: '#dc2626' },
-          { label: 'Alto', data: highData, color: '#f97316' },
-          { label: 'Medio', data: mediumData, color: '#3b82f6' },
-          { label: 'Bajo', data: lowData, color: '#9ca3af' }
+          { label: 'Critical', data: criticalData, color: '#dc2626' },
+          { label: 'High', data: highData, color: '#f97316' },
+          { label: 'Medium', data: mediumData, color: '#3b82f6' },
+          { label: 'Low', data: lowData, color: '#9ca3af' }
         ];
         
         const targets = {
-          'Crítico': 3,
-          'Alto': 5,
-          'Medio': 7,
-          'Bajo': 10
+          'Critical': 3,
+          'High': 5,
+          'Medium': 7,
+          'Low': 10
         };
         
         return (
           <TrendChartWithTargets 
             datasets={datasets} 
-            label="Evolución de Tiempo de Resolución por Sprint" 
+            label="Evolution of Resolution Time by Sprint" 
             sprints={sprints} 
-            yAxisLabel="Días"
+            yAxisLabel="Days"
             targets={targets}
           />
         );
       })() : (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
-          <p className="text-sm">No hay datos de sprints disponibles para mostrar la tendencia</p>
+          <p className="text-sm">No sprint data available to display the trend</p>
         </div>
       )}
 
-      {/* Recomendaciones al final */}
+      {/* Recommendations section */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
           <TrendingUp className="w-5 h-5 mr-2" />
-          Recomendaciones
+          Recommendations
         </h4>
         <ul className="space-y-2 text-sm text-blue-800">
           {RecommendationEngine.getRecommendations('cycleTime', data, recommendations).map((rec, idx) => (
@@ -632,34 +632,34 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-purple-600 mb-2">
           {data.coverage}%
         </h3>
-        <p className="text-sm text-gray-600">Cobertura de automatización de pruebas</p>
+        <p className="text-sm text-gray-600">Test automation coverage</p>
       </div>
 
-      {/* Métricas principales */}
+      {/* Main metrics */}
       <div>
         <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
           <BarChart3 className="w-5 h-5 mr-2 text-purple-600" />
-          Distribución de Pruebas
+          Test Distribution
         </h4>
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">{data.automated}</div>
-              <div className="text-xs text-gray-500 mt-1">Automatizadas</div>
+              <div className="text-xs text-gray-500 mt-1">Automated</div>
               <div className="text-xs text-purple-600 font-medium mt-1">{data.coverage}%</div>
             </div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-600">{data.manual}</div>
-              <div className="text-xs text-gray-500 mt-1">Manuales</div>
+              <div className="text-xs text-gray-500 mt-1">Manual</div>
               <div className="text-xs text-gray-600 font-medium mt-1">{100 - data.coverage}%</div>
             </div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{data.total}</div>
-              <div className="text-xs text-gray-500 mt-1">Total Pruebas</div>
+              <div className="text-xs text-gray-500 mt-1">Total Tests</div>
               <div className="text-xs text-blue-600 font-medium mt-1">100%</div>
             </div>
           </div>
@@ -670,7 +670,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div>
         <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
           <Target className="w-5 h-5 mr-2 text-purple-600" />
-          Nivel de Madurez en Automatización
+          Automation Maturity Level
         </h4>
         <div className="space-y-2">
           <div className="flex items-center">
@@ -697,25 +697,25 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className={`p-2 rounded text-center ${
               data.coverage < 40 ? 'bg-danger-100 text-danger-700 font-semibold' : 'bg-gray-100 text-gray-500'
             }`}>
-              <div>Inicial</div>
+              <div>Initial</div>
               <div className="text-xs mt-1">&lt;40%</div>
             </div>
             <div className={`p-2 rounded text-center ${
               data.coverage >= 40 && data.coverage < 60 ? 'bg-warning-100 text-warning-700 font-semibold' : 'bg-gray-100 text-gray-500'
             }`}>
-              <div>Básico</div>
+              <div>Basic</div>
               <div className="text-xs mt-1">40-59%</div>
             </div>
             <div className={`p-2 rounded text-center ${
               data.coverage >= 60 && data.coverage < 80 ? 'bg-blue-100 text-blue-700 font-semibold' : 'bg-gray-100 text-gray-500'
             }`}>
-              <div>Avanzado</div>
+              <div>Advanced</div>
               <div className="text-xs mt-1">60-79%</div>
             </div>
             <div className={`p-2 rounded text-center ${
               data.coverage >= 80 ? 'bg-success-100 text-success-700 font-semibold' : 'bg-gray-100 text-gray-500'
             }`}>
-              <div>Óptimo</div>
+              <div>Optimal</div>
               <div className="text-xs mt-1">≥80%</div>
             </div>
           </div>
@@ -725,14 +725,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Gráfico de tendencia */}
       {data.trend && data.trend.length > 0 && (
         <div>
-          <h4 className="font-semibold text-gray-800 mb-3">Evolución de Cobertura por Sprint</h4>
+          <h4 className="font-semibold text-gray-800 mb-3">Automation Coverage Evolution by Sprint</h4>
           <TrendChartMultiple 
             datasets={[{ 
-              label: 'Cobertura de Automatización', 
+              label: 'Automation Coverage', 
               data: data.trend, 
               color: '#9333ea' 
             }]} 
-            label="Cobertura (%)" 
+            label="Coverage (%)" 
             sprints={sprints}
             isPercentage={true}
           />
@@ -743,15 +743,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div>
         <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
           <CheckCircle className="w-5 h-5 mr-2 text-purple-600" />
-          Beneficios de Mayor Automatización
+          Benefits of Increased Automation
         </h4>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
             <div className="flex items-start">
               <TrendingUp className="w-4 h-4 text-purple-600 mt-0.5 mr-2" />
               <div>
-                <div className="text-sm font-medium text-purple-900">Velocidad</div>
-                <div className="text-xs text-purple-700 mt-1">Ejecución más rápida de pruebas</div>
+                <div className="text-sm font-medium text-purple-900">Speed</div>
+                <div className="text-xs text-purple-700 mt-1">Faster test execution</div>
               </div>
             </div>
           </div>
@@ -759,8 +759,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex items-start">
               <Activity className="w-4 h-4 text-purple-600 mt-0.5 mr-2" />
               <div>
-                <div className="text-sm font-medium text-purple-900">Consistencia</div>
-                <div className="text-xs text-purple-700 mt-1">Resultados reproducibles</div>
+                <div className="text-sm font-medium text-purple-900">Consistency</div>
+                <div className="text-xs text-purple-700 mt-1">Reproducible results</div>
               </div>
             </div>
           </div>
@@ -768,8 +768,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex items-start">
               <Users className="w-4 h-4 text-purple-600 mt-0.5 mr-2" />
               <div>
-                <div className="text-sm font-medium text-purple-900">Recursos</div>
-                <div className="text-xs text-purple-700 mt-1">QA enfocado en tareas estratégicas</div>
+                <div className="text-sm font-medium text-purple-900">Resources</div>
+                <div className="text-xs text-purple-700 mt-1">QA focused on strategic tasks</div>
               </div>
             </div>
           </div>
@@ -777,47 +777,47 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex items-start">
               <AlertTriangle className="w-4 h-4 text-purple-600 mt-0.5 mr-2" />
               <div>
-                <div className="text-sm font-medium text-purple-900">Detección</div>
-                <div className="text-xs text-purple-700 mt-1">Bugs encontrados más temprano</div>
+                <div className="text-sm font-medium text-purple-900">Detection</div>
+                <div className="text-xs text-purple-700 mt-1">Bugs found earlier</div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recomendaciones al final */}
+      {/* Recommendations section (generic) */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
           <TrendingUp className="w-5 h-5 mr-2" />
-          Recomendaciones
+          Recommendations
         </h4>
         <ul className="space-y-2 text-sm text-blue-800">
           {data.coverage < 40 && (
             <>
-              <li>⚠️ <strong>Prioridad Alta:</strong> Definir estrategia de automatización e identificar casos críticos para automatizar primero.</li>
-              <li>🛠️ <strong>Infraestructura:</strong> Establecer framework de automatización (Selenium, Cypress, Playwright) y CI/CD.</li>
-              <li>🎯 <strong>Objetivo:</strong> Alcanzar 40% en 2 sprints automatizando casos de regresión principales.</li>
+              <li>⚠️ <strong>High Priority:</strong> Define an automation strategy and identify critical cases to automate first.</li>
+              <li>🛠️ <strong>Infrastructure:</strong> Establish an automation framework (Selenium, Cypress, Playwright) and CI/CD.</li>
+              <li>🎯 <strong>Goal:</strong> Reach 40% in 2 sprints by automating main regression cases.</li>
             </>
           )}
           {data.coverage >= 40 && data.coverage < 60 && (
             <>
-              <li>📈 <strong>Continuar Crecimiento:</strong> Automatizar casos de prueba de integración y flujos principales.</li>
-              <li>🔄 <strong>Regresión:</strong> Priorizar automatización de casos de regresión para reducir tiempo de ejecución.</li>
-              <li>🎯 <strong>Objetivo:</strong> Llegar a 60% en 3 sprints con enfoque en pruebas críticas.</li>
+              <li>📈 <strong>Continue Growth:</strong> Automate integration test cases and main workflows.</li>
+              <li>🔄 <strong>Regression:</strong> Prioritize automation of regression cases to reduce execution time.</li>
+              <li>🎯 <strong>Goal:</strong> Reach 60% in 3 sprints with focus on critical tests.</li>
             </>
           )}
           {data.coverage >= 60 && data.coverage < 80 && (
             <>
-              <li>✅ <strong>Buen Nivel:</strong> Mantener cobertura y expandir a pruebas de API y componentes.</li>
-              <li>🔍 <strong>Optimización:</strong> Revisar y refactorizar tests existentes para mejorar mantenibilidad.</li>
-              <li>🎯 <strong>Objetivo:</strong> Alcanzar 80% en 4 sprints incluyendo pruebas de edge cases.</li>
+              <li>✅ <strong>Good Level:</strong> Maintain coverage and expand to API and component tests.</li>
+              <li>🔍 <strong>Optimization:</strong> Review and refactor existing tests to improve maintainability.</li>
+              <li>🎯 <strong>Goal:</strong> Reach 80% in 4 sprints including edge case tests.</li>
             </>
           )}
           {data.coverage >= 80 && (
             <>
-              <li>🏆 <strong>Excelente Cobertura:</strong> Mantener nivel óptimo y enfocarse en calidad de tests.</li>
-              <li>🛡️ <strong>Mantenimiento:</strong> Revisar tests regularmente, eliminar redundancias y actualizar según cambios.</li>
-              <li>📊 <strong>Monitoreo:</strong> Analizar métricas de efectividad (bugs detectados por tests automatizados).</li>
+              <li>🏆 <strong>Excellent Coverage:</strong> Maintain optimal level and focus on test quality.</li>
+              <li>🛡️ <strong>Maintenance:</strong> Review tests regularly, remove redundancies and update according to changes.</li>
+              <li>📊 <strong>Monitoring:</strong> Analyze effectiveness metrics (bugs detected by automated tests).</li>
             </>
           )}
         </ul>
@@ -832,10 +832,10 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-orange-600 mb-2">
           {data.avg} bugs/sprint
         </h3>
-        <p className="text-sm text-gray-600">Promedio de bugs detectados por sprint</p>
+        <p className="text-sm text-gray-600">Average bugs detected per sprint</p>
       </div>
 
-      {/* Métricas clave */}
+      {/* Key metrics */}
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Total Bugs</div>
@@ -843,27 +843,27 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="text-xs text-gray-500 mt-1">En {data.sprints} sprints</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Máximo</div>
+          <div className="text-sm text-gray-600 mb-1">Maximum</div>
           <div className="text-2xl font-bold text-danger-600">{data.max}</div>
-          <div className="text-xs text-gray-500 mt-1">Peor sprint</div>
+          <div className="text-xs text-gray-500 mt-1">Worst sprint</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Mínimo</div>
+          <div className="text-sm text-gray-600 mb-1">Minimum</div>
           <div className="text-2xl font-bold text-success-600">{data.min}</div>
-          <div className="text-xs text-gray-500 mt-1">Mejor sprint</div>
+          <div className="text-xs text-gray-500 mt-1">Best sprint</div>
         </div>
       </div>
 
-      {/* Análisis de calidad */}
+      {/* Quality analysis */}
       <div>
-        <h4 className="font-semibold text-gray-800 mb-3">Análisis de Calidad del Proceso</h4>
+        <h4 className="font-semibold text-gray-800 mb-3">Process Quality Analysis</h4>
         <div className="space-y-3">
           {data.avg <= 15 && (
             <div className="flex items-start p-3 bg-success-50 rounded-lg border border-success-200">
               <CheckCircle className="w-5 h-5 text-success-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <div className="font-medium text-success-900">Calidad Excepcional</div>
-                <div className="text-sm text-success-700">Baja densidad de defectos por sprint. El proceso de desarrollo es robusto y las prácticas de calidad son efectivas.</div>
+                <div className="font-medium text-success-900">Exceptional Quality</div>
+                <div className="text-sm text-success-700">Low defect density per sprint. Development process is robust and quality practices are effective.</div>
               </div>
             </div>
           )}
@@ -871,8 +871,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex items-start p-3 bg-blue-50 rounded-lg border border-blue-200">
               <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <div className="font-medium text-blue-900">Calidad Aceptable</div>
-                <div className="text-sm text-blue-700">Densidad dentro del rango normal para desarrollo ágil. Mantener prácticas actuales de testing y code review.</div>
+                <div className="font-medium text-blue-900">Acceptable Quality</div>
+                <div className="text-sm text-blue-700">Density within normal range for agile development. Maintain current testing and code review practices.</div>
               </div>
             </div>
           )}
@@ -880,8 +880,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex items-start p-3 bg-warning-50 rounded-lg border border-warning-200">
               <AlertCircle className="w-5 h-5 text-warning-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <div className="font-medium text-warning-900">Atención Requerida</div>
-                <div className="text-sm text-warning-700">Alta densidad de defectos. Considerar aumentar cobertura de unit tests y revisión de código antes de QA.</div>
+                <div className="font-medium text-warning-900">Attention Required</div>
+                <div className="text-sm text-warning-700">High defect density. Consider increasing unit test coverage and code review before QA.</div>
               </div>
             </div>
           )}
@@ -889,8 +889,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex items-start p-3 bg-danger-50 rounded-lg border border-danger-200">
               <AlertCircle className="w-5 h-5 text-danger-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
-                <div className="font-medium text-danger-900">Nivel Crítico</div>
-                <div className="text-sm text-danger-700">Densidad muy alta. Requiere intervención inmediata: revisar proceso de desarrollo, incrementar testing previo y análisis de causas raíz.</div>
+                <div className="font-medium text-danger-900">Critical Level</div>
+                <div className="text-sm text-danger-700">Very high density. Requires immediate intervention: review development process, increase pre-testing and root cause analysis.</div>
               </div>
             </div>
           )}
@@ -899,39 +899,38 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
       {/* Benchmark */}
       <div>
-        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          Rangos de Referencia
+        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">Reference Ranges
           <div className="group relative">
             <Info className="w-4 h-4 text-gray-400 cursor-help" />
             <div className="absolute left-0 top-6 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg z-50 w-80">
-              <div className="font-semibold mb-1">💡 Referencias Configurables</div>
+              <div className="font-semibold mb-1">💡 Configurable References</div>
               <div className="text-gray-200">
-                Estos valores son referencias configurables según el contexto del proyecto. 
-                Dependen de: complejidad del producto, madurez del equipo, nivel de automatización, 
-                alcance del sprint y tipo de funcionalidades. Se recomienda establecer targets 
-                propios basados en histórico y ajustarlos periódicamente.
+                These values are configurable references depending on the project context.
+                They depend on: product complexity, team maturity, automation level,
+                sprint scope and feature types. Set your own targets based on historical capacity
+                and adjust periodically.
               </div>
             </div>
           </div>
         </h4>
         <div className="grid grid-cols-4 gap-3 text-center">
           <div className="p-3 bg-success-50 rounded-lg">
-            <div className="text-xs text-success-700 font-medium mb-1">Excelente</div>
+            <div className="text-xs text-success-700 font-medium mb-1">Excellent</div>
             <div className="text-sm font-bold text-success-600">≤ 15</div>
             <div className="text-xs text-success-600 mt-1">bugs/sprint</div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
-            <div className="text-xs text-blue-700 font-medium mb-1">Bueno</div>
+            <div className="text-xs text-blue-700 font-medium mb-1">Good</div>
             <div className="text-sm font-bold text-blue-600">16 - 25</div>
             <div className="text-xs text-blue-600 mt-1">bugs/sprint</div>
           </div>
           <div className="p-3 bg-warning-50 rounded-lg">
-            <div className="text-xs text-warning-700 font-medium mb-1">Mejorable</div>
+            <div className="text-xs text-warning-700 font-medium mb-1">Needs Improvement</div>
             <div className="text-sm font-bold text-warning-600">26 - 35</div>
             <div className="text-xs text-warning-600 mt-1">bugs/sprint</div>
           </div>
           <div className="p-3 bg-danger-50 rounded-lg">
-            <div className="text-xs text-danger-700 font-medium mb-1">Crítico</div>
+            <div className="text-xs text-danger-700 font-medium mb-1">Critical</div>
             <div className="text-sm font-bold text-danger-600">&gt; 35</div>
             <div className="text-xs text-danger-600 mt-1">bugs/sprint</div>
           </div>
@@ -939,34 +938,34 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       </div>
       
       {/* Gráfico de tendencia */}
-      <TrendChart data={sparklineData} label="Evolución de Bugs por Sprint" color="#f97316" sprints={sprints} yAxisLabel="Bugs" />
+      <TrendChart data={sparklineData} label="Bug Evolution by Sprint" color="#f97316" sprints={sprints} yAxisLabel="Bugs" />
 
-      {/* Recomendaciones al final */}
+      {/* Recommended actions */}
       <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
         <h4 className="font-semibold text-orange-900 mb-2 flex items-center">
           <TrendingUp className="w-5 h-5 mr-2" />
-          Acciones Recomendadas
+          Recommended Actions
         </h4>
         <ul className="space-y-2 text-sm text-orange-800">
           {data.avg > 30 && (
             <>
-              <li>⚠️ <strong>Urgente:</strong> Analizar causas raíz de alta densidad de bugs. Revisar proceso de desarrollo y testing unitario.</li>
-              <li>🔍 <strong>Code Review:</strong> Implementar o reforzar revisiones de código antes de pasar a QA.</li>
-              <li>🧪 <strong>Testing Preventivo:</strong> Aumentar cobertura de unit tests y tests de integración en desarrollo.</li>
+              <li>⚠️ <strong>Urgent:</strong> Analyze root causes of high bug density. Review development and unit testing process.</li>
+              <li>🔍 <strong>Code Review:</strong> Implement or strengthen code reviews before moving to QA.</li>
+              <li>🧪 <strong>Preventive Testing:</strong> Increase unit and integration test coverage during development.</li>
             </>
           )}
           {data.avg > 20 && data.avg <= 30 && (
             <>
-              <li>📊 <strong>Monitoreo:</strong> Identificar módulos o features con mayor densidad de bugs y enfocar mejoras.</li>
-              <li>🎯 <strong>Prevención:</strong> Establecer Definition of Done más estricta antes de pasar a QA.</li>
-              <li>🤝 <strong>Colaboración:</strong> Sesiones de pair programming en áreas complejas para reducir errores.</li>
+              <li>📊 <strong>Monitoring:</strong> Identify modules or features with higher bug density and focus improvements.</li>
+              <li>🎯 <strong>Prevention:</strong> Establish stricter Definition of Done before passing to QA.</li>
+              <li>🤝 <strong>Collaboration:</strong> Pair programming sessions in complex areas to reduce errors.</li>
             </>
           )}
           {data.avg <= 20 && (
             <>
-              <li>✅ <strong>Mantener:</strong> Continuar con las prácticas actuales que están dando buenos resultados.</li>
-              <li>📈 <strong>Optimizar:</strong> Buscar oportunidades de automatización para detectar bugs más temprano.</li>
-              <li>🎓 <strong>Compartir:</strong> Documentar y compartir buenas prácticas con el equipo.</li>
+              <li>✅ <strong>Maintain:</strong> Continue current practices that are delivering good results.</li>
+              <li>📈 <strong>Optimize:</strong> Look for automation opportunities to detect bugs earlier.</li>
+              <li>🎓 <strong>Share:</strong> Document and share best practices with the team.</li>
             </>
           )}
         </ul>
@@ -978,63 +977,61 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     <div className="space-y-6">
       <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
         <h3 className="text-2xl font-bold text-blue-600 mb-2">
-          {data.avg} casos/sprint
+          {data.avg} test cases/sprint
         </h3>
-        <p className="text-sm text-gray-600">Media de casos ejecutados por sprint</p>
+        <p className="text-sm text-gray-600">Average test cases executed per sprint</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Total Ejecutados</div>
+            <div className="text-sm text-gray-600 mb-1">Total Executed</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Sprints Analizados</div>
+            <div className="text-sm text-gray-600 mb-1">Sprints Analyzed</div>
           <div className="text-2xl font-bold text-gray-900">{data.sprints}</div>
         </div>
       </div>
 
       <div>
-        <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          Escala de Cobertura de Pruebas
+          <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">Test Coverage Scale
           <div className="group relative">
             <Info className="w-4 h-4 text-gray-400 cursor-help" />
             <div className="absolute left-0 top-6 hidden group-hover:block bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg z-50 w-80">
-              <div className="font-semibold mb-1">💡 Referencias Configurables</div>
+              <div className="font-semibold mb-1">💡 Configurable References</div>
               <div className="text-gray-200">
-                Estos valores son <strong>referencias configurables, no estándares de la industria</strong>. 
-                Se basan en un equipo QA de 2-3 testers en un sprint de 2 semanas. 
-                La cantidad óptima varía según: tamaño del equipo, complejidad del producto, 
-                duración del sprint, nivel de automatización y tipo de pruebas. Se recomienda establecer targets propios basados 
-                en la capacidad histórica del equipo y ajustarlos periódicamente.
+                These values are configurable references, not industry standards.
+                They assume a QA team of 2-3 testers in a 2-week sprint. Optimal numbers vary by team size,
+                product complexity, sprint duration, automation level and test types. Set targets based on
+                historical team capacity and adjust periodically.
               </div>
             </div>
           </div>
         </h4>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div className="p-3 bg-success-50 rounded-lg">
-            <div className="text-xs text-success-700 font-medium mb-1">Excelente</div>
+            <div className="text-xs text-success-700 font-medium mb-1">Excellent</div>
             <div className="text-sm font-bold text-success-600">≥ 170</div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
-            <div className="text-xs text-blue-700 font-medium mb-1">Aceptable</div>
+            <div className="text-xs text-blue-700 font-medium mb-1">Good</div>
             <div className="text-sm font-bold text-blue-600">120-169</div>
           </div>
           <div className="p-3 bg-warning-50 rounded-lg">
-            <div className="text-xs text-warning-700 font-medium mb-1">Bajo</div>
+            <div className="text-xs text-warning-700 font-medium mb-1">Improvement Needed</div>
             <div className="text-sm font-bold text-warning-600">&lt; 120</div>
           </div>
         </div>
       </div>
       
-      {/* Gráfico de tendencia */}
-      <TrendChart data={sparklineData} label="Evolución de Casos Ejecutados por Sprint" color="#60a5fa" sprints={sprints} yAxisLabel="Casos" />
+      {/* Trend chart */}
+      <TrendChart data={sparklineData} label="Evolution of Executed Test Cases by Sprint" color="#60a5fa" sprints={sprints} yAxisLabel="Cases" />
 
-      {/* Recomendaciones al final */}
+      {/* Recommendations (test cases) */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
           <TrendingUp className="w-5 h-5 mr-2" />
-          Recomendaciones
+          Recommendations
         </h4>
         <ul className="space-y-2 text-sm text-blue-800">
           {RecommendationEngine.getRecommendations('testCases', data, recommendations).map((rec, idx) => (
@@ -1051,7 +1048,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-success-600 mb-2">
           {data.efficiency}%
         </h3>
-        <p className="text-sm text-gray-600">Eficiencia de resolución de bugs</p>
+        <p className="text-sm text-gray-600">Resolution Efficiency</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -1060,17 +1057,17 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Resueltos</div>
+          <div className="text-sm text-gray-600 mb-1">Resolved Bugs</div>
           <div className="text-2xl font-bold text-success-600">{data.resolved}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Pendientes</div>
+          <div className="text-sm text-gray-600 mb-1">Pending Bugs</div>
           <div className="text-2xl font-bold text-warning-600">{data.pending}</div>
         </div>
       </div>
 
       <div>
-        <h4 className="font-semibold text-gray-800 mb-3">Análisis de Capacidad</h4>
+        <h4 className="font-semibold text-gray-800 mb-3">Capacity Analysis</h4>
         <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
           <div
             className="bg-green-500 h-4 rounded-full transition-all flex items-center justify-end pr-2"
@@ -1083,15 +1080,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
       <div className="grid grid-cols-3 gap-3 text-center">
         <div className="p-3 bg-success-50 rounded-lg">
-          <div className="text-xs text-success-700 font-medium mb-1">Excelente</div>
+          <div className="text-xs text-success-700 font-medium mb-1">Excellent</div>
           <div className="text-sm font-bold text-success-600">≥ 80%</div>
         </div>
         <div className="p-3 bg-blue-50 rounded-lg">
-          <div className="text-xs text-blue-700 font-medium mb-1">Bueno</div>
+          <div className="text-xs text-blue-700 font-medium mb-1">Good</div>
           <div className="text-sm font-bold text-blue-600">70-79%</div>
         </div>
         <div className="p-3 bg-warning-50 rounded-lg">
-          <div className="text-xs text-warning-700 font-medium mb-1">Mejorable</div>
+          <div className="text-xs text-warning-700 font-medium mb-1">Improvement Needed</div>
           <div className="text-sm font-bold text-warning-600">&lt; 70%</div>
         </div>
       </div>
@@ -1136,27 +1133,27 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         
         const datasets = [
           {
-            label: 'Más alta',
+            label: 'Highest',
             data: masAltaEfficiency,
             color: '#dc2626'
           },
           {
-            label: 'Alta',
+            label: 'High',
             data: altaEfficiency,
             color: '#f97316'
           },
           {
-            label: 'Media',
+            label: 'Medium',
             data: mediaEfficiency,
             color: '#3b82f6'
           },
           {
-            label: 'Baja',
+            label: 'Low',
             data: bajaEfficiency,
             color: '#a3a3a3'
           },
           {
-            label: 'Más baja',
+            label: 'Lowest',
             data: masBajaEfficiency,
             color: '#d4d4d4'
           }
@@ -1165,9 +1162,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartMultiple 
             datasets={datasets} 
-            label="Evolución de Eficiencia de Resolución por Criticidad" 
+            label="Evolution of Resolution Efficiency by Criticality" 
             sprints={sprints} 
-            yAxisLabel="Porcentaje (%)"
+            yAxisLabel="Percentage (%)"
             isPercentage={true}
           />
         );
@@ -1177,7 +1174,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div className="bg-success-50 p-4 rounded-lg border border-success-200">
         <h4 className="font-semibold text-success-900 mb-2 flex items-center">
           <CheckCircle className="w-5 h-5 mr-2" />
-          Recomendaciones
+          Recommendations
         </h4>
         <ul className="space-y-2 text-sm text-success-800">
           {RecommendationEngine.getRecommendations('resolutionEfficiency', data, recommendations).map((rec, idx) => (
@@ -1195,14 +1192,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-orange-600 mb-2">
           {data.regressionRate}%
         </h3>
-        <p className="text-sm text-gray-600">Tasa de regresión (hallazgos reabiertos)</p>
+        <p className="text-sm text-gray-600">Regression rate (reopened findings)</p>
       </div>
 
       {/* Métricas de detalles */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Hallazgos Reabiertos</span>
+            <span className="text-sm font-medium text-gray-600">Reopened Findings</span>
             <TrendingUp className="w-4 h-4 text-orange-500" />
           </div>
           <div className="flex items-baseline">
@@ -1212,7 +1209,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Hallazgos Cerrados</span>
+            <span className="text-sm font-medium text-gray-600">Closed Findings</span>
             <CheckCircle className="w-4 h-4 text-success-500" />
           </div>
           <div className="flex items-baseline">
@@ -1221,29 +1218,29 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
 
-      {/* Interpretación */}
+      {/* Interpretation */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
           <Info className="w-4 h-4 mr-2" />
-          Interpretación
+          Interpretation
         </h4>
         <div className="text-sm text-blue-800 space-y-1">
           {data.regressionRate <= 2 && (
             <>
-              <p>✓ <strong>Excelente:</strong> Menos del 2% de regresión indica correcciones de alta calidad.</p>
-              <p>El equipo está resolviendo los hallazgos correctamente en el primer intento.</p>
+              <p>✓ <strong>Excellent:</strong> Less than 2% regression indicates high-quality fixes.</p>
+              <p>The team is resolving findings correctly on the first attempt.</p>
             </>
           )}
           {data.regressionRate > 2 && data.regressionRate <= 5 && (
             <>
-              <p>⚠️ <strong>Aceptable:</strong> Entre 2-5% es normal pero requiere atención.</p>
-              <p>Considera revisar el proceso de testing pre-cierre de hallazgos.</p>
+              <p>⚠️ <strong>Acceptable:</strong> Between 2-5% is normal but requires attention.</p>
+              <p>Consider reviewing the pre-closure testing process for findings.</p>
             </>
           )}
           {data.regressionRate > 5 && (
             <>
-              <p>🔴 <strong>Crítico:</strong> Más del 5% indica problemas en calidad de fixes.</p>
-              <p>Implementar revisión técnica obligatoria antes de cerrar hallazgos críticos.</p>
+              <p>🔴 <strong>Critical:</strong> More than 5% indicates quality issues in fixes.</p>
+              <p>Implement mandatory technical review before closing critical findings.</p>
             </>
           )}
         </div>
@@ -1254,7 +1251,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <TrendChart
             data={sparklineData}
-            label="Tasa de Regresión por Sprint"
+            label="Regression Rate by Sprint"
             color="#f97316"
             sprints={sprints}
             yAxisLabel="%"
@@ -1264,13 +1261,13 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
       {/* Recomendaciones */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-3">Recomendaciones para Reducir Regresión</h4>
+        <h4 className="font-semibold text-gray-800 mb-3">Recommendations to Reduce Regression</h4>
         <ul className="space-y-2 text-sm text-gray-700">
-          <li>✓ Ejecutar test cases relacionados después de cada fix</li>
-          <li>✓ Revisar cambios de código con peer review obligatorio</li>
-          <li>✓ Automatizar tests de regresión para hallazgos críticos</li>
-          <li>✓ Documentar root cause de cada hallazgo reabierto</li>
-          <li>✓ Capacitación en análisis de raíz de problemas (RCA)</li>
+          <li>✓ Execute related test cases after each fix</li>
+          <li>✓ Review code changes with mandatory peer review</li>
+          <li>✓ Automate regression tests for critical findings</li>
+          <li>✓ Document root cause of each reopened finding</li>
+          <li>✓ Training in root cause analysis (RCA)</li>
         </ul>
       </div>
     </div>
@@ -1283,16 +1280,16 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-blue-600 mb-2">
           {data.executionRate}%
         </h3>
-        <p className="text-sm text-gray-600">Tasa de ejecución de casos de prueba</p>
+        <p className="text-sm text-gray-600">Test case execution rate</p>
       </div>
 
       {/* Métricas de detalles */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Ejecutados</span>
-            <CheckCircle className="w-4 h-4 text-success-500" />
-          </div>
+              <span className="text-sm font-medium text-gray-600">Executed</span>
+              <CheckCircle className="w-4 h-4 text-success-500" />
+            </div>
           <div className="flex items-baseline">
             <span className="text-2xl font-bold text-gray-900">{data.executed || 0}</span>
           </div>
@@ -1300,7 +1297,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Planeados</span>
+            <span className="text-sm font-medium text-gray-600">Planned</span>
             <Target className="w-4 h-4 text-blue-500" />
           </div>
           <div className="flex items-baseline">
@@ -1312,7 +1309,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Barra de progreso */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Cobertura de Ejecución</span>
+          <span className="text-sm font-medium text-gray-700">Execution Coverage</span>
           <span className="text-sm font-bold text-blue-600">{data.executionRate}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -1323,40 +1320,40 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
 
-      {/* Interpretación */}
+      {/* Interpretation */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
           <Info className="w-4 h-4 mr-2" />
-          Interpretación
+          Interpretation
         </h4>
         <div className="text-sm text-blue-800 space-y-1">
           {data.executionRate >= 95 && (
             <>
-              <p>✓ <strong>Excelente:</strong> Más del 95% de cobertura es el objetivo ideal.</p>
-              <p>Se están ejecutando casi todos los casos planeados.</p>
+              <p>✓ <strong>Excellent:</strong> Above 95% coverage is the ideal target.</p>
+              <p>Almost all planned test cases are being executed.</p>
             </>
           )}
           {data.executionRate >= 80 && data.executionRate < 95 && (
             <>
-              <p>⚠️ <strong>Aceptable:</strong> Entre 80-95% requiere mejora.</p>
-              <p>Investiga por qué no se ejecutaron todos los casos planeados.</p>
+              <p>⚠️ <strong>Acceptable:</strong> Between 80-95% requires improvement.</p>
+              <p>Investigate why not all planned test cases were executed.</p>
             </>
           )}
           {data.executionRate < 80 && (
             <>
-              <p>🔴 <strong>Crítico:</strong> Menos del 80% es insuficiente.</p>
-              <p>Se están saltando demasiados casos de prueba. Requiere acción inmediata.</p>
+              <p>🔴 <strong>Critical:</strong> Less than 80% is insufficient.</p>
+              <p>Too many test cases are being skipped. Requires immediate action.</p>
             </>
           )}
         </div>
       </div>
 
-      {/* Gráfico de tendencia */}
+      {/* Trend chart */}
       {sparklineData && sprints && (
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <TrendChart
             data={sparklineData}
-            label="Tasa de Ejecución por Sprint"
+            label="Execution Rate by Sprint"
             color="#3b82f6"
             sprints={sprints}
             yAxisLabel="%"
@@ -1364,14 +1361,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       )}
 
-      {/* Recomendaciones */}
-      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-        <h4 className="font-semibold text-blue-900 mb-3">Recomendaciones para Mejorar Ejecución</h4>
+      {/* Recommendations by severity */}
+      <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+        <h4 className="font-semibold text-red-900 mb-3">Recommended Actions by Severity</h4>
         <ul className="space-y-2 text-sm text-blue-800">
-          <li>📊 Mantener cobertura ≥95% es crítico para validación completa</li>
-          <li>🔍 Analizar por qué casos se saltan (recursos, tiempo, defectos bloqueantes)</li>
-          <li>⏱️ Si hay cambios, documentar el impacto en alcance de pruebas</li>
-          <li>✓ Implementar automatización para aumentar cobertura</li>
+          <li>📊 Maintaining coverage ≥95% is critical for complete validation</li>
+          <li>🔍 Analyze why test cases are skipped (resources, time, blocking defects)</li>
+          <li>⏱️ If there are changes, document the impact on test scope</li>
+          <li>✓ Implement automation to increase coverage</li>
         </ul>
       </div>
     </div>
@@ -1382,16 +1379,16 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Resumen general */}
       <div className="bg-red-50 p-6 rounded-lg border border-red-200">
         <h3 className="text-2xl font-bold text-red-600 mb-2">
-          {data.critical || 0} Hallazgos Críticos
+          {data.critical || 0} Critical Findings
         </h3>
-        <p className="text-sm text-gray-600">Distribución de criticidad por severidad</p>
+        <p className="text-sm text-gray-600">Distribution of criticality by severity</p>
       </div>
 
       {/* Matriz de desglose por prioridad */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-danger-50 p-4 rounded-lg border-2 border-danger-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-danger-800">Más Alta</span>
+            <span className="text-sm font-medium text-danger-800">Highest</span>
             <AlertTriangle className="w-4 h-4 text-danger-600" />
           </div>
           <div className="flex items-baseline">
@@ -1430,7 +1427,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
       {/* Gráfico circular con todas las severidades */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-3">Distribución por Severidad</h4>
+        <h4 className="font-semibold text-gray-800 mb-3">Distribution by Severity</h4>
         <div className="flex flex-col md:flex-row gap-6 items-center">
           {/* Gráfico circular SVG */}
           <div className="flex-shrink-0">
@@ -1443,17 +1440,17 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                 const total = masAlta + alta + media + baja || 1;
                 
                 const colors = {
-                  'Más Alta': '#dc2626',
-                  'Alta': '#f59e0b',
-                  'Media': '#3b82f6',
-                  'Baja': '#9ca3af'
+                  'Highest': '#dc2626',
+                  'High': '#f59e0b',
+                  'Medium': '#3b82f6',
+                  'Low': '#9ca3af'
                 };
-                
+
                 const values = [
-                  { label: 'Más Alta', value: masAlta, color: colors['Más Alta'] },
-                  { label: 'Alta', value: alta, color: colors['Alta'] },
-                  { label: 'Media', value: media, color: colors['Media'] },
-                  { label: 'Baja', value: baja, color: colors['Baja'] }
+                  { label: 'Highest', value: masAlta, color: colors['Highest'] },
+                  { label: 'High', value: alta, color: colors['High'] },
+                  { label: 'Medium', value: media, color: colors['Medium'] },
+                  { label: 'Low', value: baja, color: colors['Low'] }
                 ].filter(v => v.value > 0);
                 
                 let currentAngle = -90;
@@ -1509,24 +1506,24 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               const total = masAlta + alta + media + baja || 1;
               
               const items = [
-                { label: 'Más Alta', value: masAlta, color: 'bg-danger-500' },
-                { label: 'Alta', value: alta, color: 'bg-warning-500' },
-                { label: 'Media', value: media, color: 'bg-blue-500' },
-                { label: 'Baja', value: baja, color: 'bg-gray-500' }
+                { label: 'Highest', value: masAlta, color: 'bg-danger-500' },
+                { label: 'High', value: alta, color: 'bg-warning-500' },
+                { label: 'Medium', value: media, color: 'bg-blue-500' },
+                { label: 'Low', value: baja, color: 'bg-gray-500' }
               ];
-              
+
               const bgColorMap = {
-                'Más Alta': 'bg-red-50',
-                'Alta': 'bg-orange-50',
-                'Media': 'bg-blue-50',
-                'Baja': 'bg-gray-50'
+                'Highest': 'bg-red-50',
+                'High': 'bg-orange-50',
+                'Medium': 'bg-blue-50',
+                'Low': 'bg-gray-50'
               };
-              
+
               const textColorMap = {
-                'Más Alta': 'text-red-700',
-                'Alta': 'text-orange-700',
-                'Media': 'text-blue-700',
-                'Baja': 'text-gray-700'
+                'Highest': 'text-red-700',
+                'High': 'text-orange-700',
+                'Medium': 'text-blue-700',
+                'Low': 'text-gray-700'
               };
               
               return (
@@ -1549,20 +1546,20 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
         <div className="mt-3 p-2 bg-gray-50 rounded border border-gray-200 text-xs text-gray-700">
           <p><strong>Total:</strong> {(data.critical || 0) + (data.high || 0) + (data.medium || 0) + (data.low || 0)} hallazgos</p>
-          <p className="text-xs mt-1">🔴 Riesgo Crítico (Más Alta + Alta): {(data.critical || 0) + (data.high || 0)}</p>
+          <p className="text-xs mt-1">🔴 Critical Risk (Highest + High): {(data.critical || 0) + (data.high || 0)}</p>
         </div>
       </div>
 
       {/* Gráfico de tendencia de Hallazgos Críticos - Todas las severidades */}
       {sprints && sprints.length > 0 && (
         <div className="bg-white p-2 rounded-lg border border-gray-200">
-          <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">Hallazgos Críticos por Sprint</h5>
+          <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">Critical Findings by Sprint</h5>
           <div className="h-40">
           {(() => {
             // Generar datos por severidad desde los sprints
             const sprintLabels = sprints.map(s => s.sprint || s.name || 'Sprint');
             
-            // Estimar distribución de hallazgos por severidad en cada sprint
+            // Estimate distribution of findings by severity in each sprint
             // Usar proporción actual para interpolar datos históricos
             const total = (data.critical || 0) + (data.high || 0) + (data.medium || 0) + (data.low || 0);
             const critPct = total > 0 ? (data.critical || 0) / total : 0.25;
@@ -1595,7 +1592,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               labels: sprintLabels,
               datasets: [
               {
-                  label: 'Más Alta',
+                  label: 'Highest',
                   data: criticoData,
                   borderColor: '#dc2626',
                   backgroundColor: 'rgba(220, 38, 38, 0.1)',
@@ -1607,7 +1604,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                   pointHoverRadius: 5
                 },
                 {
-                  label: 'Alta',
+                  label: 'High',
                   data: altoData,
                   borderColor: '#f59e0b',
                   backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -1619,7 +1616,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                   pointHoverRadius: 5
                 },
                 {
-                  label: 'Media',
+                  label: 'Medium',
                   data: mediaData,
                   borderColor: '#3b82f6',
                   backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -1631,7 +1628,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                   pointHoverRadius: 5
                 },
                 {
-                  label: 'Baja',
+                  label: 'Low',
                   data: bajaData,
                   borderColor: '#9ca3af',
                   backgroundColor: 'rgba(156, 163, 175, 0.1)',
@@ -1723,14 +1720,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-red-600 mb-2">
           {data.leakageRate}%
         </h3>
-        <p className="text-sm text-gray-600">Hallazgos que escaparon a producción</p>
+        <p className="text-sm text-gray-600">Findings that escaped to production</p>
       </div>
 
       {/* Métricas de detalles */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">En Producción</span>
+            <span className="text-sm font-medium text-gray-600">In Production</span>
             <AlertTriangle className="w-4 h-4 text-red-500" />
           </div>
           <div className="flex items-baseline">
@@ -1740,7 +1737,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Total Hallazgos</span>
+            <span className="text-sm font-medium text-gray-600">Total Findings</span>
             <Bug className="w-4 h-4 text-warning-500" />
           </div>
           <div className="flex items-baseline">
@@ -1752,7 +1749,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Barra de progreso */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Tasa de Fuga</span>
+          <span className="text-sm font-medium text-gray-700">Leak Rate</span>
           <span className="text-sm font-bold text-red-600">{data.leakageRate}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -1772,20 +1769,20 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="text-sm text-red-800 space-y-1">
           {data.leakageRate <= 2 && (
             <>
-              <p>✓ <strong>Excelente:</strong> Menos del 2% es el benchmark de calidad.</p>
-              <p>Tus procesos QA están funcionando correctamente.</p>
+              <p>✓ <strong>Excellent:</strong> Less than 2% is the quality benchmark.</p>
+              <p>Your QA processes are working correctly.</p>
             </>
           )}
           {data.leakageRate > 2 && data.leakageRate <= 5 && (
             <>
-              <p>⚠️ <strong>Aceptable pero preocupante:</strong> Entre 2-5%.</p>
-              <p>Revisar estrategia de testing pre-producción.</p>
+              <p>⚠️ <strong>Acceptable but concerning:</strong> Between 2-5%.</p>
+              <p>Review pre-production testing strategy.</p>
             </>
           )}
           {data.leakageRate > 5 && (
             <>
-              <p>🔴 <strong>CRÍTICO:</strong> Más del 5% de fuga.</p>
-              <p>Requiere auditoría completa del proceso QA y remediación urgente.</p>
+              <p>🔴 <strong>CRITICAL:</strong> More than 5% leak rate.</p>
+              <p>Requires complete QA process audit and urgent remediation.</p>
             </>
           )}
         </div>
@@ -1793,13 +1790,13 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
       {/* Recomendaciones */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-3">Plan de Mejora</h4>
+        <h4 className="font-semibold text-gray-800 mb-3">Improvement Plan</h4>
         <ul className="space-y-2 text-sm text-gray-700">
-          <li>✓ Análisis RCA de hallazgos escapados: ¿Qué se missed en QA?</li>
-          <li>✓ Reforzar pruebas de humo en ambientes de staging</li>
-          <li>✓ Implementar pruebas automatizadas para casos que escaparon</li>
-          <li>✓ Aumentar coverage de regression testing</li>
-          <li>✓ Capacitación del equipo QA sobre hallazgos escapados</li>
+          <li>✓ RCA analysis of leaked findings: What was missed in QA?</li>
+          <li>✓ Strengthen smoke tests in staging environments</li>
+          <li>✓ Implement automated tests for cases that leaked</li>
+          <li>✓ Increase regression testing coverage</li>
+          <li>✓ QA team training on leaked findings</li>
         </ul>
       </div>
     </div>
@@ -1809,24 +1806,24 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     <div className="space-y-6">
       <div>
         <h3 className="text-2xl font-bold text-danger-600 mb-2">
-          {data.total} bugs críticos
+          {data.total} Critical Findings
         </h3>
-        <p className="text-sm text-gray-600">Bugs de prioridad Más alta y Alta detectados</p>
+        <p className="text-sm text-gray-600">Bugs of Highest and High priority detected</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Más Alta Prioridad</div>
+          <div className="text-sm text-gray-600 mb-1">Highest Priority</div>
           <div className="text-2xl font-bold text-danger-600">{data.highest}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Alta Prioridad</div>
+          <div className="text-sm text-gray-600 mb-1">High Priority</div>
           <div className="text-2xl font-bold text-warning-600">{data.high}</div>
         </div>
       </div>
 
       <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-3">Distribución de Criticidad</h4>
+        <h4 className="font-semibold text-gray-800 mb-3">Criticality Distribution</h4>
         <div className="flex flex-col md:flex-row gap-6 items-center">
           {/* Gráfico circular */}
           <div className="flex-shrink-0">
@@ -1856,19 +1853,19 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                 const total = masAlta + alta + media + baja + masBaja || 1;
                 
                 const colors = {
-                  'Más alta': '#dc2626',
-                  'Alta': '#f97316',
-                  'Media': '#3b82f6',
-                  'Baja': '#a3a3a3',
-                  'Más baja': '#d4d4d4'
+                  'Highest': '#dc2626',
+                  'High': '#f97316',
+                  'Medium': '#3b82f6',
+                  'Low': '#a3a3a3',
+                  'Lowest': '#d4d4d4'
                 };
-                
+
                 const values = [
-                  { label: 'Más alta', value: masAlta, color: colors['Más alta'] },
-                  { label: 'Alta', value: alta, color: colors['Alta'] },
-                  { label: 'Media', value: media, color: colors['Media'] },
-                  { label: 'Baja', value: baja, color: colors['Baja'] },
-                  { label: 'Más baja', value: masBaja, color: colors['Más baja'] }
+                  { label: 'Highest', value: masAlta, color: colors['Highest'] },
+                  { label: 'High', value: alta, color: colors['High'] },
+                  { label: 'Medium', value: media, color: colors['Medium'] },
+                  { label: 'Low', value: baja, color: colors['Low'] },
+                  { label: 'Lowest', value: masBaja, color: colors['Lowest'] }
                 ].filter(v => v.value > 0);
                 
                 let currentAngle = -90;
@@ -1959,11 +1956,11 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               const masBajaKey = findKey('Más Baja');
               
               const items = [
-                { label: 'Más alta', value: priorities[masAltaKey]?.count || 0, color: '#dc2626', bgColor: 'bg-red-50', textColor: 'text-red-700' },
-                { label: 'Alta', value: priorities[altaKey]?.count || 0, color: '#f97316', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
-                { label: 'Media', value: priorities[mediaKey]?.count || 0, color: '#3b82f6', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
-                { label: 'Baja', value: priorities[bajaKey]?.count || 0, color: '#a3a3a3', bgColor: 'bg-gray-50', textColor: 'text-gray-700' },
-                { label: 'Más baja', value: priorities[masBajaKey]?.count || 0, color: '#d4d4d4', bgColor: 'bg-gray-50', textColor: 'text-gray-600' }
+                { label: 'Highest', value: priorities[masAltaKey]?.count || 0, color: '#dc2626', bgColor: 'bg-red-50', textColor: 'text-red-700' },
+                { label: 'High', value: priorities[altaKey]?.count || 0, color: '#f97316', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
+                { label: 'Medium', value: priorities[mediaKey]?.count || 0, color: '#3b82f6', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
+                { label: 'Low', value: priorities[bajaKey]?.count || 0, color: '#a3a3a3', bgColor: 'bg-gray-50', textColor: 'text-gray-700' },
+                { label: 'Lowest', value: priorities[masBajaKey]?.count || 0, color: '#d4d4d4', bgColor: 'bg-gray-50', textColor: 'text-gray-600' }
               ];
               
               const total = items.reduce((sum, item) => sum + item.value, 0) || 1;
@@ -1986,7 +1983,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-3 italic">
-          * El análisis se centra en prioridades críticas (Más alta y Alta) por su impacto en la calidad del producto
+          * Analysis focuses on critical priorities (Highest and High) due to their impact on product quality
         </p>
       </div>
       
@@ -2025,27 +2022,27 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         
         const datasets = [
           {
-            label: 'Más alta',
+            label: 'Highest',
             data: masAltaData,
             color: '#dc2626'
           },
           {
-            label: 'Alta',
+            label: 'High',
             data: altaData,
             color: '#f97316'
           },
           {
-            label: 'Media',
+            label: 'Medium',
             data: mediaData,
             color: '#3b82f6'
           },
           {
-            label: 'Baja',
+            label: 'Low',
             data: bajaData,
             color: '#a3a3a3'
           },
           {
-            label: 'Más baja',
+            label: 'Lowest',
             data: masBajaData,
             color: '#d4d4d4'
           }
@@ -2054,9 +2051,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartMultiple 
             datasets={datasets} 
-            label="Evolución de Bugs por Prioridad por Sprint" 
+            label="Evolution of Bugs by Priority by Sprint" 
             sprints={sprints} 
-            yAxisLabel="Cantidad de Bugs" 
+            yAxisLabel="Amount of Bugs" 
           />
         );
       })()}
@@ -2065,7 +2062,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div className="bg-danger-50 p-4 rounded-lg border border-danger-200">
         <h4 className="font-semibold text-danger-900 mb-2 flex items-center">
           <AlertCircle className="w-5 h-5 mr-2" />
-          Acciones Urgentes
+           Urgent Actions
         </h4>
         <ul className="space-y-2 text-sm text-danger-800">
           {RecommendationEngine.getRecommendations('criticalBugs', data, recommendations).map((rec, idx) => (
@@ -2099,33 +2096,33 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     <div className="space-y-6">
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
         <h3 className="text-2xl font-bold text-warning-600 mb-2">
-          {data.pending} pendientes
+          {data.pending} pending Critical Bugs
         </h3>
-        <p className="text-sm text-gray-600">Bugs críticos sin resolver</p>
+        <p className="text-sm text-gray-600">Unresolved Critical Bugs</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Total Críticos</div>
+          <div className="text-sm text-gray-600 mb-1">Total Critical</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Resueltos</div>
+          <div className="text-sm text-gray-600 mb-1">Resolved</div>
           <div className="text-2xl font-bold text-success-600">{data.resolved}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Pendientes</div>
+          <div className="text-sm text-gray-600 mb-1">Pending</div>
           <div className="text-2xl font-bold text-warning-600">{data.pending}</div>
         </div>
       </div>
 
       {/* Gráficos circulares de Pendientes y Resueltos por criticidad */}
       <div>
-        <h4 className="font-semibold text-gray-800 mb-4">Distribución por Criticidad</h4>
+        <h4 className="font-semibold text-gray-800 mb-4">Distribution by Criticality</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sección de Pendientes */}
           <div className="bg-warning-50 p-4 rounded-lg border border-warning-200">
-            <h5 className="text-sm font-semibold text-warning-800 mb-3">Bugs Pendientes</h5>
+            <h5 className="text-sm font-semibold text-warning-800 mb-3">Pending Bugs</h5>
             <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
               {/* Gráfico circular */}
               <div className="flex-shrink-0">
@@ -2192,7 +2189,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex items-center justify-between p-2 rounded bg-red-50">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Más Alta</span>
+                          <span className="text-sm font-medium text-red-700">Highest</span>
                         </div>
                         <span className="text-sm font-semibold text-red-700">
                           {masAltaPending} ({totalPending > 0 ? Math.round((masAltaPending / totalPending) * 100) : 0}%)
@@ -2201,7 +2198,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex items-center justify-between p-2 rounded bg-orange-50">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></div>
-                          <span className="text-sm font-medium text-orange-700">Alta</span>
+                          <span className="text-sm font-medium text-orange-700">High</span>
                         </div>
                         <span className="text-sm font-semibold text-orange-700">
                           {altaPending} ({totalPending > 0 ? Math.round((altaPending / totalPending) * 100) : 0}%)
@@ -2216,7 +2213,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
           {/* Sección de Resueltos */}
           <div className="bg-success-50 p-4 rounded-lg border border-success-200">
-            <h5 className="text-sm font-semibold text-success-800 mb-3">Bugs Resueltos</h5>
+            <h5 className="text-sm font-semibold text-success-800 mb-3">Resolved Bugs</h5>
             <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
               {/* Gráfico circular */}
               <div className="flex-shrink-0">
@@ -2283,7 +2280,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex items-center justify-between p-2 rounded bg-red-50">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Más Alta</span>
+                          <span className="text-sm font-medium text-red-700">Higher</span>
                         </div>
                         <span className="text-sm font-semibold text-red-700">
                           {masAltaResolved} ({totalResolved > 0 ? Math.round((masAltaResolved / totalResolved) * 100) : 0}%)
@@ -2292,7 +2289,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex items-center justify-between p-2 rounded bg-orange-50">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></div>
-                          <span className="text-sm font-medium text-orange-700">Alta</span>
+                          <span className="text-sm font-medium text-orange-700">High</span>
                         </div>
                         <span className="text-sm font-semibold text-orange-700">
                           {altaResolved} ({totalResolved > 0 ? Math.round((altaResolved / totalResolved) * 100) : 0}%)
@@ -2320,22 +2317,22 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         
         const datasets = [
           {
-            label: 'Pendiente (Total)',
+            label: 'Pending (Total)',
             data: pendienteData,
             color: '#8b5cf6'
           },
           {
-            label: 'Tareas por hacer',
+            label: 'To Do',
             data: tareasPorHacerData,
             color: '#dc2626'
           },
           {
-            label: 'En progreso',
+            label: 'In Progress',
             data: enProgresoData,
             color: '#f97316'
           },
           {
-            label: 'Reabierto',
+            label: 'Reopened',
             data: reabiertosData,
             color: '#eab308'
           }
@@ -2344,9 +2341,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartMultiple 
             datasets={datasets} 
-            label="Evolución de Hallazgos Críticos Pendientes por Sprint" 
+            label="Evolution of Pending Critical Findings by Sprint" 
             sprints={sprints} 
-            yAxisLabel="Hallazgos Críticos Pendientes" 
+            yAxisLabel="Pending Critical Findings" 
           />
         );
       })()}
@@ -2355,7 +2352,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div className="bg-warning-50 p-4 rounded-lg border border-warning-200">
         <h4 className="font-semibold text-warning-900 mb-2 flex items-center">
           <TrendingUp className="w-5 h-5 mr-2" />
-          Plan de Acción
+          Action Plan
         </h4>
         <ul className="space-y-2 text-sm text-warning-800">
           {RecommendationEngine.getRecommendations('criticalBugsStatus', data, recommendations).map((rec, idx) => (

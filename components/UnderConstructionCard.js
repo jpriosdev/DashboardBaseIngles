@@ -45,10 +45,10 @@ export default function UnderConstructionCard({
 
   const defaultHelpContent = (
     <div>
-      <div className="font-semibold text-sm text-gray-800 mb-1">Qué mide</div>
+      <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
       <div className="text-xs text-gray-600 mb-2">This card will display the main measure related to &quot;{title}&quot;, for example a ratio, percentage or average time that summarizes the quality state.</div>
-      <div className="font-semibold text-sm text-gray-800 mb-1">Por qué es útil</div>
-      <div className="text-xs text-gray-600">Permite a responsables y equipos priorizar acciones, entender riesgos y comunicar el impacto en el negocio de forma simple y directa.</div>
+      <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+      <div className="text-xs text-gray-600">Allows managers and teams to prioritize actions, understand risks, and communicate business impact simply and directly.</div>
     </div>
   );
 
@@ -69,7 +69,7 @@ export default function UnderConstructionCard({
 
         <div className="flex items-center justify-between mb-1">
           <div className="p-1 rounded-lg bg-blue-100 text-blue-600">{icon}</div>
-          <span className="text-xs font-semibold text-blue-600 bg-white px-1.5 py-0 rounded">En desarrollo</span>
+          <span className="text-xs font-semibold text-blue-600 bg-white px-1.5 py-0 rounded">Under Construction</span>
         </div>
 
         <h3 className="text-xs font-semibold text-gray-700 mb-0.5 line-through leading-tight">{title}</h3>
