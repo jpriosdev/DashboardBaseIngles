@@ -13,28 +13,36 @@ import {
 import UnderConstructionCard from './UnderConstructionCard';
 import KPICard from './KPICard';
 
-  export default function QualityMetrics({ data, visibleKeys, sprintData = [], onOpenDetail }) {
-    // Sprint list and selection for filtering
-    const sprintList = sprintData?.map(s => s.sprint || s.name || s.id) || [];
-    const [selectedSprints, setSelectedSprints] = useState(['Todos']);
+  export default function QualityMetrics({ data, visibleKeys, sprintData = [], onOpenDetail,
+    sprintListProp, selectedSprintsProp, onSprintToggleProp, showFiltersProp
+  }) {
+      // Sprint list and selection for filtering
+      const sprintList = sprintListProp || sprintData?.map(s => s.sprint || s.name || s.id) || [];
+      const [localSelectedSprints, setLocalSelectedSprints] = useState(['Todos']);
 
-    const handleSprintToggle = (sprint) => {
-      if (sprint === 'Todos') return setSelectedSprints(['Todos']);
-      setSelectedSprints(prev => {
-        if (prev.includes('Todos')) return [sprint];
-        if (prev.includes(sprint)) {
-          const filtered = prev.filter(s => s !== sprint);
-          return filtered.length === 0 ? ['Todos'] : filtered;
+      // If parent provides selectedSprints, use it; otherwise fallback to local state
+      const selectedSprints = Array.isArray(selectedSprintsProp) ? selectedSprintsProp : localSelectedSprints;
+
+      const handleSprintToggle = (sprint) => {
+        if (typeof onSprintToggleProp === 'function') {
+          return onSprintToggleProp(sprint);
         }
-        return [...prev, sprint];
-      });
-    };
+        if (sprint === 'Todos') return setLocalSelectedSprints(['Todos']);
+        setLocalSelectedSprints(prev => {
+          if (prev.includes('Todos')) return [sprint];
+          if (prev.includes(sprint)) {
+            const filtered = prev.filter(s => s !== sprint);
+            return filtered.length === 0 ? ['Todos'] : filtered;
+          }
+          return [...prev, sprint];
+        });
+      };
 
-    const filteredSprintData = useMemo(() => {
-      if (!sprintData || sprintData.length === 0) return sprintData;
-      if (selectedSprints.includes('Todos')) return sprintData;
-      return sprintData.filter(s => selectedSprints.includes(s.sprint || s.name || s.id));
-    }, [sprintData, selectedSprints]);
+      const filteredSprintData = useMemo(() => {
+        if (!sprintData || sprintData.length === 0) return sprintData;
+        if (selectedSprints.includes('Todos')) return sprintData;
+        return sprintData.filter(s => selectedSprints.includes(s.sprint || s.name || s.id));
+      }, [sprintData, selectedSprints]);
     // Recompute metrics from provided merged data (kpis + qualityMetrics + summary)
 
     // Refactor: cálculos alineados con nueva estructura SQL/CSV
@@ -310,34 +318,6 @@ import KPICard from './KPICard';
 
     return (
       <div className="space-y-8">
-        {/* Filtro por Sprint (compacto) */}
-        {sprintList.length > 0 && (
-          <div className="mb-4 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                  <label className="text-sm font-medium text-gray-700 mr-2">Filter by Sprint:</label>
-                  {!selectedSprints.includes('Todos') && selectedSprints.length > 0 && (
-                    <span className="text-sm text-executive-600 font-medium">{selectedSprints.length} selected</span>
-                  )}
-                </div>
-                <div className="text-sm text-gray-500">Select one or more</div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <label className="flex items-center p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" checked={selectedSprints.includes('Todos')} onChange={() => handleSprintToggle('Todos')} className="w-4 h-4 text-executive-600" />
-                <span className="ml-2 text-sm text-gray-700">All</span>
-              </label>
-              {sprintList.map(s => (
-                <label key={s} className={`flex items-center p-2 rounded-lg border transition-colors cursor-pointer ${selectedSprints.includes(s) && !selectedSprints.includes('Todos') ? 'border-executive-500 bg-executive-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <input type="checkbox" checked={selectedSprints.includes(s) && !selectedSprints.includes('Todos')} onChange={() => handleSprintToggle(s)} className="w-4 h-4 text-executive-600" />
-                  <span className="ml-2 text-sm text-gray-700">{s}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Métricas principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {metricsToShow.map((metric) => {

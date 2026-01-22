@@ -6,27 +6,6 @@ import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  RefreshCw, 
-  AlertTriangle,
-  BarChart3,
-  Target,
-  Users,
-  Activity,
-  CheckCircle,
-  TrendingUp,
-  TrendingDown,
-  Bug,
-  Clock,
-  Settings
-  , ChevronDown, ChevronUp
-} from 'lucide-react';
-
-import KPICard from './KPICard';
-import UnderConstructionCard from './UnderConstructionCard';
-import SprintTrendChart from './SprintTrendChart';
-import DeveloperAnalysis from './DeveloperAnalysis';
-import ModuleAnalysis from './ModuleAnalysis';
 import ExecutiveRecommendations from './ExecutiveRecommendations';
 import QualityMetrics from './QualityMetrics';
 import DetailModal from './DetailModal';
@@ -34,6 +13,12 @@ import SprintComparison from './SprintComparison';
 import ActionableRecommendations from './ActionableRecommendations';
 import SettingsMenu from './SettingsMenu';
 import { QADataProcessor } from '../utils/dataProcessor'; // Nueva importación
+import { BarChart3, Target, Users, CheckCircle, Filter, ChevronDown, AlertTriangle, X, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
+import KPICard from './KPICard';
+import UnderConstructionCard from './UnderConstructionCard';
+import SprintTrendChart from './SprintTrendChart';
+import ModuleAnalysis from './ModuleAnalysis';
+import DeveloperAnalysis from './DeveloperAnalysis';
 
 export default function ExecutiveDashboard({ 
   // Original props
@@ -77,6 +62,77 @@ export default function ExecutiveDashboard({
 
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
+
+  // ===== Global filter state (shared across tabs) =====
+  const [selectedSprints, setSelectedSprints] = useState(['Todos']);
+  const [testTypeFilter, setTestTypeFilter] = useState('all'); // 'all', 'system', 'uat'
+  const [selectedStatus, setSelectedStatus] = useState(['Todos']);
+  const [selectedPriorities, setSelectedPriorities] = useState(['Todos']);
+  const [selectedDevelopers, setSelectedDevelopers] = useState(['Todos']);
+  const [selectedCategories, setSelectedCategories] = useState(['Todos']);
+  const [selectedTags, setSelectedTags] = useState(['Todos']);
+  const [selectedStrategies, setSelectedStrategies] = useState(['Todos']);
+  const [selectedEnvironments, setSelectedEnvironments] = useState(['Todos']);
+  const [selectedFixVersions, setSelectedFixVersions] = useState(['Todos']);
+  const [showFilters, setShowFilters] = useState(true);
+  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, tag: false, strategy: false, environment: false, fixVersion: false });
+
+  const handleFilterToggle = (filterType, value) => {
+    const setterMap = {
+      sprint: setSelectedSprints,
+      status: setSelectedStatus,
+      priority: setSelectedPriorities,
+      developer: setSelectedDevelopers,
+      category: setSelectedCategories,
+      tag: setSelectedTags,
+      strategy: setSelectedStrategies,
+      environment: setSelectedEnvironments,
+      fixVersion: setSelectedFixVersions
+    };
+
+    const setter = setterMap[filterType];
+    if (!setter) return;
+
+    if (value === 'Todos') {
+      setter(['Todos']);
+    } else {
+      setter(prev => {
+        if (prev.includes('Todos')) return [value];
+        if (prev.includes(value)) {
+          const filtered = prev.filter(v => v !== value);
+          return filtered.length === 0 ? ['Todos'] : filtered;
+        }
+        return [...prev, value];
+      });
+    }
+  };
+
+  // Generic handler for compact multi-select inputs
+  const handleMultiSelectChange = (filterType, e) => {
+    const setterMap = {
+      sprint: setSelectedSprints,
+      status: setSelectedStatus,
+      priority: setSelectedPriorities,
+      developer: setSelectedDevelopers,
+      category: setSelectedCategories,
+      tag: setSelectedTags,
+      strategy: setSelectedStrategies,
+      environment: setSelectedEnvironments,
+      fixVersion: setSelectedFixVersions
+    };
+    const setter = setterMap[filterType];
+    if (!setter) return;
+
+    const values = Array.from(e.target.selectedOptions).map(o => o.value);
+    if (values.includes('Todos') || values.length === 0) {
+      setter(['Todos']);
+    } else {
+      setter(values.filter(v => v !== 'Todos'));
+    }
+  };
+
+  // Wrapper for sprint toggle to keep compatibility with XTemporal design
+  const handleSprintToggle = (sprint) => handleFilterToggle('sprint', sprint);
 
   const showSprintTooltip = (e, sprintKey, sprintData) => {
     try {
@@ -216,6 +272,13 @@ export default function ExecutiveDashboard({
     };
   }, [loadConfiguration]);
 
+  // If no external data is provided, enable parametric mode by default
+  useEffect(() => {
+    if (!externalData) {
+      setUseParametricMode(true);
+    }
+  }, [externalData]);
+
   // Load recommendations on mount
   useEffect(() => {
     loadRecommendations();
@@ -321,12 +384,170 @@ export default function ExecutiveDashboard({
 
   const { kpis, summary, alerts } = currentData;
 
+  // Derived lists are computed from `filteredData` below so they update dynamically
+
+  // Helper to classify sprint test type (reuse light logic from OverviewTab)
+  const classifyTestType = (sprint) => {
+    if (!sprint) return 'system';
+    if (sprint.testType) return sprint.testType;
+    const tags = (sprint.tags || '').toLowerCase();
+    if (tags.includes('uat') || tags.includes('equipo')) return 'uat';
+    if (tags.includes('integración') || tags.includes('smoke')) return 'system';
+    return 'system';
+  };
+
+  // Apply global filters to currentData and return a filtered copy
+  const applyGlobalFilters = (data) => {
+    if (!data) return data;
+
+    const bugs = (data.bugs || []).filter(b => {
+      // Status
+      if (!selectedStatus.includes('Todos') && !selectedStatus.includes((b.status || '').toString().trim())) return false;
+      // Priority
+      if (!selectedPriorities.includes('Todos') && !selectedPriorities.includes((b.priority || '').toString().trim())) return false;
+      // Developer
+      if (!selectedDevelopers.includes('Todos') && !selectedDevelopers.includes((b.developer || '').toString().trim())) return false;
+      // Category
+      if (!selectedCategories.includes('Todos') && !selectedCategories.includes((b.category || '').toString().trim())) return false;
+      // Tags
+      if (!selectedTags.includes('Todos')) {
+        const collectTags = [];
+        const push = v => {
+          if (!v && v !== 0) return;
+          if (Array.isArray(v)) v.forEach(x=>x && collectTags.push(x.toString().trim()));
+          else if (typeof v === 'string') v.split(/[;,|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>collectTags.push(x));
+        };
+        push(b.tag0 || b.Tag0 || b.tag || b.tags);
+        push(b.tag1 || b.Tag1);
+        push(b.tag2 || b.Tag2);
+        if (!collectTags.some(t => selectedTags.includes(t))) return false;
+      }
+      // Execution strategy
+      if (!selectedStrategies.includes('Todos')) {
+        const strat = (b.executionStrategy || b.strategy || b['Estrategia de ejecución'] || '').toString().trim();
+        if (!selectedStrategies.includes(strat)) return false;
+      }
+      // Environment
+      if (!selectedEnvironments.includes('Todos')) {
+        const env = (b.environment || b.ambiente || '').toString().trim();
+        if (!selectedEnvironments.includes(env)) return false;
+      }
+      // Fix version
+      if (!selectedFixVersions.includes('Todos')) {
+        const fv = (b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '').toString().trim();
+        if (!selectedFixVersions.includes(fv)) return false;
+      }
+      return true;
+    });
+
+    // Filter sprintData by selectedSprints and testTypeFilter
+    let sprintData = data.sprintData || [];
+    if (!selectedSprints.includes('Todos')) {
+      sprintData = sprintData.filter(s => selectedSprints.includes((s.sprint || s.name || s.id)));
+    }
+    if (testTypeFilter !== 'all') {
+      sprintData = sprintData.filter(s => classifyTestType(s) === testTypeFilter);
+    }
+
+    return { ...data, bugs, sprintData };
+  };
+
+  const filteredData = applyGlobalFilters(currentData);
+
+  // Recompute filter option lists from the filtered data so options are dynamic
+  const sprintList = (filteredData.sprintData || []).map(s => s.sprint || s.name || s.id) || [];
+
+  const bugsArray = Array.isArray(filteredData.bugs) ? filteredData.bugs : [];
+
+  // Modules
+  let moduleList = [];
+  if (bugsArray.length > 0) {
+    moduleList = Array.from(new Set(bugsArray.map(b => (b.module || 'Otros').toString().trim()))).filter(Boolean).sort();
+  } else if (Array.isArray(filteredData.bugsByModule) && filteredData.bugsByModule.length > 0) {
+    moduleList = Array.from(new Set(filteredData.bugsByModule.map(m => (m.module || m.name || m[0] || '').toString().trim()))).filter(Boolean).sort();
+  }
+
+  // Priorities
+  let priorityList = [];
+  if (bugsArray.length > 0) {
+    priorityList = Array.from(new Set(bugsArray.map(b => (b.priority || 'Sin prioridad').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  } else if (filteredData.bugsByPriority && typeof filteredData.bugsByPriority === 'object') {
+    priorityList = Object.keys(filteredData.bugsByPriority || {}).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  }
+
+  // Status
+  let statusList = [];
+  if (bugsArray.length > 0) {
+    statusList = Array.from(new Set(bugsArray.map(b => (b.status || 'Unknown').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  }
+  // Fallback: if no bug-level data, use server-extracted status list
+  if (statusList.length === 0 && filteredData && Array.isArray(filteredData._statusList) && filteredData._statusList.length > 0) {
+    statusList = Array.from(new Set(filteredData._statusList)).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  }
+
+  // Developers
+  let developerList = [];
+  if (bugsArray.length > 0) {
+    developerList = Array.from(new Set(bugsArray.map(b => (b.developer || 'Sin asignar').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  } else if (Array.isArray(filteredData.developerData) && filteredData.developerData.length > 0) {
+    developerList = Array.from(new Set(filteredData.developerData.map(d => (d.developer_name || d.name || d[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  }
+
+  // Categories
+  let categoryList = [];
+  if (bugsArray.length > 0) {
+    categoryList = Array.from(new Set(bugsArray.map(b => (b.category || 'Sin categoría').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  } else if (filteredData.bugsByCategory && Array.isArray(filteredData.bugsByCategory) && filteredData.bugsByCategory.length > 0) {
+    categoryList = Array.from(new Set(filteredData.bugsByCategory.map(c => (c.category || c.name || c[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  }
+
+  // Dynamic derived lists for suggested filters (tags/strategy/environment/fixVersion)
+  const tagCandidates = new Set();
+  if (bugsArray.length > 0) {
+    bugsArray.forEach(b => {
+      const collect = (v) => {
+        if (!v && v !== 0) return;
+        if (Array.isArray(v)) v.forEach(x => x && tagCandidates.add(x.toString().trim()));
+        else if (typeof v === 'string') {
+          v.split(/[;,|]/).map(x => x.trim()).filter(Boolean).forEach(x => tagCandidates.add(x));
+        }
+      };
+      collect(b.tag0 || b.Tag0 || b.tag || b.tags);
+      collect(b.tag1 || b.Tag1);
+      collect(b.tag2 || b.Tag2);
+    });
+  }
+  const tagList = Array.from(tagCandidates).sort((a,b)=>a.localeCompare(b));
+
+  let strategyList = [];
+  let environmentList = [];
+  let fixVersionList = [];
+  if (bugsArray.length > 0) {
+    strategyList = Array.from(new Set(bugsArray.map(b => (b.executionStrategy || b.strategy || b['Estrategia de ejecución'] || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    environmentList = Array.from(new Set(bugsArray.map(b => (b.environment || b.ambiente || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    fixVersionList = Array.from(new Set(bugsArray.map(b => (b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  }
+
+  // Fallback: if no tags found from bugs, use server-provided extraction (_tagList)
+  if (tagList.length === 0 && filteredData && Array.isArray(filteredData._tagList) && filteredData._tagList.length > 0) {
+    tagList.push(...filteredData._tagList);
+  }
+  // Fallbacks for strategy/environment/fixVersion from server-provided lists
+  if (strategyList.length === 0 && filteredData && Array.isArray(filteredData._strategyList) && filteredData._strategyList.length > 0) {
+    strategyList.push(...filteredData._strategyList);
+  }
+  if (environmentList.length === 0 && filteredData && Array.isArray(filteredData._environmentList) && filteredData._environmentList.length > 0) {
+    environmentList.push(...filteredData._environmentList);
+  }
+  if (fixVersionList.length === 0 && filteredData && Array.isArray(filteredData._fixVersionList) && filteredData._fixVersionList.length > 0) {
+    fixVersionList.push(...filteredData._fixVersionList);
+  }
+
   const tabs = [
     { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
     { id: 'teams', label: 'Team Analysis', icon: <Users className="w-4 h-4" /> },
-    { id: 'trends', label: 'Trends', icon: <Activity className="w-4 h-4" /> },
-    { id: 'recommendations', label: 'Recommendations', icon: <CheckCircle className="w-4 h-4" /> }
+    { id: 'roadmap', label: 'Roadmap', icon: <CheckCircle className="w-4 h-4" /> }
   ];
 
   return (
@@ -418,12 +639,367 @@ export default function ExecutiveDashboard({
                 onRefresh={handleRefresh}
                 loading={currentLoading}
               />
+              {/* Toggle global filters visibility */}
+              <button
+                onClick={() => {
+                  setShowFilters(prev => {
+                    try { if (typeof window !== 'undefined') localStorage.setItem('qa-show-filters', JSON.stringify(!prev)); } catch(e) {}
+                    return !prev;
+                  });
+                }}
+                className="ml-3 inline-flex items-center px-3 py-1.5 bg-white border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Critical Alerts (improved) */}
+          {/* Filtro Moderno Estilo DashboardDemo */}
+          {/* Encabezado con gradiente */}
+          <div 
+            onClick={() => setShowFilters(!showFilters)}
+            className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 rounded-t-lg p-3 text-white flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow mb-0"
+          >
+            <div className="flex items-center gap-2">
+              <Filter />
+              <h2 className="text-sm font-bold">Filtros de Análisis</h2>
+              {(() => {
+                const activeFilters = 
+                  (selectedSprints[0] !== 'Todos' ? selectedSprints.length : 0) +
+                  (selectedStatus[0] !== 'Todos' ? selectedStatus.length : 0) +
+                  (selectedPriorities[0] !== 'Todos' ? selectedPriorities.length : 0) +
+                  (selectedCategories[0] !== 'Todos' ? selectedCategories.length : 0) +
+                  (selectedTags[0] !== 'Todos' ? selectedTags.length : 0) +
+                  (selectedStrategies[0] !== 'Todos' ? selectedStrategies.length : 0) +
+                  (selectedEnvironments[0] !== 'Todos' ? selectedEnvironments.length : 0) +
+                  (selectedFixVersions[0] !== 'Todos' ? selectedFixVersions.length : 0);
+                return activeFilters > 0 ? (
+                  <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs font-semibold">
+                    {activeFilters} activo{activeFilters > 1 ? 's' : ''}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <div className="flex items-center gap-2">
+              {(() => {
+                const activeFilters = 
+                  (selectedSprints[0] !== 'Todos' ? selectedSprints.length : 0) +
+                  (selectedStatus[0] !== 'Todos' ? selectedStatus.length : 0) +
+                  (selectedPriorities[0] !== 'Todos' ? selectedPriorities.length : 0) +
+                  (selectedCategories[0] !== 'Todos' ? selectedCategories.length : 0) +
+                  (selectedTags[0] !== 'Todos' ? selectedTags.length : 0) +
+                  (selectedStrategies[0] !== 'Todos' ? selectedStrategies.length : 0) +
+                  (selectedEnvironments[0] !== 'Todos' ? selectedEnvironments.length : 0) +
+                  (selectedFixVersions[0] !== 'Todos' ? selectedFixVersions.length : 0);
+                return activeFilters > 0 ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedSprints(['Todos']);
+                      setSelectedStatus(['Todos']);
+                      setSelectedPriorities(['Todos']);
+                      setSelectedCategories(['Todos']);
+                      setSelectedTags(['Todos']);
+                      setSelectedStrategies(['Todos']);
+                      setSelectedEnvironments(['Todos']);
+                      setSelectedFixVersions(['Todos']);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 rounded text-xs font-semibold transition-all"
+                  >
+                    <X size={14} />
+                    Limpiar
+                  </button>
+                ) : null;
+              })()}
+              <ChevronDown 
+                size={18} 
+                className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`}
+              />
+            </div>
+          </div>
+
+          {/* Grid de Filtros - Colapsable */}
+          {showFilters && (
+            <div className="bg-gray-50 rounded-b-lg p-4 border border-gray-200 border-t-0 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Sprint Filter Section */}
+                <div className="border rounded-lg p-3 bg-indigo-50 border-indigo-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, sprint: !prev.sprint}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">📅</span>
+                      <p className="font-bold uppercase text-xs">Sprint</p>
+                      {selectedSprints.length > 0 && selectedSprints[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedSprints.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.sprint ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.sprint && (
+                    <div>
+                      {sprintList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, sprintList.length))}
+                          value={selectedSprints}
+                          onChange={(e) => handleMultiSelectChange('sprint', e)}
+                          className="w-full text-xs p-1 rounded border bg-white"
+                        >
+                          <option value="Todos">Todos</option>
+                          {sprintList.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Module filter removed as requested */}
+
+                {/* Priority Filter Section */}
+                <div className="border rounded-lg p-3 bg-orange-50 border-orange-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, priority: !prev.priority}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">⚡</span>
+                      <p className="font-bold uppercase text-xs">Prioridad</p>
+                      {selectedPriorities.length > 0 && selectedPriorities[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedPriorities.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.priority ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.priority && (
+                    <div>
+                      {priorityList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, priorityList.length))}
+                          value={selectedPriorities}
+                          onChange={(e) => handleMultiSelectChange('priority', e)}
+                          className="w-full text-xs p-1 rounded border bg-white"
+                        >
+                          <option value="Todos">Todos</option>
+                          {priorityList.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Filter Section */}
+                <div className="border rounded-lg p-3 bg-green-50 border-green-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, status: !prev.status}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">✓</span>
+                      <p className="font-bold uppercase text-xs">Estado</p>
+                      {selectedStatus.length > 0 && selectedStatus[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedStatus.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.status ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.status && (
+                      <div>
+                        {statusList.length === 0 ? (
+                          <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                        ) : (
+                          <select
+                            multiple
+                            size={Math.min(6, Math.max(3, statusList.length))}
+                            value={selectedStatus}
+                            onChange={(e) => handleMultiSelectChange('status', e)}
+                            className="w-full text-xs p-1 rounded border bg-white"
+                          >
+                            <option value="Todos">Todos</option>
+                            {statusList.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
+                      </div>
+                  )}
+                </div>
+                {/* Developer filter removed per request */}
+
+                {/* Tags Filter Section */}
+                <div className="border rounded-lg p-3 bg-purple-50 border-purple-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, tag: !prev.tag}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">🏷️</span>
+                      <p className="font-bold uppercase text-xs">Tags</p>
+                      {selectedTags.length > 0 && selectedTags[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedTags.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.tag ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.tag && (
+                    <div>
+                      {tagList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, tagList.length))}
+                          value={selectedTags}
+                          onChange={(e) => handleMultiSelectChange('tag', e)}
+                          className="w-full text-xs p-1 rounded border bg-white"
+                        >
+                          <option value="Todos">Todos</option>
+                          {tagList.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Strategy Filter Section */}
+                <div className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, strategy: !prev.strategy}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">🧭</span>
+                      <p className="font-bold uppercase text-xs">Estrategia</p>
+                      {selectedStrategies.length > 0 && selectedStrategies[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedStrategies.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.strategy ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.strategy && (
+                    <div>
+                      {strategyList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, strategyList.length))}
+                          value={selectedStrategies}
+                          onChange={(e) => handleMultiSelectChange('strategy', e)}
+                          className="w-full text-xs p-1 rounded border bg-white"
+                        >
+                          <option value="Todos">Todos</option>
+                          {strategyList.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Environment Filter Section */}
+                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, environment: !prev.environment}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">🌎</span>
+                      <p className="font-bold uppercase text-xs">Ambiente</p>
+                      {selectedEnvironments.length > 0 && selectedEnvironments[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedEnvironments.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.environment ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.environment && (
+                    <div>
+                      {environmentList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, environmentList.length))}
+                          value={selectedEnvironments}
+                          onChange={(e) => handleMultiSelectChange('environment', e)}
+                          className="w-full text-xs p-1 rounded border bg-white"
+                        >
+                          <option value="Todos">Todos</option>
+                          {environmentList.map(env => <option key={env} value={env}>{env}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Fix Version Filter Section */}
+                <div className="border rounded-lg p-3 bg-sky-50 border-sky-200">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, fixVersion: !prev.fixVersion}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">🔖</span>
+                      <p className="font-bold uppercase text-xs">Versión</p>
+                      {selectedFixVersions.length > 0 && selectedFixVersions[0] !== 'Todos' && (
+                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                          {selectedFixVersions.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.fixVersion ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.fixVersion && (
+                    <div>
+                      {fixVersionList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, fixVersionList.length))}
+                          value={selectedFixVersions}
+                          onChange={(e) => handleMultiSelectChange('fixVersion', e)}
+                          className="w-full text-xs p-1 rounded border bg-white"
+                        >
+                          <option value="Todos">Todos</option>
+                          {fixVersionList.map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Critical Alerts (improved) */}
       {alerts && alerts.length > 0 && (
         <div className="bg-red-50 border-l-4 border-red-400 p-3 mb-3">
           <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -494,6 +1070,7 @@ export default function ExecutiveDashboard({
           {activeTab === 'overview' && (
             <OverviewTab
               data={currentData}
+              filteredData={filteredData}
               recommendations={recommendations}
               config={config}
               setDetailModal={setDetailModal}
@@ -502,12 +1079,33 @@ export default function ExecutiveDashboard({
               showSprintTooltip={showSprintTooltip}
               hideSprintTooltip={hideSprintTooltip}
               setTooltipInfo={setTooltipInfo}
+              // filter lists
+              sprintList={sprintList}
+              moduleList={moduleList}
+              priorityList={priorityList}
+              statusList={statusList}
+              developerList={developerList}
+              categoryList={categoryList}
+              // filter state & handlers
+              selectedSprints={selectedSprints}
+              setSelectedSprints={setSelectedSprints}
+              testTypeFilter={testTypeFilter}
+              setTestTypeFilter={setTestTypeFilter}
+              selectedStatus={selectedStatus}
+              selectedPriorities={selectedPriorities}
+              selectedDevelopers={selectedDevelopers}
+              selectedCategories={selectedCategories}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+              collapsedSections={collapsedSections}
+              setCollapsedSections={setCollapsedSections}
+              handleFilterToggle={handleFilterToggle}
             />
           )}
-          {activeTab === 'quality' && <QualityTab data={currentData} config={config} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'teams' && <TeamsTab data={currentData} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'trends' && <TrendsTab data={currentData} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'recommendations' && <RecommendationsTab data={currentData} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {activeTab === 'quality' && <QualityTab data={currentData} filteredData={filteredData} config={config} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {activeTab === 'teams' && <TeamsTab data={currentData} filteredData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} config={config} />}
+          {/* trends tab removed */}
+          {activeTab === 'roadmap' && <RecommendationsTab data={currentData} filteredData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} />}
         </div>
       </div>
     </div>
@@ -518,13 +1116,15 @@ export default function ExecutiveDashboard({
 // TAB COMPONENTS (keep existing ones)
 // ===============================
 
-function OverviewTab({ data, recommendations, config, setDetailModal, detailModal, tooltipInfo, showSprintTooltip, hideSprintTooltip, setTooltipInfo }) {
+function OverviewTab({ data, filteredData, recommendations, config, setDetailModal, detailModal, tooltipInfo, showSprintTooltip, hideSprintTooltip, setTooltipInfo,
+  sprintList, moduleList, priorityList, statusList, developerList, categoryList,
+  selectedSprints, setSelectedSprints, testTypeFilter, setTestTypeFilter,
+  selectedStatus, selectedPriorities, selectedDevelopers, selectedCategories,
+  showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle
+}) {
   const { kpis, summary } = data;
-  const sprintList = data.sprintData?.map(s => s.sprint || s.name || s.id) || [];
-  const [selectedSprints, setSelectedSprints] = React.useState(['Todos']);
-  const [sprintCollapsed, setSprintCollapsed] = React.useState(false);
-  const [testTypeFilter, setTestTypeFilter] = React.useState('all'); // 'all', 'system', 'uat'
-  const [filterCollapsed, setFilterCollapsed] = React.useState(false);
+  // Use filtered sprint data computed at parent level
+  const filteredSprintData = filteredData?.sprintData || data.sprintData || [];
 
   // Helper to check if a KPI should be visible according to config
   const isKpiVisible = (kpiId) => {
@@ -604,16 +1204,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
   };
 
   const availableSprints = getAvailableSprints();
-
-  // Filtrar datos por sprints seleccionados Y por tipo de prueba
-  let filteredSprintData = selectedSprints.includes('Todos')
-    ? data.sprintData
-    : data.sprintData?.filter(s => selectedSprints.includes(s.sprint || s.name || s.id));
-
-  // Aplicar filtro de tipo de prueba
-  if (testTypeFilter !== 'all') {
-    filteredSprintData = filteredSprintData?.filter(s => classifyTestType(s) === testTypeFilter);
-  }
+  
 
   // Recalcular KPIs basados en los sprints seleccionados y tipo de prueba
   const totalTestCases = filteredSprintData?.reduce((acc, s) => acc + (s.testCases || s.testCasesExecuted || 0), 0) || 0;
@@ -952,163 +1543,8 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 
   return (
     <div className="space-y-8">
-      {/* Filters: groups Test Type + Sprint */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <Settings className="w-4 h-4 inline mr-2" />
-            <h3 className="text-sm font-medium text-gray-700">Filters</h3>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="text-xs text-gray-600">Sprints: {availableSprints.length}</div>
-            <div className="text-xs text-gray-600">Selected: {selectedSprints.includes('Todos') ? 'All' : selectedSprints.length}</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Panel: Tipo de Prueba */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                <label className="text-sm font-medium text-gray-700 mr-2">
-                  Test Type
-                </label>
-                {testTypeFilter !== 'all' && (
-                  <span className="text-sm text-executive-600 font-medium">
-                    📋 {testTypeFilter === 'system' ? 'System Tests' : 'UAT Tests'}
-                  </span>
-                )}
-              </div>
-
-              <button
-                onClick={() => setFilterCollapsed(prev => !prev)}
-                className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800 focus:outline-none"
-                aria-expanded={!filterCollapsed}
-                aria-controls="test-type-filter-panel"
-              >
-                {filterCollapsed ? (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-2" />
-                    Show
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-2" />
-                    Hide
-                  </>
-                )}
-              </button>
-            </div>
-
-            {!filterCollapsed && (
-              <div id="test-type-filter-panel" className="flex gap-2 flex-wrap items-center">
-                <button
-                  type="button"
-                  onClick={() => handleTestTypeChange('all')}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none ${
-                    testTypeFilter === 'all' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-                >
-                  All Information
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTestTypeChange('system')}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none ${
-                    testTypeFilter === 'system' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-                >
-                  System Tests
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTestTypeChange('uat')}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none ${
-                    testTypeFilter === 'uat' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-                >
-                  UAT Tests
-                </button>
-              </div>
-            )}
-
-          <p className="text-xs text-gray-500 mt-3">💡 Filter by test type to see specific metrics for System Tests or UAT Tests.</p>
-        </div>
-
-        {/* Panel: Sprints */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Sprints</span>
-              {!selectedSprints.includes('All') && selectedSprints.length > 0 && (
-                <span className="text-xs text-executive-600 font-medium">📊 {selectedSprints.length}</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => setSprintCollapsed(prev => !prev)}
-              className="inline-flex items-center text-xs text-gray-600 hover:text-gray-800 focus:outline-none"
-              aria-expanded={!sprintCollapsed}
-              aria-controls="sprint-filter-panel"
-            >
-              {sprintCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {!sprintCollapsed && (
-            <div id="sprint-filter-panel" className="flex gap-2 overflow-x-auto overflow-y-visible items-center py-1">
-              {/* 'All' chip */}
-              <label
-                className={`flex items-center px-2 py-1 rounded-full border text-xs cursor-pointer transition-colors ${
-                  selectedSprints.includes('All') ? 'bg-executive-50 border-executive-500 text-executive-700' : 'border-gray-200 bg-white text-gray-700'
-                }`}
-                title="Select all sprints"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedSprints.includes('All')}
-                  onChange={() => handleSprintToggle('All')}
-                  className="sr-only"
-                />
-                <span>All</span>
-              </label>
-
-              {availableSprints.map((sprint) => {
-                const sprintData = data.sprintData?.find(s => (s.sprint || s.name || s.id) === sprint);
-                const active = selectedSprints.includes(sprint) && !selectedSprints.includes('All');
-                return (
-                  <label
-                    key={sprint}
-                    className={`relative flex items-center px-2 py-1 rounded-full text-xs cursor-pointer transition-colors whitespace-nowrap ${
-                      active ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                    }`}
-                    onClick={() => handleSprintToggle(sprint)}
-                    onMouseEnter={(e) => showSprintTooltip(e, sprint, sprintData)}
-                    onMouseLeave={() => hideSprintTooltip()}
-                    onFocus={(e) => showSprintTooltip(e, sprint, sprintData)}
-                    onBlur={() => hideSprintTooltip()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() => handleSprintToggle(sprint)}
-                      className="sr-only"
-                    />
-                    <span className="text-xs">{sprint}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-
-          <p className="text-xs text-gray-500 mt-3">💡 Select &quot;All&quot; or choose specific sprints. Indicators and charts will update automatically.</p>
-          </div>
-        </div>
-      </div>
-
+      
+      
       {/* Coverage Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* 1. COBERTURA: Media de Casos */}
@@ -1473,7 +1909,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 }
 
 // Mantén las otras funciones de tabs exactamente como las tienes...
-function QualityTab({ data, config, setDetailModal, detailModal }) {
+function QualityTab({ data, filteredData, sprintList, selectedSprints, handleFilterToggle, showFilters, config, setDetailModal, detailModal }) {
   const visible = config?.visibleKpis?.quality;
   return (
     <div className="space-y-8">
@@ -1481,7 +1917,13 @@ function QualityTab({ data, config, setDetailModal, detailModal }) {
       <QualityMetrics 
         data={{ ...data.kpis, ...data.qualityMetrics, summary: data.summary }} 
         visibleKeys={visible} 
-        sprintData={data.sprintData} 
+        // pass sprintData already filtered by global filters
+        sprintData={filteredData?.sprintData || data.sprintData}
+        // pass global filter controls and lists so QualityMetrics uses them
+        sprintListProp={sprintList}
+        selectedSprintsProp={selectedSprints}
+        onSprintToggleProp={(v) => handleFilterToggle('sprint', v)}
+        showFiltersProp={showFilters}
         onOpenDetail={setDetailModal}
       />
       
@@ -1566,11 +2008,42 @@ function QualityTab({ data, config, setDetailModal, detailModal }) {
   );
 }
 
-function TeamsTab({ data, setDetailModal, detailModal }) {
+function TeamsTab({ data, filteredData, setDetailModal, detailModal, config }) {
+  // Determine source of bugs and developer summary
+  const bugs = (filteredData && Array.isArray(filteredData.bugs)) ? filteredData.bugs : (data && Array.isArray(data.bugs) ? data.bugs : []);
+
+  // If processed developerData exists, prefer it; otherwise derive from bugs
+  let developerData = (data && data.developerData && Array.isArray(data.developerData) && data.developerData.length > 0)
+    ? data.developerData
+    : null;
+
+  if (!developerData) {
+    const byDev = {};
+    bugs.forEach(b => {
+      const name = (b.developer || b.developer_name || b.reported || b.owner || 'Sin asignar').toString().trim() || 'Sin asignar';
+      if (!byDev[name]) byDev[name] = { name, totalBugs: 0, pending: 0, resolved: 0 };
+      byDev[name].totalBugs += 1;
+      const status = (b.status || b.estado || '').toString().toLowerCase();
+      const resolvedKeywords = ['resolved', 'closed', 'resuelto', 'cerrado'];
+      if (resolvedKeywords.some(k => status.includes(k))) {
+        byDev[name].resolved += 1;
+      } else {
+        byDev[name].pending += 1;
+      }
+    });
+
+    const maxThreshold = (config && config.thresholds && config.thresholds.maxBugsDeveloper) ? config.thresholds.maxBugsDeveloper : 15;
+    developerData = Object.values(byDev).map(d => {
+      const workload = d.pending > maxThreshold ? 'Alto' : (d.pending > Math.round(maxThreshold / 2) ? 'Medio' : 'Bajo');
+      const efficiency = d.totalBugs > 0 ? Math.round((d.resolved / d.totalBugs) * 100) : 0;
+      return { ...d, workload, efficiency };
+    }).sort((a, b) => (b.pending || 0) - (a.pending || 0));
+  }
+
   return (
     <div className="space-y-8">
-      <DeveloperAnalysis data={data.developerData} />
-      
+      <DeveloperAnalysis data={developerData} />
+
       {/* Productivity Analysis */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="executive-card">
@@ -1578,7 +2051,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
             Workload Distribution
           </h3>
           <div className="space-y-3">
-            {(data.developerData || []).map((dev, index) => (
+            {(developerData || []).map((dev, index) => (
               <div key={index} className="flex items-center">
                 <span className="w-32 text-sm font-medium text-gray-600 truncate">
                   {dev.name}
@@ -1590,7 +2063,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
                         dev.workload === 'Alto' || dev.pending > 15 ? 'bg-red-500' :
                         dev.workload === 'Medio' || dev.pending > 10 ? 'bg-yellow-500' : 'bg-green-500'
                       }`}
-                      style={{ width: `${Math.min((dev.pending / 20) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((dev.pending / Math.max(1, (config?.thresholds?.maxBugsDeveloper || 15))) * 100, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -1607,7 +2080,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
             Eficiencia por Desarrollador
           </h3>
           <div className="space-y-3">
-            {(data.developerData || []).map((dev, index) => {
+            {(developerData || []).map((dev, index) => {
               const totalBugs = dev.totalBugs || (dev.resolved + dev.pending) || dev.assigned || 0;
               const resolved = dev.resolved || 0;
               const efficiency = totalBugs > 0 ? Math.round((resolved / totalBugs) * 100) : 0;
@@ -1638,121 +2111,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
   );
 }
 
-function TrendsTab({ data, setDetailModal, detailModal }) {
-  const sprintData = data.sprintData || data.trends?.bugsPerSprint || [];
-  
-  return (
-    <div className="space-y-8">
-      {/* Sprint Trends */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Evolución de Bugs por Sprint
-          </h3>
-          <div className="space-y-4">
-            {sprintData.map((sprint, index) => (
-              <div key={sprint.sprint || index} className="flex items-center">
-                <span className="w-16 text-sm font-medium text-gray-600">
-                  S{sprint.sprint || index + 1}:
-                </span>
-                <div className="flex-1 mx-4">
-                  <div className="bg-gray-200 rounded-full h-4 relative">
-                    <div
-                      className={`h-4 rounded-full ${
-                        sprint.bugs > 30 ? 'bg-red-500' :
-                        sprint.bugs > 20 ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min((sprint.bugs / 50) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <span className="w-16 text-sm font-medium text-gray-900">
-                  {sprint.bugs} bugs
-                </span>
-                {sprint.change !== 0 && (
-                  <span className={`w-16 text-xs ml-2 ${
-                    sprint.change > 0 ? 'text-red-600' : 'text-green-600'
-                  }`}>
-                    {sprint.change > 0 ? '+' : ''}{sprint.change}%
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          {sprintData.length > 1 && (
-            <div className="mt-6 p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center">
-                <TrendingDown className="w-5 h-5 text-green-600 mr-2" />
-                <p className="text-sm text-green-800 font-medium">
-                  Trend: {data.kpis?.sprintTrend > 0 ? 'UPWARD' : 'DOWNWARD'} 
-                  ({data.kpis?.sprintTrend || 0}%)
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Tasa de Resolución por Sprint
-          </h3>
-          <div className="space-y-4">
-            {sprintData.map((sprint, index) => {
-              const total = (sprint.bugsResolved || 0) + (sprint.bugsPending || 0);
-              const resolved = sprint.bugsResolved || 0;
-              const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
-              
-              return (
-                <div key={sprint.sprint || index} className="flex items-center">
-                  <span className="w-16 text-sm font-medium text-gray-600">
-                    S{sprint.sprint || index + 1}:
-                  </span>
-                  <div className="flex-1 mx-4">
-                    <div className="bg-gray-200 rounded-full h-4">
-                      <div
-                        className="bg-executive-500 h-4 rounded-full"
-                        style={{ width: `${rate}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="w-16 text-sm font-medium text-gray-900">
-                    {rate}%
-                  </span>
-                  <span className="w-20 text-xs text-gray-500 ml-2">
-                    {resolved}/{total}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      
-      {/* Categories Analysis */}
-      {data.bugsByCategory && (
-        <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Distribution by Categories
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Object.entries(data.bugsByCategory).map(([category, categoryData]) => (
-              <div key={category} className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-executive-600 mb-1">
-                  {categoryData.count || 0}
-                </div>
-                <div className="text-xs text-gray-600 mb-1">{category}</div>
-                <div className="text-xs font-medium text-gray-900">
-                  {categoryData.percentage || 0}%
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+
 
 function RecommendationsTab({ data, setDetailModal, detailModal }) {
   // Use both existing and new recommendations
