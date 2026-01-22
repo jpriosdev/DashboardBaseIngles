@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { enUS } from 'date-fns/locale';
 import ExecutiveRecommendations from './ExecutiveRecommendations';
 import QualityMetrics from './QualityMetrics';
 import DetailModal from './DetailModal';
@@ -64,16 +64,17 @@ export default function ExecutiveDashboard({
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
 
   // ===== Global filter state (shared across tabs) =====
-  const [selectedSprints, setSelectedSprints] = useState(['Todos']);
+  const [selectedSprints, setSelectedSprints] = useState(['All']);
+  const [stagedSelectedSprints, setStagedSelectedSprints] = useState(selectedSprints);
   const [testTypeFilter, setTestTypeFilter] = useState('all'); // 'all', 'system', 'uat'
-  const [selectedStatus, setSelectedStatus] = useState(['Todos']);
-  const [selectedPriorities, setSelectedPriorities] = useState(['Todos']);
-  const [selectedDevelopers, setSelectedDevelopers] = useState(['Todos']);
-  const [selectedCategories, setSelectedCategories] = useState(['Todos']);
-  const [selectedTags, setSelectedTags] = useState(['Todos']);
-  const [selectedStrategies, setSelectedStrategies] = useState(['Todos']);
-  const [selectedEnvironments, setSelectedEnvironments] = useState(['Todos']);
-  const [selectedFixVersions, setSelectedFixVersions] = useState(['Todos']);
+  const [selectedStatus, setSelectedStatus] = useState(['All']);
+  const [selectedPriorities, setSelectedPriorities] = useState(['All']);
+  const [selectedDevelopers, setSelectedDevelopers] = useState(['All']);
+  const [selectedCategories, setSelectedCategories] = useState(['All']);
+  const [selectedTags, setSelectedTags] = useState(['All']);
+  const [selectedStrategies, setSelectedStrategies] = useState(['All']);
+  const [selectedEnvironments, setSelectedEnvironments] = useState(['All']);
+  const [selectedFixVersions, setSelectedFixVersions] = useState(['All']);
   const [showFilters, setShowFilters] = useState(true);
   const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, tag: false, strategy: false, environment: false, fixVersion: false });
 
@@ -93,14 +94,14 @@ export default function ExecutiveDashboard({
     const setter = setterMap[filterType];
     if (!setter) return;
 
-    if (value === 'Todos') {
-      setter(['Todos']);
+    if (value === 'All') {
+      setter(['All']);
     } else {
       setter(prev => {
-        if (prev.includes('Todos')) return [value];
+        if (prev.includes('All')) return [value];
         if (prev.includes(value)) {
           const filtered = prev.filter(v => v !== value);
-          return filtered.length === 0 ? ['Todos'] : filtered;
+          return filtered.length === 0 ? ['All'] : filtered;
         }
         return [...prev, value];
       });
@@ -124,15 +125,20 @@ export default function ExecutiveDashboard({
     if (!setter) return;
 
     const values = Array.from(e.target.selectedOptions).map(o => o.value);
-    if (values.includes('Todos') || values.length === 0) {
-      setter(['Todos']);
+    if (values.includes('All') || values.length === 0) {
+      setter(['All']);
     } else {
-      setter(values.filter(v => v !== 'Todos'));
+      setter(values.filter(v => v !== 'All'));
     }
   };
 
   // Wrapper for sprint toggle to keep compatibility with XTemporal design
   const handleSprintToggle = (sprint) => handleFilterToggle('sprint', sprint);
+
+  // Keep staged sprint selection in sync when committed externally
+  useEffect(() => {
+    setStagedSelectedSprints(selectedSprints);
+  }, [selectedSprints]);
 
   const showSprintTooltip = (e, sprintKey, sprintData) => {
     try {
@@ -400,53 +406,109 @@ export default function ExecutiveDashboard({
   const applyGlobalFilters = (data) => {
     if (!data) return data;
 
+    const normalize = v => (v || '').toString().trim().toLowerCase();
+    const selectedStatusSet = new Set(selectedStatus.map(s => normalize(s)));
+    const selectedPrioritiesSet = new Set(selectedPriorities.map(s => normalize(s)));
+    const selectedDevelopersSet = new Set(selectedDevelopers.map(s => normalize(s)));
+    const selectedCategoriesSet = new Set(selectedCategories.map(s => normalize(s)));
+    const selectedStrategiesSet = new Set(selectedStrategies.map(s => normalize(s)));
+    const selectedEnvironmentsSet = new Set(selectedEnvironments.map(s => normalize(s)));
+    const selectedFixVersionsSet = new Set(selectedFixVersions.map(s => normalize(s)));
+    const selectedTagsLower = selectedTags.map(s => normalize(s)).filter(s => s !== 'all');
+
     const bugs = (data.bugs || []).filter(b => {
       // Status
-      if (!selectedStatus.includes('Todos') && !selectedStatus.includes((b.status || '').toString().trim())) return false;
+      if (!selectedStatus.includes('All')) {
+        if (!selectedStatusSet.has(normalize(b.status || b.estado || b.status))) return false;
+      }
       // Priority
-      if (!selectedPriorities.includes('Todos') && !selectedPriorities.includes((b.priority || '').toString().trim())) return false;
+      if (!selectedPriorities.includes('All')) {
+        if (!selectedPrioritiesSet.has(normalize(b.priority || b.prioridad || ''))) return false;
+      }
       // Developer
-      if (!selectedDevelopers.includes('Todos') && !selectedDevelopers.includes((b.developer || '').toString().trim())) return false;
+      if (!selectedDevelopers.includes('All')) {
+        if (!selectedDevelopersSet.has(normalize(b.developer || b.developer_name || ''))) return false;
+      }
       // Category
-      if (!selectedCategories.includes('Todos') && !selectedCategories.includes((b.category || '').toString().trim())) return false;
-      // Tags
-      if (!selectedTags.includes('Todos')) {
+      if (!selectedCategories.includes('All')) {
+        if (!selectedCategoriesSet.has(normalize(b.category || b.categoria || ''))) return false;
+      }
+      // Tags (case-insensitive)
+      if (selectedTagsLower.length > 0) {
         const collectTags = [];
         const push = v => {
           if (!v && v !== 0) return;
-          if (Array.isArray(v)) v.forEach(x=>x && collectTags.push(x.toString().trim()));
-          else if (typeof v === 'string') v.split(/[;,|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>collectTags.push(x));
+          if (Array.isArray(v)) v.forEach(x=>x && collectTags.push(x.toString().trim().toLowerCase()));
+          else if (typeof v === 'string') v.split(/[;,|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>collectTags.push(x.toLowerCase()));
         };
         push(b.tag0 || b.Tag0 || b.tag || b.tags);
         push(b.tag1 || b.Tag1);
         push(b.tag2 || b.Tag2);
-        if (!collectTags.some(t => selectedTags.includes(t))) return false;
+        if (!selectedTagsLower.some(st => collectTags.includes(st))) return false;
       }
       // Execution strategy
-      if (!selectedStrategies.includes('Todos')) {
-        const strat = (b.executionStrategy || b.strategy || b['Estrategia de ejecución'] || '').toString().trim();
-        if (!selectedStrategies.includes(strat)) return false;
+      if (!selectedStrategies.includes('All')) {
+        const strat = normalize(b.executionStrategy || b.strategy || b['Estrategia de ejecución'] || '');
+        if (!selectedStrategiesSet.has(strat)) return false;
       }
       // Environment
-      if (!selectedEnvironments.includes('Todos')) {
-        const env = (b.environment || b.ambiente || '').toString().trim();
-        if (!selectedEnvironments.includes(env)) return false;
+      if (!selectedEnvironments.includes('All')) {
+        const env = normalize(b.environment || b.ambiente || '');
+        if (!selectedEnvironmentsSet.has(env)) return false;
       }
       // Fix version
-      if (!selectedFixVersions.includes('Todos')) {
-        const fv = (b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '').toString().trim();
-        if (!selectedFixVersions.includes(fv)) return false;
+      if (!selectedFixVersions.includes('All')) {
+        const fv = normalize(b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '');
+        if (!selectedFixVersionsSet.has(fv)) return false;
       }
       return true;
     });
 
     // Filter sprintData by selectedSprints and testTypeFilter
     let sprintData = data.sprintData || [];
-    if (!selectedSprints.includes('Todos')) {
-      sprintData = sprintData.filter(s => selectedSprints.includes((s.sprint || s.name || s.id)));
+    const selectedSprintsSet = new Set(selectedSprints.map(s => (s || '').toString()));
+    if (!selectedSprints.includes('All')) {
+      sprintData = sprintData.filter(s => selectedSprintsSet.has(((s.sprint || s.name || s.id) || '').toString()));
     }
     if (testTypeFilter !== 'all') {
       sprintData = sprintData.filter(s => classifyTestType(s) === testTypeFilter);
+    }
+
+    // Further filter sprintData by other selected filters so KPIs and charts respond
+    const selectedTagsLowerLocal = selectedTags.map(s => normalize(s)).filter(s => s !== 'all');
+    const sprintMatches = (s) => {
+      // Tags on sprint (string or array)
+      if (selectedTagsLowerLocal.length > 0) {
+        const sTagsRaw = s.tags || s.tag || s.tagsList || '';
+        let sTags = [];
+        if (Array.isArray(sTagsRaw)) sTags = sTagsRaw.map(x => normalize(x));
+        else if (typeof sTagsRaw === 'string') sTags = sTagsRaw.split(/[;,|]/).map(x => normalize(x)).filter(Boolean);
+        if (!selectedTagsLowerLocal.some(t => sTags.includes(t))) return false;
+      }
+
+      // Strategy
+      if (!selectedStrategies.includes('All')) {
+        const strat = normalize(s.executionStrategy || s.strategy || s['Estrategia de ejecución'] || s.strategyName || '');
+        if (!selectedStrategiesSet.has(strat)) return false;
+      }
+
+      // Environment
+      if (!selectedEnvironments.includes('All')) {
+        const env = normalize(s.environment || s.ambiente || s.env || '');
+        if (!selectedEnvironmentsSet.has(env)) return false;
+      }
+
+      // Fix version / version
+      if (!selectedFixVersions.includes('All')) {
+        const fv = normalize(s.fixVersion || s.version || s['Version de correccion 1'] || s.release || '');
+        if (!selectedFixVersionsSet.has(fv)) return false;
+      }
+
+      return true;
+    };
+
+    if (sprintData && sprintData.length > 0) {
+      sprintData = sprintData.filter(sprintMatches);
     }
 
     return { ...data, bugs, sprintData };
@@ -455,14 +517,16 @@ export default function ExecutiveDashboard({
   const filteredData = applyGlobalFilters(currentData);
 
   // Recompute filter option lists from the filtered data so options are dynamic
-  const sprintList = (filteredData.sprintData || []).map(s => s.sprint || s.name || s.id) || [];
+  const sprintList = (filteredData.sprintData || [])
+    .map(s => ((s.sprint || s.name || s.id) || '').toString())
+    .filter(Boolean);
 
   const bugsArray = Array.isArray(filteredData.bugs) ? filteredData.bugs : [];
 
   // Modules
   let moduleList = [];
   if (bugsArray.length > 0) {
-    moduleList = Array.from(new Set(bugsArray.map(b => (b.module || 'Otros').toString().trim()))).filter(Boolean).sort();
+    moduleList = Array.from(new Set(bugsArray.map(b => (b.module || 'Other').toString().trim()))).filter(Boolean).sort();
   } else if (Array.isArray(filteredData.bugsByModule) && filteredData.bugsByModule.length > 0) {
     moduleList = Array.from(new Set(filteredData.bugsByModule.map(m => (m.module || m.name || m[0] || '').toString().trim()))).filter(Boolean).sort();
   }
@@ -470,7 +534,7 @@ export default function ExecutiveDashboard({
   // Priorities
   let priorityList = [];
   if (bugsArray.length > 0) {
-    priorityList = Array.from(new Set(bugsArray.map(b => (b.priority || 'Sin prioridad').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+    priorityList = Array.from(new Set(bugsArray.map(b => (b.priority || 'No priority').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
   } else if (filteredData.bugsByPriority && typeof filteredData.bugsByPriority === 'object') {
     priorityList = Object.keys(filteredData.bugsByPriority || {}).filter(Boolean).sort((a,b)=> a.localeCompare(b));
   }
@@ -488,7 +552,7 @@ export default function ExecutiveDashboard({
   // Developers
   let developerList = [];
   if (bugsArray.length > 0) {
-    developerList = Array.from(new Set(bugsArray.map(b => (b.developer || 'Sin asignar').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+    developerList = Array.from(new Set(bugsArray.map(b => (b.developer || 'Unassigned').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
   } else if (Array.isArray(filteredData.developerData) && filteredData.developerData.length > 0) {
     developerList = Array.from(new Set(filteredData.developerData.map(d => (d.developer_name || d.name || d[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
   }
@@ -496,7 +560,7 @@ export default function ExecutiveDashboard({
   // Categories
   let categoryList = [];
   if (bugsArray.length > 0) {
-    categoryList = Array.from(new Set(bugsArray.map(b => (b.category || 'Sin categoría').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    categoryList = Array.from(new Set(bugsArray.map(b => (b.category || 'Uncategorized').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
   } else if (filteredData.bugsByCategory && Array.isArray(filteredData.bugsByCategory) && filteredData.bugsByCategory.length > 0) {
     categoryList = Array.from(new Set(filteredData.bugsByCategory.map(c => (c.category || c.name || c[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
   }
@@ -631,7 +695,7 @@ export default function ExecutiveDashboard({
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-slate-500 font-medium">Last reported incident</p>
                 <p className="text-sm font-semibold text-slate-900 mt-0.5">
-                  {currentLastUpdated ? format(currentLastUpdated, 'dd/MM/yyyy HH:mm', { locale: es }) : 'Sin reportar'}
+                  {currentLastUpdated ? format(currentLastUpdated, 'MM/dd/yyyy HH:mm', { locale: enUS }) : 'Not reported'}
                 </p>
               </div>
               
@@ -650,7 +714,7 @@ export default function ExecutiveDashboard({
                 className="ml-3 inline-flex items-center px-3 py-1.5 bg-white border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <Filter className="w-4 h-4 mr-2" />
-                {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+                {showFilters ? 'Hide filters' : 'Show filters'}
               </button>
             </div>
           </div>
@@ -665,20 +729,18 @@ export default function ExecutiveDashboard({
           >
             <div className="flex items-center gap-2">
               <Filter />
-              <h2 className="text-sm font-bold">Filtros de Análisis</h2>
+              <h2 className="text-sm font-bold">Filters</h2>
               {(() => {
                 const activeFilters = 
-                  (selectedSprints[0] !== 'Todos' ? selectedSprints.length : 0) +
-                  (selectedStatus[0] !== 'Todos' ? selectedStatus.length : 0) +
-                  (selectedPriorities[0] !== 'Todos' ? selectedPriorities.length : 0) +
-                  (selectedCategories[0] !== 'Todos' ? selectedCategories.length : 0) +
-                  (selectedTags[0] !== 'Todos' ? selectedTags.length : 0) +
-                  (selectedStrategies[0] !== 'Todos' ? selectedStrategies.length : 0) +
-                  (selectedEnvironments[0] !== 'Todos' ? selectedEnvironments.length : 0) +
-                  (selectedFixVersions[0] !== 'Todos' ? selectedFixVersions.length : 0);
+                  (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
+                  (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
+                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0) +
+                  (selectedTags[0] !== 'All' ? selectedTags.length : 0) +
+                  (selectedStrategies[0] !== 'All' ? selectedStrategies.length : 0) +
+                  (selectedEnvironments[0] !== 'All' ? selectedEnvironments.length : 0);
                 return activeFilters > 0 ? (
                   <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs font-semibold">
-                    {activeFilters} activo{activeFilters > 1 ? 's' : ''}
+                    {activeFilters} active{activeFilters > 1 ? 's' : ''}
                   </span>
                 ) : null;
               })()}
@@ -686,31 +748,27 @@ export default function ExecutiveDashboard({
             <div className="flex items-center gap-2">
               {(() => {
                 const activeFilters = 
-                  (selectedSprints[0] !== 'Todos' ? selectedSprints.length : 0) +
-                  (selectedStatus[0] !== 'Todos' ? selectedStatus.length : 0) +
-                  (selectedPriorities[0] !== 'Todos' ? selectedPriorities.length : 0) +
-                  (selectedCategories[0] !== 'Todos' ? selectedCategories.length : 0) +
-                  (selectedTags[0] !== 'Todos' ? selectedTags.length : 0) +
-                  (selectedStrategies[0] !== 'Todos' ? selectedStrategies.length : 0) +
-                  (selectedEnvironments[0] !== 'Todos' ? selectedEnvironments.length : 0) +
-                  (selectedFixVersions[0] !== 'Todos' ? selectedFixVersions.length : 0);
+                  (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
+                  (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
+                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0) +
+                  (selectedTags[0] !== 'All' ? selectedTags.length : 0) +
+                  (selectedStrategies[0] !== 'All' ? selectedStrategies.length : 0) +
+                  (selectedEnvironments[0] !== 'All' ? selectedEnvironments.length : 0);
                 return activeFilters > 0 ? (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedSprints(['Todos']);
-                      setSelectedStatus(['Todos']);
-                      setSelectedPriorities(['Todos']);
-                      setSelectedCategories(['Todos']);
-                      setSelectedTags(['Todos']);
-                      setSelectedStrategies(['Todos']);
-                      setSelectedEnvironments(['Todos']);
-                      setSelectedFixVersions(['Todos']);
+                      setSelectedStatus(['All']);
+                      setSelectedPriorities(['All']);
+                      setSelectedCategories(['All']);
+                      setSelectedTags(['All']);
+                      setSelectedStrategies(['All']);
+                      setSelectedEnvironments(['All']);
                     }}
                     className="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 rounded text-xs font-semibold transition-all"
                   >
                     <X size={14} />
-                    Limpiar
+                    Clear
                   </button>
                 ) : null;
               })()}
@@ -724,9 +782,11 @@ export default function ExecutiveDashboard({
           {/* Grid de Filtros - Colapsable */}
           {showFilters && (
             <div className="bg-gray-50 rounded-b-lg p-4 border border-gray-200 border-t-0 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Sprint Filter Section */}
-                <div className="border rounded-lg p-3 bg-indigo-50 border-indigo-200">
+              <div className="flex gap-2 overflow-x-auto py-2">
+                {/* Module filter removed as requested */}
+
+                {/* Sprint Filter Section (added) */}
+                <div className="border rounded-lg p-1 bg-indigo-50 border-indigo-200 flex-shrink-0 w-44">
                   <button
                     onClick={() => setCollapsedSections(prev => ({...prev, sprint: !prev.sprint}))}
                     className="w-full flex items-center justify-between mb-2"
@@ -734,8 +794,8 @@ export default function ExecutiveDashboard({
                     <div className="flex items-center gap-1">
                       <span className="text-lg">📅</span>
                       <p className="font-bold uppercase text-xs">Sprint</p>
-                      {selectedSprints.length > 0 && selectedSprints[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                      {selectedSprints.length > 0 && selectedSprints[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
                           {selectedSprints.length}
                         </span>
                       )}
@@ -746,38 +806,57 @@ export default function ExecutiveDashboard({
                   {!collapsedSections.sprint && (
                     <div>
                       {sprintList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
                       ) : (
-                        <select
-                          multiple
-                          size={Math.min(6, Math.max(3, sprintList.length))}
-                          value={selectedSprints}
-                          onChange={(e) => handleMultiSelectChange('sprint', e)}
-                          className="w-full text-xs p-1 rounded border bg-white"
-                        >
-                          <option value="Todos">Todos</option>
-                          {sprintList.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                          ))}
-                        </select>
+                        <>
+                          <select
+                            multiple
+                            size={Math.min(6, Math.max(3, sprintList.length))}
+                            value={stagedSelectedSprints}
+                            onChange={(e) => {
+                              const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                              if (values.includes('All') || values.length === 0) {
+                                setStagedSelectedSprints(['All']);
+                              } else {
+                                setStagedSelectedSprints(values.filter(v => v !== 'All'));
+                              }
+                            }}
+                            className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                          >
+                            <option value="All">All</option>
+                            {sprintList.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedSprints(stagedSelectedSprints); }}
+                              className="text-xs px-2 py-1 bg-indigo-600 text-white rounded-sm"
+                            >
+                              Apply
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setStagedSelectedSprints(selectedSprints); }}
+                              className="text-xs px-2 py-1 bg-white border rounded-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* Module filter removed as requested */}
-
                 {/* Priority Filter Section */}
-                <div className="border rounded-lg p-3 bg-orange-50 border-orange-200">
+                <div className="border rounded-lg p-1 bg-orange-50 border-orange-200 flex-shrink-0 w-44">
                   <button
                     onClick={() => setCollapsedSections(prev => ({...prev, priority: !prev.priority}))}
                     className="w-full flex items-center justify-between mb-2"
                   >
                     <div className="flex items-center gap-1">
                       <span className="text-lg">⚡</span>
-                      <p className="font-bold uppercase text-xs">Prioridad</p>
-                      {selectedPriorities.length > 0 && selectedPriorities[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                      <p className="font-bold uppercase text-xs">Priority</p>
+                      {selectedPriorities.length > 0 && selectedPriorities[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
                           {selectedPriorities.length}
                         </span>
                       )}
@@ -788,16 +867,16 @@ export default function ExecutiveDashboard({
                   {!collapsedSections.priority && (
                     <div>
                       {priorityList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
                       ) : (
                         <select
                           multiple
                           size={Math.min(6, Math.max(3, priorityList.length))}
                           value={selectedPriorities}
                           onChange={(e) => handleMultiSelectChange('priority', e)}
-                          className="w-full text-xs p-1 rounded border bg-white"
+                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
                         >
-                          <option value="Todos">Todos</option>
+                          <option value="All">All</option>
                           {priorityList.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                       )}
@@ -806,16 +885,16 @@ export default function ExecutiveDashboard({
                 </div>
 
                 {/* Status Filter Section */}
-                <div className="border rounded-lg p-3 bg-green-50 border-green-200">
+                <div className="border rounded-lg p-1 bg-green-50 border-green-200 flex-shrink-0 w-44">
                   <button
                     onClick={() => setCollapsedSections(prev => ({...prev, status: !prev.status}))}
                     className="w-full flex items-center justify-between mb-2"
                   >
                     <div className="flex items-center gap-1">
                       <span className="text-lg">✓</span>
-                      <p className="font-bold uppercase text-xs">Estado</p>
-                      {selectedStatus.length > 0 && selectedStatus[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                      <p className="font-bold uppercase text-xs">Status</p>
+                      {selectedStatus.length > 0 && selectedStatus[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
                           {selectedStatus.length}
                         </span>
                       )}
@@ -826,16 +905,16 @@ export default function ExecutiveDashboard({
                   {!collapsedSections.status && (
                       <div>
                         {statusList.length === 0 ? (
-                          <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
                         ) : (
                           <select
-                            multiple
-                            size={Math.min(6, Math.max(3, statusList.length))}
-                            value={selectedStatus}
-                            onChange={(e) => handleMultiSelectChange('status', e)}
-                            className="w-full text-xs p-1 rounded border bg-white"
-                          >
-                            <option value="Todos">Todos</option>
+                              multiple
+                              size={Math.min(6, Math.max(3, statusList.length))}
+                              value={selectedStatus}
+                              onChange={(e) => handleMultiSelectChange('status', e)}
+                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                            >
+                            <option value="All">All</option>
                             {statusList.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         )}
@@ -845,7 +924,7 @@ export default function ExecutiveDashboard({
                 {/* Developer filter removed per request */}
 
                 {/* Tags Filter Section */}
-                <div className="border rounded-lg p-3 bg-purple-50 border-purple-200">
+                <div className="border rounded-lg p-1 bg-purple-50 border-purple-200 flex-shrink-0 w-44">
                   <button
                     onClick={() => setCollapsedSections(prev => ({...prev, tag: !prev.tag}))}
                     className="w-full flex items-center justify-between mb-2"
@@ -853,8 +932,8 @@ export default function ExecutiveDashboard({
                     <div className="flex items-center gap-1">
                       <span className="text-lg">🏷️</span>
                       <p className="font-bold uppercase text-xs">Tags</p>
-                      {selectedTags.length > 0 && selectedTags[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                      {selectedTags.length > 0 && selectedTags[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
                           {selectedTags.length}
                         </span>
                       )}
@@ -865,16 +944,16 @@ export default function ExecutiveDashboard({
                   {!collapsedSections.tag && (
                     <div>
                       {tagList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
                       ) : (
                         <select
                           multiple
                           size={Math.min(6, Math.max(3, tagList.length))}
                           value={selectedTags}
                           onChange={(e) => handleMultiSelectChange('tag', e)}
-                          className="w-full text-xs p-1 rounded border bg-white"
+                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
                         >
-                          <option value="Todos">Todos</option>
+                          <option value="All">All</option>
                           {tagList.map(t => <option key={t} value={t}>{t}</option>)}
                         </select>
                       )}
@@ -883,16 +962,16 @@ export default function ExecutiveDashboard({
                 </div>
 
                 {/* Strategy Filter Section */}
-                <div className="border rounded-lg p-3 bg-yellow-50 border-yellow-200">
+                <div className="border rounded-lg p-1 bg-yellow-50 border-yellow-200 flex-shrink-0 w-44">
                   <button
                     onClick={() => setCollapsedSections(prev => ({...prev, strategy: !prev.strategy}))}
                     className="w-full flex items-center justify-between mb-2"
                   >
                     <div className="flex items-center gap-1">
                       <span className="text-lg">🧭</span>
-                      <p className="font-bold uppercase text-xs">Estrategia</p>
-                      {selectedStrategies.length > 0 && selectedStrategies[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                      <p className="font-bold uppercase text-xs">Strategy</p>
+                      {selectedStrategies.length > 0 && selectedStrategies[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
                           {selectedStrategies.length}
                         </span>
                       )}
@@ -903,16 +982,16 @@ export default function ExecutiveDashboard({
                   {!collapsedSections.strategy && (
                     <div>
                       {strategyList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
                       ) : (
                         <select
                           multiple
                           size={Math.min(6, Math.max(3, strategyList.length))}
                           value={selectedStrategies}
                           onChange={(e) => handleMultiSelectChange('strategy', e)}
-                          className="w-full text-xs p-1 rounded border bg-white"
+                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
                         >
-                          <option value="Todos">Todos</option>
+                          <option value="All">All</option>
                           {strategyList.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       )}
@@ -921,16 +1000,16 @@ export default function ExecutiveDashboard({
                 </div>
 
                 {/* Environment Filter Section */}
-                <div className="border rounded-lg p-3 bg-emerald-50 border-emerald-200">
+                <div className="border rounded-lg p-1 bg-emerald-50 border-emerald-200 flex-shrink-0 w-44">
                   <button
                     onClick={() => setCollapsedSections(prev => ({...prev, environment: !prev.environment}))}
                     className="w-full flex items-center justify-between mb-2"
                   >
                     <div className="flex items-center gap-1">
                       <span className="text-lg">🌎</span>
-                      <p className="font-bold uppercase text-xs">Ambiente</p>
-                      {selectedEnvironments.length > 0 && selectedEnvironments[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
+                      <p className="font-bold uppercase text-xs">Environment</p>
+                      {selectedEnvironments.length > 0 && selectedEnvironments[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
                           {selectedEnvironments.length}
                         </span>
                       )}
@@ -941,16 +1020,16 @@ export default function ExecutiveDashboard({
                   {!collapsedSections.environment && (
                     <div>
                       {environmentList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
                       ) : (
                         <select
                           multiple
                           size={Math.min(6, Math.max(3, environmentList.length))}
                           value={selectedEnvironments}
                           onChange={(e) => handleMultiSelectChange('environment', e)}
-                          className="w-full text-xs p-1 rounded border bg-white"
+                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
                         >
-                          <option value="Todos">Todos</option>
+                          <option value="All">All</option>
                           {environmentList.map(env => <option key={env} value={env}>{env}</option>)}
                         </select>
                       )}
@@ -958,43 +1037,7 @@ export default function ExecutiveDashboard({
                   )}
                 </div>
 
-                {/* Fix Version Filter Section */}
-                <div className="border rounded-lg p-3 bg-sky-50 border-sky-200">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, fixVersion: !prev.fixVersion}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">🔖</span>
-                      <p className="font-bold uppercase text-xs">Versión</p>
-                      {selectedFixVersions.length > 0 && selectedFixVersions[0] !== 'Todos' && (
-                        <span className="ml-1 px-2 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded">
-                          {selectedFixVersions.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.fixVersion ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.fixVersion && (
-                    <div>
-                      {fixVersionList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">Sin valores</div>
-                      ) : (
-                        <select
-                          multiple
-                          size={Math.min(6, Math.max(3, fixVersionList.length))}
-                          value={selectedFixVersions}
-                          onChange={(e) => handleMultiSelectChange('fixVersion', e)}
-                          className="w-full text-xs p-1 rounded border bg-white"
-                        >
-                          <option value="Todos">Todos</option>
-                          {fixVersionList.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
+                {/* Fix Version filter removed per request */}
               </div>
             </div>
           )}
@@ -1024,7 +1067,7 @@ export default function ExecutiveDashboard({
                   ))}
                   {alerts.length > 3 && (
                     <p className="text-xs text-red-600 mt-1">
-                      +{alerts.length - 3} alertas adicionales
+                      +{alerts.length - 3} additional alerts
                     </p>
                   )}
                 </div>
@@ -1162,23 +1205,23 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
 
   // Filtro de sprints con checkboxes
   const handleSprintToggle = (sprint) => {
-    if (sprint === 'Todos') {
-      setSelectedSprints(['Todos']);
+    if (sprint === 'All') {
+      setSelectedSprints(['All']);
     } else {
       setSelectedSprints(prev => {
-        // Si "Todos" está seleccionado, lo quitamos y solo dejamos el sprint clickeado
-        if (prev.includes('Todos')) {
+        // If 'All' is selected, replace with the clicked sprint
+        if (prev.includes('All')) {
           return [sprint];
         }
-        
-        // Si el sprint ya está seleccionado, lo quitamos
+
+        // If the sprint is already selected, remove it
         if (prev.includes(sprint)) {
           const filtered = prev.filter(s => s !== sprint);
-          // Si no queda ninguno, volvemos a "Todos"
-          return filtered.length === 0 ? ['Todos'] : filtered;
+          // If none left, return to 'All'
+          return filtered.length === 0 ? ['All'] : filtered;
         }
-        
-        // Si no está seleccionado, lo agregamos
+
+        // Otherwise add it
         return [...prev, sprint];
       });
     }
@@ -1187,8 +1230,8 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   // Manejar cambio de tipo de prueba - resetear sprints seleccionados
   const handleTestTypeChange = (newType) => {
     setTestTypeFilter(newType);
-    // Resetear sprints a 'Todos' cuando cambias el tipo de prueba
-    setSelectedSprints(['Todos']);
+    // Reset sprints to 'All' when test type changes
+    setSelectedSprints(['All']);
   };
 
   // Obtener sprints disponibles según el tipo de prueba seleccionado
@@ -1197,10 +1240,10 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       return sprintList;
     }
     // Filtrar sprints según el tipo seleccionado
-    return sprintList.filter(sprint => {
-      const sprintData = data.sprintData?.find(s => (s.sprint || s.name || s.id) === sprint);
-      return classifyTestType(sprintData) === testTypeFilter;
-    });
+      return sprintList.filter(sprint => {
+        const sprintData = data.sprintData?.find(s => (((s.sprint || s.name || s.id) || '').toString() === (sprint || '').toString()));
+        return classifyTestType(sprintData) === testTypeFilter;
+      });
   };
 
   const availableSprints = getAvailableSprints();
@@ -1209,18 +1252,28 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   // Recalcular KPIs basados en los sprints seleccionados y tipo de prueba
   const totalTestCases = filteredSprintData?.reduce((acc, s) => acc + (s.testCases || s.testCasesExecuted || 0), 0) || 0;
   
+  // If any filters are active (sprint, type or any other filter), treat as filtered mode
+  const hasFiltersActive = (
+    !selectedSprints.includes('All') ||
+    testTypeFilter !== 'all' ||
+    (typeof selectedStatus !== 'undefined' && selectedStatus[0] !== 'All') ||
+    (typeof selectedPriorities !== 'undefined' && selectedPriorities[0] !== 'All') ||
+    (typeof selectedTags !== 'undefined' && selectedTags[0] !== 'All') ||
+    (typeof selectedStrategies !== 'undefined' && selectedStrategies[0] !== 'All') ||
+    (typeof selectedEnvironments !== 'undefined' && selectedEnvironments[0] !== 'All') ||
+    (typeof selectedFixVersions !== 'undefined' && selectedFixVersions[0] !== 'All')
+  );
+
   // Para totalBugs: si hay filtros activos, usar sprints filtrados. Si no, usar el total global (238)
-  const totalBugs = (selectedSprints.includes('Todos') && testTypeFilter === 'all') 
-    ? summary.totalBugs 
-    : filteredSprintData?.reduce((acc, s) => acc + (s.bugs || s.bugsFound || 0), 0) || 0;
-  const bugsClosed = filteredSprintData?.reduce((acc, s) => acc + (s.bugsResolved || s.bugsClosed || 0), 0) || summary.bugsClosed || 0;
+  const totalBugs = hasFiltersActive
+    ? (filteredSprintData?.reduce((acc, s) => acc + (s.bugs || s.bugsFound || 0), 0) || 0)
+    : (summary.totalBugs || 0);
+  const bugsClosed = hasFiltersActive
+    ? (filteredSprintData?.reduce((acc, s) => acc + (s.bugsResolved || s.bugsClosed || 0), 0) || 0)
+    : (summary.bugsClosed || 0);
   
   // Calcular bugs críticos desde los sprints filtrados (usar datos reales del JSON)
   let criticalBugsPending, criticalBugsTotal, criticalBugsMasAlta, criticalBugsAlta;
-  
-  // Si hay filtros activos (NO "Todas las pruebas" O hay filtro de tipo)
-  const hasFiltersActive = !selectedSprints.includes('Todos') || testTypeFilter !== 'all';
-  
   if (hasFiltersActive) {
     // Con filtros: calcular desde datos reales de sprints filtrados
     const sprintsCriticalData = filteredSprintData?.reduce((acc, sprint) => {
@@ -1285,6 +1338,15 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   const criticalBugsRatio = totalBugs > 0 
     ? Math.round((criticalBugsPending / totalBugs) * 100) 
     : kpis.criticalBugsRatio || 0;
+
+  // Derived execution rate based on staged/filtered sprint data when available
+  const totalPlannedTests = (filteredSprintData && filteredSprintData.length > 0)
+    ? filteredSprintData.reduce((acc, s) => acc + (s.testCasesPlanned || s.testCasesTotal || s.testCases || 0), 0)
+    : (data.summary?.testCasesTotal || 0);
+  const derivedExecutionRate = totalPlannedTests > 0 ? Math.round((totalTestCases / totalPlannedTests) * 100) : (kpis.testExecutionRate || 0);
+
+  // Derived leakage rate: prefer kpis value, fallback to 0
+  const derivedLeakageRate = (kpis && kpis.bugLeakageRate !== undefined) ? kpis.bugLeakageRate : 0;
 
   // Calculate trends comparing first half vs second half of selected sprints
   const calculateTrend = (getData) => {
@@ -1613,16 +1675,16 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         {isKpiVisible('testExecutionRate') && (
           <UnderConstructionCard
             title="Execution Rate"
-            value={`${kpis.testExecutionRate || 0}%`}
+            value={`${derivedExecutionRate || 0}%`}
             icon={<Activity className="w-6 h-6 text-blue-600" />}
             subtitle="Executed vs planned tests"
             onClick={() => setDetailModal({
               type: 'testExecutionRate',
               title: 'Analysis of Execution Rate',
               data: {
-                executionRate: kpis.testExecutionRate,
-                executed: data.summary?.testCasesExecuted || 0,
-                planned: data.summary?.testCasesTotal || 0,
+                executionRate: derivedExecutionRate,
+                executed: totalTestCases,
+                planned: totalPlannedTests,
                 trend: getSparklineData('executionRate')
               },
               sparklineData: getSparklineData('executionRate'),
@@ -1837,19 +1899,19 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           />
         )}
         
-        {kpis.bugLeakageRate !== undefined && (
+        {((kpis && kpis.bugLeakageRate !== undefined) || totalBugs > 0) && (
           <UnderConstructionCard
             title="Leak Rate"
-            value={`${kpis.bugLeakageRate}%`}
+            value={`${derivedLeakageRate}%`}
             icon={<TrendingUp className="w-6 h-6 text-red-600" />}
             subtitle="Findings in production"
             onClick={() => setDetailModal({
               type: 'bugLeakageRate',
               title: 'Leak Rate Analysis',
               data: {
-                leakageRate: kpis.bugLeakageRate,
-                productionBugs: data.summary?.totalBugs ? Math.round((kpis.bugLeakageRate / 100) * data.summary.totalBugs) : 0,
-                totalBugs: data.summary?.totalBugs || 0,
+                leakageRate: derivedLeakageRate,
+                productionBugs: totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0,
+                totalBugs: totalBugs || 0,
                 trend: getSparklineData('bugLeakageRate')
               },
               sparklineData: getSparklineData('bugLeakageRate'),
