@@ -257,6 +257,8 @@ WHERE tipo_incidencia = 'Bug';
 -- Vista: Estadísticas simples de casos de prueba (soporte)
 CREATE VIEW IF NOT EXISTS vw_testcase_stats AS
 SELECT
-  SUM(CASE WHEN tipo_prueba IS NOT NULL AND tipo_prueba != '' AND tipo_incidencia IN ('Test Execution','Sub Test Execution') THEN 1 ELSE 0 END) as testcases_with_type,
-  SUM(CASE WHEN tipo_incidencia IN ('Test Execution','Sub Test Execution') THEN 1 ELSE 0 END) as total_records
+  -- Count rows where the summary mentions 'test' (case-insensitive) and exclude bugs
+  SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' THEN 1 ELSE 0 END) as testcases_with_type,
+  -- Use the same filtered count as total_records so downstream logic can divide by sprint count
+  SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' THEN 1 ELSE 0 END) as total_records
 FROM bugs_detail;
