@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+// sum_sprint_testcases moved
+console.log('sum_sprint_testcases moved to temp-validation')
 import DAL from '../lib/database/dal.js';
 
 (async ()=>{

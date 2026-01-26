@@ -295,30 +295,7 @@ export default function ExecutiveDashboard({
   
 
   // Auto-refresh mejorado
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      if (isParametricMode) {
-        loadParametricData();
-      } else if (externalOnRefresh) {
-        externalOnRefresh();
-      }
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, isParametricMode, externalOnRefresh, refreshInterval, dataSource, config]);
-
-  // Cargar datos paramétricos cuando hay configuración
-  useEffect(() => {
-    if (isParametricMode && config) {
-      loadParametricData();
-    }
-  }, [isParametricMode, config, dataSource]);
-
-  
-
-  async function loadParametricData() {
+  const loadParametricData = useCallback(async () => {
     setParametricLoading(true);
     setError(null);
     try {
@@ -339,7 +316,31 @@ export default function ExecutiveDashboard({
     } finally {
       setParametricLoading(false);
     }
-  }
+  }, [dataSource, config]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      if (isParametricMode) {
+        loadParametricData();
+      } else if (externalOnRefresh) {
+        externalOnRefresh();
+      }
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, isParametricMode, externalOnRefresh, refreshInterval, dataSource, config, loadParametricData]);
+
+  // Cargar datos paramétricos cuando hay configuración
+  useEffect(() => {
+    if (isParametricMode && config) {
+      loadParametricData();
+    }
+  }, [isParametricMode, config, dataSource, loadParametricData]);
+
+  
+
 
   async function loadRecommendations() {
     try {

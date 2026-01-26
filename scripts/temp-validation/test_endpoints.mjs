@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+// test_endpoints moved here
+console.log('test_endpoints moved to temp-validation')
 import http from 'http';
 
 async function fetchUrl(path) {

@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.resolve(__dirname, '../public/data/qa-dashboard.db');
+const dbPath = path.resolve(__dirname, '..', 'public', 'data', 'qa-dashboard.db');
 
 async function run() {
   const db = new (sqlite3.verbose().Database)(dbPath);

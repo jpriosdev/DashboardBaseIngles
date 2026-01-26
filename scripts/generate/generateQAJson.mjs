@@ -15,11 +15,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Import DAL después de definir __dirname
 async function main() {
   try {
-    const DAL = (await import('../lib/database/dal.js')).default;
+    const DAL = (await import('../../lib/database/dal.js')).default;
     
-    const JSON_OUTPUT_PATH = path.join(__dirname, '..', 'public', 'data', 'qa-data.json');
+    const JSON_OUTPUT_PATH = path.join(__dirname, '..', '..', 'public', 'data', 'qa-data.json');
     const DATA_DIR = path.dirname(JSON_OUTPUT_PATH);
-    const DB_PATH = path.join(__dirname, '..', 'public', 'data', 'qa-dashboard.db');
+    const DB_PATH = path.join(__dirname, '..', '..', 'public', 'data', 'qa-dashboard.db');
 
     console.log(`📁 Workspace: ${process.cwd()}`);
     console.log(`📁 Output: ${JSON_OUTPUT_PATH}`);

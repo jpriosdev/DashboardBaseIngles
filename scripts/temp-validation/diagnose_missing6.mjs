@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+// diagnose_missing6 moved
+console.log('diagnose_missing6 moved to temp-validation')
 import DAL from '../lib/database/dal.js';
 
 const DONE_STATES = ['Done','Approved for Release','Reviewed','Testing Complete'];

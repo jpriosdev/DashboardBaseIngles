@@ -49,32 +49,55 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
+            <strong>Note:</strong> {label} requires more data points to show a meaningful trend.
+          </p>
+        </div>
+      );
+    }
+    // If there are few sprints, show warning
+    if (!sprints || sprints.length < 2) {
+      return (
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+          <p className="text-sm text-yellow-800">
             <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
           </p>
         </div>
       );
     }
     
-    const labels = sprints && sprints.length > 0 ? sprints.map(s => s.sprint || s.name || 'Sprint') : chartData.map((_, idx) => `Sprint ${idx + 1}`);
+    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
     
+    // Construir datasets locales a partir del prop `chartData`
+    const datasetsLocal = Array.isArray(chartData) ? [{ label, data: chartData, color }] : (chartData && Array.isArray(chartData.datasets) ? chartData.datasets : [{ label, data: chartData || [], color }]);
+    const targetsLocal = {}; // no hay targets por defecto aquí
+
+    const validDatasets = (datasetsLocal || [])
+      .filter(dataset => dataset.data && dataset.data.length > 0)
+      .map((dataset) => {
+        const target = targetsLocal?.[dataset.label] || 0;
+        const pointColors = dataset.data.map(value => value <= target ? '#10b981' : '#ef4444');
+        return {
+          label: dataset.label,
+          data: dataset.data,
+          borderColor: dataset.color,
+          backgroundColor: pointColors,
+          tension: 0.3,
+          fill: false,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          borderWidth: 1.5,
+          showLine: true
+        };
+      });
+
+    if (validDatasets.length === 0) return null;
+
     const chartConfig = {
       labels: labels,
-      datasets: [
-        {
-          label: yAxisLabel,
-          data: chartData,
-          borderColor: color,
-          backgroundColor: color,
-          tension: 0.4,
-          fill: false,
-          pointRadius: 3.5,
-          pointHoverRadius: 5,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: color,
-          pointBorderWidth: 2,
-          borderWidth: 2,
-        }
-      ],
+      datasets: validDatasets
     };
 
     const options = {
@@ -86,28 +109,57 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       },
       plugins: {
         legend: {
-          display: false,
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 10,
+            font: {
+              size: 11
+            },
+            generateLabels: function(chart) {
+              return (datasetsLocal || []).map((dataset, idx) => ({
+                text: `${dataset.label}${targetsLocal[dataset.label] ? ` (target: ${targetsLocal[dataset.label]}d)` : ''}`,
+                fillStyle: dataset.color,
+                strokeStyle: dataset.color,
+                lineWidth: 1.5,
+                pointStyle: 'circle',
+                datasetIndex: idx
+              }));
+            }
+          }
         },
         title: {
-          display: false,
+          display: true,
+          text: label,
+          font: {
+            size: 13,
+            weight: 'bold',
+          },
+          padding: {
+            bottom: 12
+          }
         },
         tooltip: {
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          padding: 8,
+          padding: 10,
           cornerRadius: 6,
           titleFont: {
-            size: 11,
+            size: 12,
             weight: 'bold'
           },
           bodyFont: {
-            size: 10
+            size: 11
           },
           callbacks: {
             title: function(context) {
               return context[0].label || '';
             },
             label: function(context) {
-              return `${context.dataset.label}: ${context.parsed.y}`;
+              const value = context.parsed.y;
+              const target = targetsLocal[context.dataset.label] || 0;
+              const status = target ? (value <= target ? '✓ Cumple' : '✗ No cumple') : '';
+              return `${context.dataset.label}: ${value}${yAxisLabel === 'Días' ? 'd' : ''}${status ? ` (${status})` : ''}`;
             }
           }
         }
@@ -116,7 +168,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         x: {
           display: true,
           title: {
-            display: false
+            display: true,
+            text: 'Sprints',
+            font: {
+              size: 11,
+              weight: 'bold'
+            }
           },
           grid: {
             display: false
@@ -127,63 +184,50 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             }
           }
         },
-        // y-scale filled below dynamically to allow optional min/max
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: {
+            display: true,
+            text: yAxisLabel,
+            font: {
+              size: 11,
+              weight: 'bold'
+            }
+          },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.06)',
+            drawBorder: false
+          },
+          ticks: {
+            font: {
+              size: 10
+            }
+          }
+        },
       },
     };
-    // Configure Y scale with optional min/max if provided
-    const yScale = {
-      type: 'linear',
-      display: true,
-      position: 'left',
-      title: { display: false },
-      grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false },
-      ticks: { font: { size: 10 } }
-    };
-    // allow caller to override min/max via props
-    if (typeof arguments[0]?.minY === 'number') yScale.min = arguments[0].minY;
-    if (typeof arguments[0]?.maxY === 'number') yScale.max = arguments[0].maxY;
-    options.scales.y = yScale;
+    
     return (
-      <div className="bg-white p-2 rounded-lg border border-gray-200">
-        <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">{label}</h5>
-        <div className="h-40">
+      <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
+        <div className="h-64">
           <Line data={chartConfig} options={options} />
         </div>
       </div>
     );
   };
 
-  const renderModuleDetail = (data) => {
-    // Ensure ModuleAnalysis receives an object keyed by module name
-    let payload = data;
-    // If data is a single module entry keyed by module name already, pass through
-    // If data contains one module under an arbitrary key, keep as-is
-    // If user passed a single module object (not keyed), try to wrap it
-    if (data && !Object.values(data).some(v => v && v.total !== undefined)) {
-      // heuristics: if object looks like a single module (has total/resolved/pending), wrap it
-      const keys = Object.keys(data || {});
-      if (keys.length > 0 && (data.total !== undefined || data.resolved !== undefined || data.pending !== undefined)) {
-        payload = { [keys[0]]: data };
-      }
-    }
-
-    return (
-      <div className="space-y-6">
-        <ModuleAnalysis data={payload} />
-      </div>
-    );
-  };
-
   // Componente de gráfico con puntos de cumplimiento (verde/rojo según target)
-  const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Days', targets }) => {
+  const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Días', targets = {} }) => {
     if (!datasets || datasets.length === 0) return null;
     
-    // If there are few sprints, show warning
+    // Si hay pocos sprints, mostrar advertencia
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
+            <strong>Note:</strong> {label} requires multiple sprints to show trend. Available sprints: {sprints?.length || 0}
           </p>
         </div>
       );
@@ -239,7 +283,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             },
             generateLabels: function(chart) {
               return datasets.map((dataset, idx) => ({
-                text: `${dataset.label} (target: ${targets[dataset.label]}d)`,
+                text: `${dataset.label}${targets[dataset.label] ? ` (target: ${targets[dataset.label]}d)` : ''}`,
                 fillStyle: dataset.color,
                 strokeStyle: dataset.color,
                 lineWidth: 1.5,
@@ -278,8 +322,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             label: function(context) {
               const value = context.parsed.y;
               const target = targets[context.dataset.label] || 0;
-              const status = value <= target ? '✓ Cumple' : '✗ No cumple';
-              return `${context.dataset.label}: ${value}d (${status})`;
+              const status = target ? (value <= target ? '✓ Cumple' : '✗ No cumple') : '';
+              return `${context.dataset.label}: ${value}d${status ? ` (${status})` : ''}`;
             }
           }
         }
@@ -295,40 +339,20 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               weight: 'bold'
             }
           },
-          grid: {
-            display: false
-          },
-          ticks: {
-            font: {
-              size: 10
-            }
-          }
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
         },
         y: {
           type: 'linear',
           display: true,
           position: 'left',
-          title: {
-            display: true,
-            text: yAxisLabel,
-            font: {
-              size: 11,
-              weight: 'bold'
-            }
-          },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.06)',
-            drawBorder: false
-          },
-          ticks: {
-            font: {
-              size: 10
-            }
-          }
-        },
-      },
+          title: { display: true, text: yAxisLabel, font: { size: 11, weight: 'bold' } },
+          grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+          ticks: { font: { size: 10 } }
+        }
+      }
     };
-    
+
     return (
       <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
         <div className="h-64">
@@ -593,18 +617,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
             return (
               <div key={priority} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-600">{config.label}</span>
-                  {isGood ? (
-                    <CheckCircle className="w-4 h-4 text-success-500" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-warning-500" />
-                  )}
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-gray-900">{days}</span>
-                  <span className="text-sm text-gray-500 ml-1">days</span>
-                </div>
+                <div className="text-sm text-gray-600 mb-1">{config.label}</div>
+                <div className="text-2xl font-bold">{days} <span className="text-sm text-gray-500 ml-1">days</span></div>
+              
                 <div className="mt-2">
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                     <span>Target: {config.target}d</span>
@@ -1204,7 +1219,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         
         const datasets = [
           {
-            label: 'Highest',
+            label: 'Major',
             data: masAltaEfficiency,
             color: '#dc2626'
           },
@@ -1224,7 +1239,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             color: '#a3a3a3'
           },
           {
-            label: 'Lowest',
+            label: 'Trivial',
             data: masBajaEfficiency,
             color: '#d4d4d4'
           }
@@ -1458,7 +1473,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-danger-50 p-4 rounded-lg border-2 border-danger-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-danger-800">Highest</span>
+            <span className="text-sm font-medium text-danger-800">Major</span>
             <AlertTriangle className="w-4 h-4 text-danger-600" />
           </div>
           <div className="flex items-baseline">
@@ -1510,14 +1525,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                 const total = masAlta + alta + media + baja || 1;
                 
                 const colors = {
-                  'Highest': '#dc2626',
+                  'Major': '#dc2626',
                   'High': '#f59e0b',
                   'Medium': '#3b82f6',
                   'Low': '#9ca3af'
                 };
 
                 const values = [
-                  { label: 'Highest', value: masAlta, color: colors['Highest'] },
+                  { label: 'Major', value: masAlta, color: colors['Major'] },
                   { label: 'High', value: alta, color: colors['High'] },
                   { label: 'Medium', value: media, color: colors['Medium'] },
                   { label: 'Low', value: baja, color: colors['Low'] }
@@ -1576,21 +1591,21 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               const total = masAlta + alta + media + baja || 1;
               
               const items = [
-                { label: 'Highest', value: masAlta, color: 'bg-danger-500' },
+                { label: 'Major', value: masAlta, color: 'bg-danger-500' },
                 { label: 'High', value: alta, color: 'bg-warning-500' },
                 { label: 'Medium', value: media, color: 'bg-blue-500' },
                 { label: 'Low', value: baja, color: 'bg-gray-500' }
               ];
 
               const bgColorMap = {
-                'Highest': 'bg-red-50',
+                'Major': 'bg-red-50',
                 'High': 'bg-orange-50',
                 'Medium': 'bg-blue-50',
                 'Low': 'bg-gray-50'
               };
 
               const textColorMap = {
-                'Highest': 'text-red-700',
+                'Major': 'text-red-700',
                 'High': 'text-orange-700',
                 'Medium': 'text-blue-700',
                 'Low': 'text-gray-700'
@@ -1616,7 +1631,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
         <div className="mt-3 p-2 bg-gray-50 rounded border border-gray-200 text-xs text-gray-700">
           <p><strong>Total:</strong> {(data.critical || 0) + (data.high || 0) + (data.medium || 0) + (data.low || 0)} hallazgos</p>
-          <p className="text-xs mt-1">🔴 Critical Risk (Highest + High): {(data.critical || 0) + (data.high || 0)}</p>
+          <p className="text-xs mt-1">🔴 Critical Risk (Major + High): {(data.critical || 0) + (data.high || 0)}</p>
         </div>
       </div>
 
@@ -1661,8 +1676,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             const chartData = {
               labels: sprintLabels,
               datasets: [
-              {
-                  label: 'Highest',
+                {
+                  label: 'Major',
                   data: criticoData,
                   borderColor: '#dc2626',
                   backgroundColor: 'rgba(220, 38, 38, 0.1)',
@@ -1878,12 +1893,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-danger-600 mb-2">
           {data.total} Critical Findings
         </h3>
-        <p className="text-sm text-gray-600">Bugs of Highest and High priority detected</p>
+        <p className="text-sm text-gray-600">Bugs of Major and High priority detected</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Highest Priority</div>
+          <div className="text-sm text-gray-600 mb-1">Major Priority</div>
           <div className="text-2xl font-bold text-danger-600">{data.highest}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -1895,171 +1910,196 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <h4 className="font-semibold text-gray-800 mb-3">Criticality Distribution</h4>
         <div className="flex flex-col md:flex-row gap-6 items-center">
-          {/* Gráfico circular */}
-          <div className="flex-shrink-0">
-            <svg width="220" height="220" viewBox="0 0 220 220" className="mx-auto">
-              {(() => {
-                const priorities = data.allPriorities || {};
-                
-                // Función para buscar clave con normalización
-                const findKey = (searchTerm) => {
-                  const normalized = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  return Object.keys(priorities).find(key => 
-                    key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized
-                  ) || searchTerm;
-                };
-                
-                const masAltaKey = findKey('Más Alta');
-                const altaKey = findKey('Alta');
-                const mediaKey = findKey('Media');
-                const bajaKey = findKey('Baja');
-                const masBajaKey = findKey('Más Baja');
-                
-                const masAlta = priorities[masAltaKey]?.count || 0;
-                const alta = priorities[altaKey]?.count || 0;
-                const media = priorities[mediaKey]?.count || 0;
-                const baja = priorities[bajaKey]?.count || 0;
-                const masBaja = priorities[masBajaKey]?.count || 0;
-                const total = masAlta + alta + media + baja + masBaja || 1;
-                
-                const colors = {
-                  'Highest': '#dc2626',
-                  'High': '#f97316',
-                  'Medium': '#3b82f6',
-                  'Low': '#a3a3a3',
-                  'Lowest': '#d4d4d4'
-                };
+          {(() => {
+            const priorities = data.allPriorities || {};
 
-                const values = [
-                  { label: 'Highest', value: masAlta, color: colors['Highest'] },
-                  { label: 'High', value: alta, color: colors['High'] },
-                  { label: 'Medium', value: media, color: colors['Medium'] },
-                  { label: 'Low', value: baja, color: colors['Low'] },
-                  { label: 'Lowest', value: masBaja, color: colors['Lowest'] }
-                ].filter(v => v.value > 0);
-                
-                let currentAngle = -90;
-                const centerX = 110;
-                const centerY = 110;
-                const radius = 80;
-                
-                return (
-                  <g>
-                    {values.map((item, idx) => {
-                      const percentage = (item.value / total) * 100;
-                      const angle = (percentage / 100) * 360;
-                      const startAngle = currentAngle;
-                      const endAngle = currentAngle + angle;
-                      
-                      const startRad = (startAngle * Math.PI) / 180;
-                      const endRad = (endAngle * Math.PI) / 180;
-                      
-                      const x1 = centerX + radius * Math.cos(startRad);
-                      const y1 = centerY + radius * Math.sin(startRad);
-                      const x2 = centerX + radius * Math.cos(endRad);
-                      const y2 = centerY + radius * Math.sin(endRad);
-                      
-                      const largeArc = angle > 180 ? 1 : 0;
-                      
-                      const path = [
-                        `M ${centerX} ${centerY}`,
-                        `L ${x1} ${y1}`,
-                        `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-                        'Z'
-                      ].join(' ');
-                      
-                      currentAngle = endAngle;
-                      
+            const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+            const mapCanonical = (kNorm) => {
+              if (!kNorm) return 'Other';
+              if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
+              if (kNorm.includes('alta') || kNorm.includes('high')) return 'High';
+              if (kNorm.includes('media') || kNorm.includes('medium')) return 'Medium';
+              if (kNorm.includes('baja') || kNorm.includes('low')) return 'Low';
+              if (kNorm.includes('trivial') || kNorm.includes('lowest') || kNorm.includes('masbaja')) return 'Trivial';
+              return 'Other';
+            };
+
+            const colorsByCanonical = {
+              Major: '#dc2626',
+              High: '#f97316',
+              Medium: '#3b82f6',
+              Low: '#9ca3af',
+              Trivial: '#d4d4d4',
+              Other: '#c7c7c7'
+            };
+
+            const mappedItems = Object.keys(priorities || {}).map(key => {
+              const raw = priorities[key] || {};
+              const count = (typeof raw === 'number') ? raw : (raw.count || raw.total || 0);
+              const kNorm = normalize(key);
+              const canonical = mapCanonical(kNorm);
+              return { key, label: key, canonical, value: Number(count) || 0, color: colorsByCanonical[canonical] || colorsByCanonical.Other };
+            }).filter(i => i.value > 0);
+
+            const total = mappedItems.reduce((s, it) => s + it.value, 0) || 1;
+            const values = mappedItems.map((item) => ({ label: item.canonical, value: item.value, color: item.color }));
+
+            return (
+              <>
+                <div className="flex-shrink-0">
+                  <svg width="220" height="220" viewBox="0 0 220 220" className="mx-auto">
+                    {(() => {
+                      let currentAngle = -90;
+                      const centerX = 110;
+                      const centerY = 110;
+                      const radius = 80;
+
                       return (
-                        <path
-                          key={idx}
-                          d={path}
-                          fill={item.color}
-                          stroke="white"
-                          strokeWidth="2"
-                        />
+                        <g>
+                          {values.map((item, idx) => {
+                            const percentage = (item.value / total) * 100;
+                            const angle = (percentage / 100) * 360;
+                            const startAngle = currentAngle;
+                            const endAngle = currentAngle + angle;
+
+                            const startRad = (startAngle * Math.PI) / 180;
+                            const endRad = (endAngle * Math.PI) / 180;
+
+                            const x1 = centerX + radius * Math.cos(startRad);
+                            const y1 = centerY + radius * Math.sin(startRad);
+                            const x2 = centerX + radius * Math.cos(endRad);
+                            const y2 = centerY + radius * Math.sin(endRad);
+
+                            const largeArc = angle > 180 ? 1 : 0;
+
+                            const path = [
+                              `M ${centerX} ${centerY}`,
+                              `L ${x1} ${y1}`,
+                              `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
+                              'Z'
+                            ].join(' ');
+
+                            currentAngle = endAngle;
+
+                            return (
+                              <path
+                                key={idx}
+                                d={path}
+                                fill={item.color}
+                                stroke="white"
+                                strokeWidth="2"
+                              />
+                            );
+                          })}
+                          <circle cx={centerX} cy={centerY} r="40" fill="white" />
+                          <text x={centerX} y={centerY - 5} textAnchor="middle" className="fill-gray-700 font-bold" fontSize="20">{total}</text>
+                          <text x={centerX} y={centerY + 12} textAnchor="middle" className="fill-gray-500" fontSize="12">Total Bugs</text>
+                        </g>
                       );
-                    })}
-                    {/* Centro blanco */}
-                    <circle cx={centerX} cy={centerY} r="40" fill="white" />
-                    <text
-                      x={centerX}
-                      y={centerY - 5}
-                      textAnchor="middle"
-                      className="fill-gray-700 font-bold"
-                      fontSize="20"
-                    >
-                      {total}
-                    </text>
-                    <text
-                      x={centerX}
-                      y={centerY + 12}
-                      textAnchor="middle"
-                      className="fill-gray-500"
-                      fontSize="12"
-                    >
-                      Total Bugs
-                    </text>
-                  </g>
-                );
-              })()}
-            </svg>
-          </div>
-          
-          {/* Leyenda */}
-          <div className="flex-1 space-y-2">
-            {(() => {
-              const priorities = data.allPriorities || {};
-              
-              // Función para buscar clave con normalización
-              const findKey = (searchTerm) => {
-                const normalized = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                return Object.keys(priorities).find(key => 
-                  key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized
-                ) || searchTerm;
-              };
-              
-              const masAltaKey = findKey('Más Alta');
-              const altaKey = findKey('Alta');
-              const mediaKey = findKey('Media');
-              const bajaKey = findKey('Baja');
-              const masBajaKey = findKey('Más Baja');
-              
-              const items = [
-                { label: 'Highest', value: priorities[masAltaKey]?.count || 0, color: '#dc2626', bgColor: 'bg-red-50', textColor: 'text-red-700' },
-                { label: 'High', value: priorities[altaKey]?.count || 0, color: '#f97316', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
-                { label: 'Medium', value: priorities[mediaKey]?.count || 0, color: '#3b82f6', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
-                { label: 'Low', value: priorities[bajaKey]?.count || 0, color: '#a3a3a3', bgColor: 'bg-gray-50', textColor: 'text-gray-700' },
-                { label: 'Lowest', value: priorities[masBajaKey]?.count || 0, color: '#d4d4d4', bgColor: 'bg-gray-50', textColor: 'text-gray-600' }
-              ];
-              
-              const total = items.reduce((sum, item) => sum + item.value, 0) || 1;
-              
-              return items.map((item, idx) => (
-                <div key={idx} className={`flex items-center justify-between p-2 rounded ${item.bgColor}`}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }}></div>
-                    <span className={`text-sm font-medium ${item.textColor}`}>{item.label}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold ${item.textColor}`}>{item.value}</span>
-                    <span className="text-xs text-gray-500 w-12 text-right">
-                      {Math.round((item.value / total) * 100)}%
-                    </span>
-                  </div>
+                    })()}
+                  </svg>
                 </div>
-              ));
-            })()}
-          </div>
+
+                <div className="flex-1 space-y-2">
+                  {mappedItems.length === 0 ? (
+                    <div className="text-sm text-gray-600">No priority data available</div>
+                  ) : (
+                    mappedItems.map((item, idx) => (
+                      <div key={idx} className={`flex items-center justify-between p-2 rounded ${item.canonical === 'Major' ? 'bg-red-50' : item.canonical === 'High' ? 'bg-orange-50' : item.canonical === 'Medium' ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }}></div>
+                          <span className={`text-sm font-medium ${item.canonical === 'Major' ? 'text-red-700' : item.canonical === 'High' ? 'text-orange-700' : item.canonical === 'Medium' ? 'text-blue-700' : 'text-gray-700'}`}>{item.canonical}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-sm font-bold ${item.canonical === 'Major' ? 'text-red-700' : item.canonical === 'High' ? 'text-orange-700' : item.canonical === 'Medium' ? 'text-blue-700' : 'text-gray-700'}`}>{item.value}</span>
+                          <span className="text-xs text-gray-500 w-12 text-right">{Math.round((item.value / total) * 100)}%</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
         <p className="text-xs text-gray-500 mt-3 italic">
-          * Analysis focuses on critical priorities (Highest and High) due to their impact on product quality
+          * Analysis focuses on critical priorities (Major and Trivial) due to their impact on product quality
         </p>
       </div>
       
-      {/* Gráfico de tendencia con todas las prioridades */}
+      {/* Gráfico de tendencia: por defecto todas las prioridades, pero si el modal
+          es "Analysis of Critical Findings Detected" mostrar solo Major y Trivial */}
       {(() => {
-        // Calcular datos separados para todas las criticidades
+        if (modal && modal.title === 'Analysis of Critical Findings Detected') {
+          // Mostrar sólo Major/Trivial si la fuente contiene esas prioridades reales.
+          const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0000-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+          // Mapeo canónico (coincidente con renderCriticalBugsDetail)
+          const mapCanonical = (kNorm) => {
+            if (!kNorm) return 'Other';
+            if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
+            if (kNorm.includes('alta') || kNorm.includes('high')) return 'High';
+            if (kNorm.includes('media') || kNorm.includes('medium')) return 'Medium';
+            if (kNorm.includes('baja') || kNorm.includes('low')) return 'Low';
+            if (kNorm.includes('trivial') || kNorm.includes('lowest') || kNorm.includes('masbaja')) return 'Trivial';
+            return 'Other';
+          };
+
+          const prioritiesObj = (modal.data && modal.data.allPriorities) || {};
+          const canonicalSet = new Set(Object.keys(prioritiesObj).map(k => mapCanonical(normalize(k))));
+          const hasMajor = canonicalSet.has('Major');
+          const hasTrivial = canonicalSet.has('Trivial');
+
+          // Si no hay claves explícitas en el origen, no inventar series con heurísticos.
+          if (!hasMajor && !hasTrivial) {
+            return (
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
+                <p className="text-sm">There are no 'Major' priorities in the source data.</p>
+              </div>
+            );
+          }
+
+          const majorData = hasMajor && sprints ? sprints.map(sprint => {
+            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('major') || normalize(k) === 'major' || normalize(k).includes('mas') || normalize(k).includes('mayor'));
+            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
+            // fallback: if sprint has explicit field
+            if (sprint.major !== undefined) return sprint.major;
+            return 0;
+          }) : [];
+
+          const trivialData = hasTrivial && sprints ? sprints.map(sprint => {
+            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('trivial') || normalize(k) === 'trivial' || normalize(k).includes('baja') || normalize(k).includes('masbaja'));
+            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
+            if (sprint.trivial !== undefined) return sprint.trivial;
+            return 0;
+          }) : [];
+
+          const datasets = [];
+          if (hasMajor && majorData.some(v => v !== 0)) datasets.push({ label: 'Major', data: majorData, color: '#dc2626' });
+          if (hasTrivial && trivialData.some(v => v !== 0)) datasets.push({ label: 'Trivial', data: trivialData, color: '#9ca3af' });
+
+          if (datasets.length === 0) {
+            return (
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
+                <p className="text-sm">No hay datos disponibles para Major / Trivial en los sprints.</p>
+              </div>
+            );
+          }
+
+          return (
+            <TrendChartMultiple
+              datasets={datasets}
+              label="Analysis of Critical Findings Detected"
+              sprints={sprints}
+              yAxisLabel="Amount of Bugs"
+            />
+          );
+        }
+
+        // Fallback: comportamiento original (todas las prioridades)
         const masAltaData = sprints ? sprints.map(sprint => {
           if (sprint.criticalBugsMasAlta !== undefined) return sprint.criticalBugsMasAlta;
           const sprintBugs = sprint.bugs || 0;
@@ -2092,7 +2132,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         
         const datasets = [
           {
-            label: 'Highest',
+            label: 'Major',
             data: masAltaData,
             color: '#dc2626'
           },
@@ -2112,7 +2152,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             color: '#a3a3a3'
           },
           {
-            label: 'Lowest',
+            label: 'Trivial',
             data: masBajaData,
             color: '#d4d4d4'
           }
@@ -2145,22 +2185,33 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
   const renderCriticalBugsStatusDetail = (data) => {
     const priorities = data.allPriorities || {};
-    
-    // Función para buscar clave con normalización
-    const findKey = (searchTerm) => {
-      const normalized = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return Object.keys(priorities).find(key => 
-        key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized
-      ) || searchTerm;
+
+    const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+    const mapCanonical = (kNorm) => {
+      if (!kNorm) return 'Other';
+      if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
+      if (kNorm.includes('alta') || kNorm.includes('high')) return 'High';
+      if (kNorm.includes('media') || kNorm.includes('medium')) return 'Medium';
+      if (kNorm.includes('baja') || kNorm.includes('low')) return 'Low';
+      if (kNorm.includes('trivial') || kNorm.includes('lowest') || kNorm.includes('masbaja')) return 'Trivial';
+      return 'Other';
     };
-    
-    const masAltaKey = findKey('Más Alta');
-    const altaKey = findKey('Alta');
-    
-    const masAltaPending = priorities[masAltaKey]?.pending || 0;
-    const masAltaResolved = (priorities[masAltaKey]?.resolved || 0);
-    const altaPending = priorities[altaKey]?.pending || 0;
-    const altaResolved = (priorities[altaKey]?.resolved || 0);
+
+    // Construir lista mapeada con pendientes/resueltos normalizados
+    const mapped = Object.keys(priorities || {}).map(key => {
+      const raw = priorities[key] || {};
+      const pending = raw.pending ?? raw.pendingCount ?? raw.countPending ?? raw.pending_total ?? raw.count ?? raw.total ?? 0;
+      const resolved = raw.resolved ?? raw.resolvedCount ?? raw.fixed ?? 0;
+      const kNorm = normalize(key);
+      const canonical = mapCanonical(kNorm);
+      return { key, canonical, pending: Number(pending) || 0, resolved: Number(resolved) || 0 };
+    });
+
+    const masAltaPending = mapped.find(m => m.canonical === 'Major')?.pending || 0;
+    const masAltaResolved = mapped.find(m => m.canonical === 'Major')?.resolved || 0;
+    const altaPending = mapped.find(m => m.canonical === 'High')?.pending || 0;
+    const altaResolved = mapped.find(m => m.canonical === 'High')?.resolved || 0;
     
     return (
     <div className="space-y-6">
@@ -2259,7 +2310,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex items-center justify-between p-2 rounded bg-red-50">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Highest</span>
+                          <span className="text-sm font-medium text-red-700">Major</span>
                         </div>
                         <span className="text-sm font-semibold text-red-700">
                           {masAltaPending} ({totalPending > 0 ? Math.round((masAltaPending / totalPending) * 100) : 0}%)
@@ -2350,7 +2401,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex items-center justify-between p-2 rounded bg-red-50">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Higher</span>
+                          <span className="text-sm font-medium text-red-700">Major</span>
                         </div>
                         <span className="text-sm font-semibold text-red-700">
                           {masAltaResolved} ({totalResolved > 0 ? Math.round((masAltaResolved / totalResolved) * 100) : 0}%)

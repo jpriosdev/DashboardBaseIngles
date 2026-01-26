@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+// verify-developers moved to temp-validation
+console.log('verify-developers moved. Run original script when needed.')
 /**
  * Script: Verificar desarrolladores cargados
  */
