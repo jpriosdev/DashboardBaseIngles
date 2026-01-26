@@ -258,7 +258,7 @@ WHERE tipo_incidencia = 'Bug';
 CREATE VIEW IF NOT EXISTS vw_testcase_stats AS
 SELECT
   -- Count rows where the summary mentions 'test' (case-insensitive) and exclude bugs
-  SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' THEN 1 ELSE 0 END) as testcases_with_type,
+  SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' AND estado IN ('Done','Approved for Release','Reviewed','Testing Complete') THEN 1 ELSE 0 END) as testcases_with_type,
   -- Use the same filtered count as total_records so downstream logic can divide by sprint count
-  SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' THEN 1 ELSE 0 END) as total_records
+  SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' AND estado IN ('Done','Approved for Release','Reviewed','Testing Complete') THEN 1 ELSE 0 END) as total_records
 FROM bugs_detail;
