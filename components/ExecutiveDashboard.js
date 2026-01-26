@@ -1277,54 +1277,45 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   if (hasFiltersActive) {
     // Con filtros: calcular desde datos reales de sprints filtrados
     const sprintsCriticalData = filteredSprintData?.reduce((acc, sprint) => {
-      acc.total += (sprint.criticalBugsTotal || 0);
-      acc.pending += (sprint.criticalBugsPending || 0);
+      // sprint may expose the Major count under different names depending on processor
+      acc.total += (sprint.critical || sprint.criticalBugsTotal || sprint.criticalBugs || 0);
+      acc.pending += (sprint.criticalBugsPending || sprint.critical_pending || 0);
       return acc;
     }, { total: 0, pending: 0 });
-    
+
     criticalBugsTotal = sprintsCriticalData?.total || 0;
     criticalBugsPending = sprintsCriticalData?.pending || 0;
-    criticalBugsMasAlta = Math.round(criticalBugsTotal * 0.4);
-    criticalBugsAlta = Math.round(criticalBugsTotal * 0.6);
+    // Only 'Major' exists -> treat as the single critical bucket
+    criticalBugsMasAlta = criticalBugsTotal;
+    criticalBugsAlta = 0;
   } else {
-    // Sin filtros: usar datos globales de bugsByPriority
-    if (!data.bugsByPriority || Object.keys(data.bugsByPriority).length === 0) {
-      // Si no hay datos, usar 0
-      criticalBugsMasAlta = 0;
-      criticalBugsAlta = 0;
-      criticalBugsPending = 0;
-      criticalBugsTotal = 0;
-    } else {
-      // Encontrar las claves correctas buscando por contenido (maneja caracteres especiales)
-      let masAltaKey = null;
-      let altaKey = null;
-      
-      // Buscar "Más alta" considerando variaciones de codificación
-      for (const key of Object.keys(data.bugsByPriority || {})) {
-        const lowerKey = key.toLowerCase();
-        if (lowerKey.includes('mas') || lowerKey.includes('maa') || lowerKey.includes('más')) {
-          if (lowerKey.includes('alta')) {
-            masAltaKey = key;
-          }
+    // Sin filtros: preferir valores agregados en summary si existen
+    criticalBugsTotal = data.summary?.total_critical || data.summary?.critical || data.summary?.criticalBugs || data.summary?.totalCritical || 0;
+    criticalBugsPending = data.summary?.criticalPending || data.summary?.critical_pending || 0;
+
+    // Fallback: sumar cualquier prioridad que indique 'major' en las claves de bugsByPriority
+    if (!criticalBugsTotal || criticalBugsTotal === 0) {
+      criticalBugsTotal = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
+        const lk = (key || '').toString().toLowerCase();
+        if (lk.includes('major') || lk.includes('más alta') || lk === 'major' || lk === 'más alta') {
+          return acc + ((data.bugsByPriority[key]?.count) || 0);
         }
-        if (lowerKey === 'alta') {
-          altaKey = key;
-        }
-      }
-      
-      // Si no se encontró la clave, usar la más probable
-      if (!masAltaKey) {
-        const allKeys = Object.keys(data.bugsByPriority || {});
-        masAltaKey = allKeys.find(k => !k.toLowerCase().includes('baja') && !k.toLowerCase().includes('media') && k !== 'Alta') || 'Más Alta';
-      }
-      if (!altaKey) altaKey = 'Alta';
-      
-      criticalBugsMasAlta = data.bugsByPriority?.[masAltaKey]?.count || 0;
-      criticalBugsAlta = data.bugsByPriority?.[altaKey]?.count || 0;
-      criticalBugsPending = ((data.bugsByPriority?.[masAltaKey]?.pending || 0) + (data.bugsByPriority?.[altaKey]?.pending || 0)) || 0;
-      
-      criticalBugsTotal = (criticalBugsMasAlta || 0) + (criticalBugsAlta || 0);
+        return acc;
+      }, 0);
     }
+
+    if (!criticalBugsPending || criticalBugsPending === 0) {
+      criticalBugsPending = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
+        const lk = (key || '').toString().toLowerCase();
+        if (lk.includes('major') || lk.includes('más alta') || lk === 'major' || lk === 'más alta') {
+          return acc + ((data.bugsByPriority[key]?.pending) || 0);
+        }
+        return acc;
+      }, 0);
+    }
+
+    criticalBugsMasAlta = criticalBugsTotal;
+    criticalBugsAlta = 0;
   }
   
   const avgTestCasesPerSprint = filteredSprintData && filteredSprintData.length > 0
@@ -1736,7 +1727,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Number of findings with priority &apos;Highest&apos; and &apos;High&apos;.</div>
+              <div className="text-xs text-gray-600 mb-2">Number of findings with priority classified as Major (treated as Critical).</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
               <div className="text-xs text-gray-600">Measures the volume of severe incidents that can impact releases and require immediate prioritization.</div>
             </div>
@@ -1771,7 +1762,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Status of critical findings: pending vs resolved.</div>
+              <div className="text-xs text-gray-600 mb-2">Status of findings classified as Major (Critical): pending vs resolved.</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
               <div className="text-xs text-gray-600">Helps prioritize resource allocation and reduce blockages affecting delivery.</div>
             </div>
@@ -1796,31 +1787,27 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         
         {/* 3. VELOCITY: Average Resolution Time */}
         {isKpiVisible('tiempoSolucion') && (
-          <KPICard
-          title="Average Resolution Time"
-          value={`${cycleTimeData.avg} days`}
-          icon={<Clock className="w-6 h-6 text-executive-600" />}
-          trend={cycleTimeData.avg <= 7 ? 10 : -10}
-          status={cycleTimeData.avg <= 7 ? "success" : cycleTimeData.avg <= 10 ? "warning" : "danger"}
-          subtitle={`Critical: ${cycleTimeData.byPriority.critical}d | High: ${cycleTimeData.byPriority.high}d`}
-          formula={`Based on efficiency: ${resolutionEfficiency}%`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average time (in days) from detection to resolution of a finding.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Measures team response capacity; lower values indicate greater operational agility.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'cycleTime',
-            title: 'Detailed Resolution Time Analysis',
-            data: cycleTimeData,
-            sparklineData: getSparklineData('cycleTime'),
-            sprints: filteredSprintData
-          })}
-          detailData={cycleTimeData}
-        />
+          <UnderConstructionCard
+            title="Average Resolution Time"
+            value={`${cycleTimeData.avg} days`}
+            icon={<Clock className="w-6 h-6 text-executive-600" />}
+            subtitle={`Critical: ${cycleTimeData.byPriority.critical}d | High: ${cycleTimeData.byPriority.high}d`}
+            help={(
+              <div>
+                <div className="font-semibold">What it measures:</div>
+                <div className="text-xs">Average time (in days) from detection to resolution of a finding.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Measures team response capacity; lower values indicate greater operational agility.</div>
+              </div>
+            )}
+            onClick={() => setDetailModal({
+              type: 'cycleTime',
+              title: 'Detailed Resolution Time Analysis',
+              data: cycleTimeData,
+              sparklineData: getSparklineData('cycleTime'),
+              sprints: filteredSprintData
+            })}
+          />
         )}
         
         {/* 4. EFICIENCIA: Eficiencia de Resolución */}

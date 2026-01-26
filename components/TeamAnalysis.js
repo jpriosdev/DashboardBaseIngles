@@ -107,7 +107,7 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
         <div className="h-40 flex items-center justify-center text-gray-400">[Table placeholder]</div>
       </div>
 
-      {modalOpen && <DetailModal payload={modalPayload} onClose={() => setModalOpen(false)} />}
+      {modalOpen && <DetailModal modal={modalPayload} onClose={() => setModalOpen(false)} />}
     </div>
   );
 }
