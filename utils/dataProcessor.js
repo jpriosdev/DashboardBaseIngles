@@ -58,8 +58,10 @@ export class QADataProcessor {
       bugs: sprint.total || sprint.bugs || sprint.bugs_encontrados || sprint.defectos_encontrados || 0,
       bugsResolved: sprint.critical || sprint.bugsResolved || sprint.bugs_resueltos || sprint.defectos_cerrados || 0,
       bugsPending: sprint.bugsPending || sprint.bugs_pendientes || sprint.defectos_pendientes || 0,
-      testCases: sprint.testCases || sprint.casosEjecutados || sprint.test_cases || sprint.casos_ejecutados || 0,
-      testPlanned: sprint.testPlanned || sprint.casosPlaneados || sprint.test_planned || sprint.casos_planeados || 0,
+      testCases: sprint.testCases || sprint.casosEjecutados || sprint.test_cases || sprint.casos_ejecutados || sprint.test_executed || sprint.total || 0,
+      // Normalize planned test cases to both `testPlanned` and `testCasesPlanned` so DAL + frontend find them
+      testPlanned: sprint.testPlanned || sprint.casosPlaneados || sprint.test_planned || sprint.casos_planeados || sprint.testCasesPlanned || sprint.test_cases_planned || 0,
+      testCasesPlanned: sprint.testCasesPlanned || sprint.testPlanned || sprint.casosPlaneados || sprint.test_planned || sprint.casos_planeados || sprint.test_cases_planned || 0,
       change: sprint.change || sprint.cambio || 0,
       version: sprint.version || sprint.version_entrega || sprint.version_numero || '',
       environment: sprint.environment || sprint.ambiente || '',

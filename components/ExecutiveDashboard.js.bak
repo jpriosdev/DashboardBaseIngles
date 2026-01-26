@@ -1370,16 +1370,12 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     return total > 0 ? (resolved / total) * 100 : 0;
   });
   const criticalBugsTrend = calculateTrend(s => s.bugs || s.bugsFound || 0) * -1; // Invertido porque menos bugs es mejor
-
+  
   const executionTrend = calculateTrend(s => {
     const planned = (s.testCasesPlanned || s.testCasesTotal || s.testCases || 0) || 0;
     const executed = (s.testCases || s.testCasesExecuted || 0) || 0;
     return planned > 0 ? Math.round((executed / planned) * 100) : 0;
   });
-
-  // Series para gráficas: executed vs planned por sprint (usadas en modal)
-  const executedSeries = (filteredSprintData || []).map(s => s.testCases || s.testCasesExecuted || 0);
-  const plannedSeries = (filteredSprintData || []).map(s => s.testCasesPlanned || s.testPlanned || 0);
 
   // 1. Cycle Time: Tiempo promedio de resolución de bugs
   const calculateCycleTime = () => {
@@ -1532,10 +1528,6 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     
     return filteredSprintData.map(sprint => {
       switch(metric) {
-        case 'executionRate':
-          const planned = sprint.testCasesPlanned || sprint.testPlanned || sprint.testCasesTotal || sprint.testCases || 0;
-          const executed = sprint.testCases || sprint.testCasesExecuted || 0;
-          return planned > 0 ? Math.round((executed / planned) * 100) : 0;
         case 'testCases':
           return sprint.testCases || sprint.testCasesExecuted || 0;
         case 'resolutionEfficiency':
@@ -1710,9 +1702,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                 executionRate: derivedExecutionRate,
                 executed: totalTestCases,
                 planned: totalPlannedTests,
-                trend: getSparklineData('executionRate'),
-                executedSeries: executedSeries,
-                plannedSeries: plannedSeries
+                trend: getSparklineData('executionRate')
               },
               sparklineData: getSparklineData('executionRate'),
               sprints: filteredSprintData
@@ -1720,7 +1710,6 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             detailData={{ executed: totalTestCases, planned: totalPlannedTests }}
           />
         )}
-      </div>
 
       {/* Main and tracking metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

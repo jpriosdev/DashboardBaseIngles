@@ -127,26 +127,22 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             }
           }
         },
-        y: {
-          type: 'linear',
-          display: true,
-          position: 'left',
-          title: {
-            display: false
-          },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.04)',
-            drawBorder: false
-          },
-          ticks: {
-            font: {
-              size: 10
-            }
-          }
-        },
+        // y-scale filled below dynamically to allow optional min/max
       },
     };
-    
+    // Configure Y scale with optional min/max if provided
+    const yScale = {
+      type: 'linear',
+      display: true,
+      position: 'left',
+      title: { display: false },
+      grid: { color: 'rgba(0, 0, 0, 0.04)', drawBorder: false },
+      ticks: { font: { size: 10 } }
+    };
+    // allow caller to override min/max via props
+    if (typeof arguments[0]?.minY === 'number') yScale.min = arguments[0].minY;
+    if (typeof arguments[0]?.maxY === 'number') yScale.max = arguments[0].maxY;
+    options.scales.y = yScale;
     return (
       <div className="bg-white p-2 rounded-lg border border-gray-200">
         <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">{label}</h5>
@@ -483,6 +479,81 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       },
     };
     
+    return (
+      <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
+        <div className="h-64">
+          <Line data={chartConfig} options={options} />
+        </div>
+      </div>
+    );
+  };
+
+  // Specialized chart: Executed vs Planned with percent tooltip
+  const ExecutionComparisonChart = ({ executed = [], planned = [], sprints = [] }) => {
+    if (!sprints || sprints.length === 0) return null;
+    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
+
+    const chartConfig = {
+      labels,
+      datasets: [
+        {
+          label: 'Planned',
+          data: planned,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.08)',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderDash: [6, 4]
+        },
+        {
+          label: 'Executed',
+          data: executed,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.06)',
+          tension: 0.3,
+          fill: false,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }
+      ]
+    };
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top' },
+        tooltip: {
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          callbacks: {
+            title: (ctx) => ctx[0]?.label || '',
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}`,
+            afterBody: (ctx) => {
+              const idx = ctx[0]?.dataIndex || 0;
+              const exec = Number(executed[idx] || 0);
+              const plan = Number(planned[idx] || 0);
+              const pct = plan > 0 ? Math.round((exec / plan) * 100) : 0;
+              return `Executed/Planned: ${exec}/${plan} (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { display: true, title: { display: true, text: 'Sprints' } },
+        y: {
+          display: true,
+          title: { display: true, text: 'Cases' },
+          beginAtZero: true,
+          min: 0,
+          max: 50,
+          ticks: { stepSize: 5 }
+        }
+      }
+    };
+
     return (
       <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
         <div className="h-64">
@@ -1349,14 +1420,13 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       </div>
 
       {/* Trend chart */}
-      {sparklineData && sprints && (
+      {/* Combined chart: Planned vs Executed (single chart, y-axis max 50) */}
+      {data.plannedSeries && data.executedSeries && sprints && sprints.length > 0 && (
         <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <TrendChart
-            data={sparklineData}
-            label="Execution Rate by Sprint"
-            color="#3b82f6"
+          <ExecutionComparisonChart
+            planned={data.plannedSeries}
+            executed={data.executedSeries}
             sprints={sprints}
-            yAxisLabel="%"
           />
         </div>
       )}
