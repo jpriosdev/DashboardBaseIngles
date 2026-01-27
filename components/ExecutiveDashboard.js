@@ -1,3 +1,4 @@
+import { BarChart3, Target, CheckCircle, Filter, ChevronDown, AlertTriangle, X, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
 // ExecutiveDashboard.js - Refactorizado y alineado
 // Main dashboard component, normalized with SQL/CSV structure
 // Todas las variables, cálculos y referencias actualizadas
@@ -13,12 +14,15 @@ import SprintComparison from './SprintComparison';
 import ActionableRecommendations from './ActionableRecommendations';
 import SettingsMenu from './SettingsMenu';
 import { QADataProcessor } from '../utils/dataProcessor'; // Nueva importación
-import { BarChart3, Target, Users, CheckCircle, Filter, ChevronDown, AlertTriangle, X, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
 import KPICard from './KPICard';
 import UnderConstructionCard from './UnderConstructionCard';
 import SprintTrendChart from './SprintTrendChart';
 import ModuleAnalysis from './ModuleAnalysis';
 import DeveloperAnalysis from './DeveloperAnalysis';
+import TeamAnalysis from './TeamAnalysis';
+import dynamic from 'next/dynamic';
+const QualityRadarChart = dynamic(() => import('../ANterior/QualityRadarChart'), { ssr: false });
+// TeamAnalysis tab/component removed
 
 export default function ExecutiveDashboard({ 
   // Original props
@@ -71,12 +75,9 @@ export default function ExecutiveDashboard({
   const [selectedPriorities, setSelectedPriorities] = useState(['All']);
   const [selectedDevelopers, setSelectedDevelopers] = useState(['All']);
   const [selectedCategories, setSelectedCategories] = useState(['All']);
-  const [selectedTags, setSelectedTags] = useState(['All']);
-  const [selectedStrategies, setSelectedStrategies] = useState(['All']);
-  const [selectedEnvironments, setSelectedEnvironments] = useState(['All']);
   const [selectedFixVersions, setSelectedFixVersions] = useState(['All']);
   const [showFilters, setShowFilters] = useState(true);
-  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, tag: false, strategy: false, environment: false, fixVersion: false });
+  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, fixVersion: false });
 
   const handleFilterToggle = (filterType, value) => {
     const setterMap = {
@@ -85,9 +86,6 @@ export default function ExecutiveDashboard({
       priority: setSelectedPriorities,
       developer: setSelectedDevelopers,
       category: setSelectedCategories,
-      tag: setSelectedTags,
-      strategy: setSelectedStrategies,
-      environment: setSelectedEnvironments,
       fixVersion: setSelectedFixVersions
     };
 
@@ -116,9 +114,6 @@ export default function ExecutiveDashboard({
       priority: setSelectedPriorities,
       developer: setSelectedDevelopers,
       category: setSelectedCategories,
-      tag: setSelectedTags,
-      strategy: setSelectedStrategies,
-      environment: setSelectedEnvironments,
       fixVersion: setSelectedFixVersions
     };
     const setter = setterMap[filterType];
@@ -412,11 +407,7 @@ export default function ExecutiveDashboard({
     const selectedPrioritiesSet = new Set(selectedPriorities.map(s => normalize(s)));
     const selectedDevelopersSet = new Set(selectedDevelopers.map(s => normalize(s)));
     const selectedCategoriesSet = new Set(selectedCategories.map(s => normalize(s)));
-    const selectedStrategiesSet = new Set(selectedStrategies.map(s => normalize(s)));
-    const selectedEnvironmentsSet = new Set(selectedEnvironments.map(s => normalize(s)));
     const selectedFixVersionsSet = new Set(selectedFixVersions.map(s => normalize(s)));
-    const selectedTagsLower = selectedTags.map(s => normalize(s)).filter(s => s !== 'all');
-
     const bugs = (data.bugs || []).filter(b => {
       // Status
       if (!selectedStatus.includes('All')) {
@@ -434,29 +425,8 @@ export default function ExecutiveDashboard({
       if (!selectedCategories.includes('All')) {
         if (!selectedCategoriesSet.has(normalize(b.category || b.categoria || ''))) return false;
       }
-      // Tags (case-insensitive)
-      if (selectedTagsLower.length > 0) {
-        const collectTags = [];
-        const push = v => {
-          if (!v && v !== 0) return;
-          if (Array.isArray(v)) v.forEach(x=>x && collectTags.push(x.toString().trim().toLowerCase()));
-          else if (typeof v === 'string') v.split(/[;,|]/).map(x=>x.trim()).filter(Boolean).forEach(x=>collectTags.push(x.toLowerCase()));
-        };
-        push(b.tag0 || b.Tag0 || b.tag || b.tags);
-        push(b.tag1 || b.Tag1);
-        push(b.tag2 || b.Tag2);
-        if (!selectedTagsLower.some(st => collectTags.includes(st))) return false;
-      }
-      // Execution strategy
-      if (!selectedStrategies.includes('All')) {
-        const strat = normalize(b.executionStrategy || b.strategy || b['Estrategia de ejecución'] || '');
-        if (!selectedStrategiesSet.has(strat)) return false;
-      }
-      // Environment
-      if (!selectedEnvironments.includes('All')) {
-        const env = normalize(b.environment || b.ambiente || '');
-        if (!selectedEnvironmentsSet.has(env)) return false;
-      }
+
+      // Execution strategy filter removed per request
       // Fix version
       if (!selectedFixVersions.includes('All')) {
         const fv = normalize(b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '');
@@ -475,30 +445,8 @@ export default function ExecutiveDashboard({
       sprintData = sprintData.filter(s => classifyTestType(s) === testTypeFilter);
     }
 
-    // Further filter sprintData by other selected filters so KPIs and charts respond
-    const selectedTagsLowerLocal = selectedTags.map(s => normalize(s)).filter(s => s !== 'all');
+    // Further filter sprintData by other selected filpenditers so KPIs and charts respond
     const sprintMatches = (s) => {
-      // Tags on sprint (string or array)
-      if (selectedTagsLowerLocal.length > 0) {
-        const sTagsRaw = s.tags || s.tag || s.tagsList || '';
-        let sTags = [];
-        if (Array.isArray(sTagsRaw)) sTags = sTagsRaw.map(x => normalize(x));
-        else if (typeof sTagsRaw === 'string') sTags = sTagsRaw.split(/[;,|]/).map(x => normalize(x)).filter(Boolean);
-        if (!selectedTagsLowerLocal.some(t => sTags.includes(t))) return false;
-      }
-
-      // Strategy
-      if (!selectedStrategies.includes('All')) {
-        const strat = normalize(s.executionStrategy || s.strategy || s['Estrategia de ejecución'] || s.strategyName || '');
-        if (!selectedStrategiesSet.has(strat)) return false;
-      }
-
-      // Environment
-      if (!selectedEnvironments.includes('All')) {
-        const env = normalize(s.environment || s.ambiente || s.env || '');
-        if (!selectedEnvironmentsSet.has(env)) return false;
-      }
-
       // Fix version / version
       if (!selectedFixVersions.includes('All')) {
         const fv = normalize(s.fixVersion || s.version || s['Version de correccion 1'] || s.release || '');
@@ -523,6 +471,12 @@ export default function ExecutiveDashboard({
     .filter(Boolean);
 
   const bugsArray = Array.isArray(filteredData.bugs) ? filteredData.bugs : [];
+
+  // Backwards-compatible alias: some compiled artifacts/reference patches expect `sourceBugs`.
+  // Ensure it's always defined to avoid ReferenceError during server-side rendering.
+  const sourceBugs = (currentData && Array.isArray(currentData.bugs) && currentData.bugs.length > 0)
+    ? currentData.bugs
+    : bugsArray;
 
   // Modules
   let moduleList = [];
@@ -566,44 +520,13 @@ export default function ExecutiveDashboard({
     categoryList = Array.from(new Set(filteredData.bugsByCategory.map(c => (c.category || c.name || c[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
   }
 
-  // Dynamic derived lists for suggested filters (tags/strategy/environment/fixVersion)
-  const tagCandidates = new Set();
-  if (bugsArray.length > 0) {
-    bugsArray.forEach(b => {
-      const collect = (v) => {
-        if (!v && v !== 0) return;
-        if (Array.isArray(v)) v.forEach(x => x && tagCandidates.add(x.toString().trim()));
-        else if (typeof v === 'string') {
-          v.split(/[;,|]/).map(x => x.trim()).filter(Boolean).forEach(x => tagCandidates.add(x));
-        }
-      };
-      collect(b.tag0 || b.Tag0 || b.tag || b.tags);
-      collect(b.tag1 || b.Tag1);
-      collect(b.tag2 || b.Tag2);
-    });
-  }
-  const tagList = Array.from(tagCandidates).sort((a,b)=>a.localeCompare(b));
-
-  let strategyList = [];
-  let environmentList = [];
   let fixVersionList = [];
   if (bugsArray.length > 0) {
-    strategyList = Array.from(new Set(bugsArray.map(b => (b.executionStrategy || b.strategy || b['Estrategia de ejecución'] || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
-    environmentList = Array.from(new Set(bugsArray.map(b => (b.environment || b.ambiente || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
     fixVersionList = Array.from(new Set(bugsArray.map(b => (b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
   }
 
-  // Fallback: if no tags found from bugs, use server-provided extraction (_tagList)
-  if (tagList.length === 0 && filteredData && Array.isArray(filteredData._tagList) && filteredData._tagList.length > 0) {
-    tagList.push(...filteredData._tagList);
-  }
   // Fallbacks for strategy/environment/fixVersion from server-provided lists
-  if (strategyList.length === 0 && filteredData && Array.isArray(filteredData._strategyList) && filteredData._strategyList.length > 0) {
-    strategyList.push(...filteredData._strategyList);
-  }
-  if (environmentList.length === 0 && filteredData && Array.isArray(filteredData._environmentList) && filteredData._environmentList.length > 0) {
-    environmentList.push(...filteredData._environmentList);
-  }
+  // Strategy/environment lists removed per request
   if (fixVersionList.length === 0 && filteredData && Array.isArray(filteredData._fixVersionList) && filteredData._fixVersionList.length > 0) {
     fixVersionList.push(...filteredData._fixVersionList);
   }
@@ -611,8 +534,8 @@ export default function ExecutiveDashboard({
   const tabs = [
     { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
-    { id: 'teams', label: 'Team Analysis', icon: <Users className="w-4 h-4" /> },
-    { id: 'roadmap', label: 'Roadmap', icon: <CheckCircle className="w-4 h-4" /> }
+    { id: 'teams', label: 'Team Analysis', icon: <Activity className="w-4 h-4" /> },
+    { id: 'roadmap', label: 'Quality Radar', icon: <Target className="w-4 h-4" /> }
   ];
 
   return (
@@ -731,14 +654,11 @@ export default function ExecutiveDashboard({
             <div className="flex items-center gap-2">
               <Filter />
               <h2 className="text-sm font-bold">Filters</h2>
-              {(() => {
+                {(() => {
                 const activeFilters = 
                   (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
                   (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
-                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0) +
-                  (selectedTags[0] !== 'All' ? selectedTags.length : 0) +
-                  (selectedStrategies[0] !== 'All' ? selectedStrategies.length : 0) +
-                  (selectedEnvironments[0] !== 'All' ? selectedEnvironments.length : 0);
+                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0);
                 return activeFilters > 0 ? (
                   <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs font-semibold">
                     {activeFilters} active{activeFilters > 1 ? 's' : ''}
@@ -747,14 +667,11 @@ export default function ExecutiveDashboard({
               })()}
             </div>
             <div className="flex items-center gap-2">
-              {(() => {
+                {(() => {
                 const activeFilters = 
                   (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
                   (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
-                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0) +
-                  (selectedTags[0] !== 'All' ? selectedTags.length : 0) +
-                  (selectedStrategies[0] !== 'All' ? selectedStrategies.length : 0) +
-                  (selectedEnvironments[0] !== 'All' ? selectedEnvironments.length : 0);
+                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0);
                 return activeFilters > 0 ? (
                   <button
                     onClick={(e) => {
@@ -762,9 +679,6 @@ export default function ExecutiveDashboard({
                       setSelectedStatus(['All']);
                       setSelectedPriorities(['All']);
                       setSelectedCategories(['All']);
-                      setSelectedTags(['All']);
-                      setSelectedStrategies(['All']);
-                      setSelectedEnvironments(['All']);
                     }}
                     className="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 rounded text-xs font-semibold transition-all"
                   >
@@ -924,119 +838,9 @@ export default function ExecutiveDashboard({
                 </div>
                 {/* Developer filter removed per request */}
 
-                {/* Tags Filter Section */}
-                <div className="border rounded-lg p-1 bg-purple-50 border-purple-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, tag: !prev.tag}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">🏷️</span>
-                      <p className="font-bold uppercase text-xs">Tags</p>
-                      {selectedTags.length > 0 && selectedTags[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedTags.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.tag ? '' : 'rotate-180'}`} />
-                  </button>
+                {/* Strategy filter removed per user request */}
 
-                  {!collapsedSections.tag && (
-                    <div>
-                      {tagList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                      ) : (
-                        <select
-                          multiple
-                          size={Math.min(6, Math.max(3, tagList.length))}
-                          value={selectedTags}
-                          onChange={(e) => handleMultiSelectChange('tag', e)}
-                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                        >
-                          <option value="All">All</option>
-                          {tagList.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Strategy Filter Section */}
-                <div className="border rounded-lg p-1 bg-yellow-50 border-yellow-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, strategy: !prev.strategy}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">🧭</span>
-                      <p className="font-bold uppercase text-xs">Strategy</p>
-                      {selectedStrategies.length > 0 && selectedStrategies[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedStrategies.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.strategy ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.strategy && (
-                    <div>
-                      {strategyList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                      ) : (
-                        <select
-                          multiple
-                          size={Math.min(6, Math.max(3, strategyList.length))}
-                          value={selectedStrategies}
-                          onChange={(e) => handleMultiSelectChange('strategy', e)}
-                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                        >
-                          <option value="All">All</option>
-                          {strategyList.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Environment Filter Section */}
-                <div className="border rounded-lg p-1 bg-emerald-50 border-emerald-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, environment: !prev.environment}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">🌎</span>
-                      <p className="font-bold uppercase text-xs">Environment</p>
-                      {selectedEnvironments.length > 0 && selectedEnvironments[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedEnvironments.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.environment ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.environment && (
-                    <div>
-                      {environmentList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                      ) : (
-                        <select
-                          multiple
-                          size={Math.min(6, Math.max(3, environmentList.length))}
-                          value={selectedEnvironments}
-                          onChange={(e) => handleMultiSelectChange('environment', e)}
-                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                        >
-                          <option value="All">All</option>
-                          {environmentList.map(env => <option key={env} value={env}>{env}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
+                {/* Environment filter removed per user request */}
 
                 {/* Fix Version filter removed per request */}
               </div>
@@ -1147,9 +951,13 @@ export default function ExecutiveDashboard({
             />
           )}
           {activeTab === 'quality' && <QualityTab data={currentData} filteredData={filteredData} config={config} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'teams' && <TeamsTab data={currentData} filteredData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} config={config} />}
+          {activeTab === 'teams' && <TeamAnalysis data={currentData} filteredSprintData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} />}
           {/* trends tab removed */}
-          {activeTab === 'roadmap' && <RecommendationsTab data={currentData} filteredData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {activeTab === 'roadmap' && (
+            <div className="pb-6">
+              <QualityRadarChart data={currentData} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1259,9 +1067,6 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     testTypeFilter !== 'all' ||
     (typeof selectedStatus !== 'undefined' && selectedStatus[0] !== 'All') ||
     (typeof selectedPriorities !== 'undefined' && selectedPriorities[0] !== 'All') ||
-    (typeof selectedTags !== 'undefined' && selectedTags[0] !== 'All') ||
-    (typeof selectedStrategies !== 'undefined' && selectedStrategies[0] !== 'All') ||
-    (typeof selectedEnvironments !== 'undefined' && selectedEnvironments[0] !== 'All') ||
     (typeof selectedFixVersions !== 'undefined' && selectedFixVersions[0] !== 'All')
   );
 
@@ -2081,6 +1886,11 @@ function QualityTab({ data, filteredData, sprintList, selectedSprints, handleFil
 function TeamsTab({ data, filteredData, setDetailModal, detailModal, config }) {
   // Determine source of bugs and developer summary
   const bugs = (filteredData && Array.isArray(filteredData.bugs)) ? filteredData.bugs : (data && Array.isArray(data.bugs) ? data.bugs : []);
+  // Only consider items whose issue type is 'Bug' for developer and pending counts
+  const filteredBugs = bugs.filter(b => {
+    const it = (b.tipo_incidencia || b.issueType || b.type || '').toString().toLowerCase();
+    return it === 'bug';
+  });
 
   // If processed developerData exists, prefer it; otherwise derive from bugs
   let developerData = (data && data.developerData && Array.isArray(data.developerData) && data.developerData.length > 0)
@@ -2089,7 +1899,8 @@ function TeamsTab({ data, filteredData, setDetailModal, detailModal, config }) {
 
   if (!developerData) {
     const byDev = {};
-    bugs.forEach(b => {
+    // iterate only over bug-type issues
+    filteredBugs.forEach(b => {
       const name = (b.developer || b.developer_name || b.reported || b.owner || 'Sin asignar').toString().trim() || 'Sin asignar';
       if (!byDev[name]) byDev[name] = { name, totalBugs: 0, pending: 0, resolved: 0 };
       byDev[name].totalBugs += 1;

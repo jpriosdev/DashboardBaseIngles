@@ -2055,7 +2055,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           if (!hasMajor && !hasTrivial) {
             return (
               <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
-                <p className="text-sm">There are no 'Major' priorities in the source data.</p>
+                <p className="text-sm">There are no &apos;Major&apos; priorities in the source data.</p>
               </div>
             );
           }

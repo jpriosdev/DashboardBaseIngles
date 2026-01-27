@@ -12,20 +12,29 @@ import { Lightbulb, AlertTriangle, TrendingUp, CheckCircle, Target, Users, Code,
  * @param {Array} props.filteredSprintData - Array de datos de sprints filtrados
  */
 export default function ActionableRecommendations({ data, filteredSprintData }) {
-  if (!data || !filteredSprintData || filteredSprintData.length === 0) return null;
+  // Normalize filteredSprintData to accept array or object shapes
+  const sprintsArray = Array.isArray(filteredSprintData)
+    ? filteredSprintData
+    : (filteredSprintData && Array.isArray(filteredSprintData.sprintData))
+      ? filteredSprintData.sprintData
+      : (filteredSprintData && Array.isArray(filteredSprintData.sprints))
+        ? filteredSprintData.sprints
+        : [];
+
+  if (!data || sprintsArray.length === 0) return null;
 
   // Robust calculation of main metrics
-  const totalBugs = filteredSprintData.reduce((acc, sprint) => acc + (sprint.bugs || sprint.bugs_encontrados || 0), 0);
-  const bugsClosed = filteredSprintData.reduce((acc, sprint) => acc + (sprint.bugsResolved || sprint.bugs_resueltos || 0), 0);
-  const totalTestCases = filteredSprintData.reduce((acc, sprint) => acc + (sprint.testCases || sprint.casosEjecutados || sprint.test_cases || 0), 0);
+  const totalBugs = sprintsArray.reduce((acc, sprint) => acc + (sprint.bugs || sprint.bugs_encontrados || 0), 0);
+  const bugsClosed = sprintsArray.reduce((acc, sprint) => acc + (sprint.bugsResolved || sprint.bugs_resueltos || 0), 0);
+  const totalTestCases = sprintsArray.reduce((acc, sprint) => acc + (sprint.testCases || sprint.casosEjecutados || sprint.test_cases || 0), 0);
 
   // Resolution efficiency
   const resolutionEfficiency = totalBugs > 0 ? Math.round((bugsClosed / totalBugs) * 100) : 0;
   // Average test cases executed per sprint
-  const avgTestCasesPerSprint = filteredSprintData.length > 0 ? Math.round(totalTestCases / filteredSprintData.length) : 0;
+  const avgTestCasesPerSprint = sprintsArray.length > 0 ? Math.round(totalTestCases / sprintsArray.length) : 0;
 
   // Calculation of critical bugs
-  const criticalBugsTotal = filteredSprintData.reduce((acc, sprint) => {
+  const criticalBugsTotal = sprintsArray.reduce((acc, sprint) => {
     const priorities = sprint.bugsByPriority || {};
     return acc + (priorities['Más alta'] || priorities['Alta'] || 0);
   }, 0);
@@ -33,16 +42,16 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
 
   // Estimated cycle time calculation
   const sprintDays = 14;
-  const avgEfficiency = filteredSprintData.reduce((acc, sprint) => {
+  const avgEfficiency = sprintsArray.reduce((acc, sprint) => {
     const total = sprint.bugs || sprint.bugs_encontrados || 0;
     const resolved = sprint.bugsResolved || sprint.bugs_resueltos || 0;
     return acc + (total > 0 ? resolved / total : 0);
-  }, 0) / filteredSprintData.length;
+  }, 0) / (sprintsArray.length || 1);
   const cycleTime = Math.round(sprintDays * (1 - avgEfficiency * 0.5));
 
   // Defect density
   const estimatedHUsPerSprint = 6;
-  const totalHUs = filteredSprintData.length * estimatedHUsPerSprint;
+  const totalHUs = sprintsArray.length * estimatedHUsPerSprint;
   const defectDensity = totalBugs / (totalHUs || 1);
 
   // Generate recommendations based on thresholds and best practices
