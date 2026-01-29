@@ -47,15 +47,15 @@ import KPICard from './KPICard';
 
     // Refactor: cálculos alineados con nueva estructura SQL/CSV
     const totalBugs = (filteredSprintData && filteredSprintData.length > 0)
-      ? filteredSprintData.reduce((acc, s) => acc + (s.bugs || s.bugs_encontrados || 0), 0)
+      ? filteredSprintData.reduce((acc, s) => acc + (s.bugs || 0), 0)
       : data?.summary?.totalBugs || 0;
 
     const testCasesExecuted = (filteredSprintData && filteredSprintData.length > 0)
-      ? filteredSprintData.reduce((acc, s) => acc + (s.testCasesExecuted || s.casosEjecutados || s.testCases || 0), 0)
+      ? filteredSprintData.reduce((acc, s) => acc + (s.testCasesExecuted || 0), 0)
       : data?.summary?.testCasesExecuted || 0;
 
     const testCasesTotal = (filteredSprintData && filteredSprintData.length > 0)
-      ? filteredSprintData.reduce((acc, s) => acc + (s.testCasesTotal || s.casosPlaneados || s.testCases || 0), 0)
+      ? filteredSprintData.reduce((acc, s) => acc + (s.testCasesTotal || 0), 0)
       : data?.summary?.testCasesTotal || 1;
 
     const defectDensityValue = testCasesExecuted > 0 ? parseFloat((totalBugs / testCasesExecuted).toFixed(2)) : null;
@@ -165,10 +165,10 @@ import KPICard from './KPICard';
   
     const getProgressPercentage = (value, target, isReverse = false) => {
       if (isReverse) {
-        // Para métricas donde menor es mejor (como defectDensity, bugLeakage, cycleTime)
+        // For metrics where lower is better (e.g., defectDensity, bugLeakage, cycleTime)
         return Math.max(0, Math.min(100, ((target / value) * 100)));
       } else {
-        // Para métricas donde mayor es mejor
+        // For metrics where higher is better
         return Math.max(0, Math.min(100, (value / target) * 100));
       }
     };
@@ -203,7 +203,7 @@ import KPICard from './KPICard';
         <div>
           <div className="font-semibold">What it measures:</div>
           <div className="text-xs">Average findings per executed test case.</div>
-          <div className="font-semibold mt-2">Why it&apos;s useful:</div>
+          <div className="font-semibold mt-2">Why it matters:</div>
           <div className="text-xs">Helps identify if product quality is improving or deteriorating between sprints.</div>
         </div>
       ),
@@ -321,7 +321,6 @@ import KPICard from './KPICard';
         {/* Métricas principales */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {metricsToShow.map((metric) => {
-            // If metric has no real data (value == null), render an UnderConstructionCard
             if (metric.value === null || metric.value === undefined) {
               const helpContent = helpByKey[metric.key] || (
                 <div>
@@ -345,7 +344,6 @@ import KPICard from './KPICard';
                 );
             }
 
-            // Render KPICard for consistency with Executive summary
             const spark = getSparklineData(metric.key) || [];
             const trendValue = spark.length >= 2 ? Math.round(((spark[spark.length-1] - spark[0]) / (Math.abs(spark[0]) || 1)) * 100) : undefined;
             const tooltipContent = helpByKey[metric.key] || (
@@ -441,4 +439,3 @@ import KPICard from './KPICard';
       </div>
     );
   }
-  

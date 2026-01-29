@@ -617,7 +617,7 @@ export default function ExecutiveDashboard({
               
               {/* Última actualización */}
               <div className="text-right hidden sm:block">
-                <p className="text-xs text-slate-500 font-medium">Last reported incident</p>
+                <p className="text-xs text-slate-500 font-medium">Last reported Sprint</p>
                 <p className="text-sm font-semibold text-slate-900 mt-0.5">
                   {currentLastUpdated ? format(currentLastUpdated, 'MM/dd/yyyy HH:mm', { locale: enUS }) : 'Not reported'}
                 </p>

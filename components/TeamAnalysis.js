@@ -27,8 +27,8 @@ function DataSummaryPanel({ data, filteredSprintData }) {
 
   // distinct statuses and issue types from available bugs if present
   const bugs = Array.isArray(data?.bugs) ? data.bugs : [];
-  const statusSet = new Set(bugs.map(b => (b.estado || b.status || b.state || '').toString()).filter(Boolean));
-  const issueTypeSet = new Set(bugs.map(b => (b.tipo_incidencia || b.issueType || b.type || '').toString()).filter(Boolean));
+  const statusSet = new Set(bugs.map(b => (b.status || b.state || '').toString()).filter(Boolean));
+  const issueTypeSet = new Set(bugs.map(b => (b.issueType || b.type || '').toString()).filter(Boolean));
 
   return (
     <div className="text-sm text-gray-700 space-y-3">
@@ -41,7 +41,7 @@ function DataSummaryPanel({ data, filteredSprintData }) {
         {topDevs.length > 0 ? (
           <ul className="list-disc list-inside text-xs text-gray-600">
             {topDevs.map((d, i) => (
-              <li key={i}>{d.name || d.developer_name || d.developer || 'Sin asignar'} — {d.assigned || d.total_bugs || 0} bugs</li>
+              <li key={i}>{d.name || d.developer_name || d.developer || 'Unassigned'} — {d.assigned || d.total_bugs || 0} bugs</li>
             ))}
           </ul>
         ) : (
@@ -143,7 +143,7 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
         if (cancelled) return;
         if (Array.isArray(payload.developerSummaries) && payload.developerSummaries.length > 0) {
           const normalized = payload.developerSummaries.map(d => ({
-            name: d.developer || 'Sin asignar',
+            name: d.developer || 'Unassigned',
             totalBugs: d.total || 0,
             resolved: d.resolved || 0,
             pending: d.pending || 0,
@@ -162,7 +162,7 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
     return (
       <div className="executive-card text-center p-8">
         <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-gray-600">Cargando datos de desarrolladores...</p>
+        <p className="text-gray-600">Loading developer data...</p>
       </div>
     );
   }
@@ -173,13 +173,10 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
 
   const getWorkloadColor = (workload) => {
     switch ((workload || '').toString()) {
-      case 'Alto':
       case 'High':
         return 'bg-red-100 text-red-800 border-red-200';
-      case 'Medio':
       case 'Medium':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Bajo':
       case 'Low':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
@@ -193,19 +190,21 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
     return 'text-red-600';
   };
 
+  const lastReportedSprint = "Sprint 144: 2/20-3/5/25";
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="executive-card text-center">
           <User className="w-8 h-8 text-executive-600 mx-auto mb-2" />
           <div className="text-2xl font-bold text-gray-900">{developers.length}</div>
-          <div className="text-sm text-gray-600">Desarrolladores Activos</div>
+          <div className="text-sm text-gray-600">Active Developers</div>
         </div>
 
         <div className="executive-card text-center">
           <AlertCircle className="w-8 h-8 text-warning-600 mx-auto mb-2" />
           <div className="text-2xl font-bold text-gray-900">{totalPending}</div>
-          <div className="text-sm text-gray-600">Bugs Pendientes Total</div>
+          <div className="text-sm text-gray-600">Total Pending Bugs</div>
         </div>
 
         <div className="executive-card text-center">
@@ -213,30 +212,30 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
           <div className="text-2xl font-bold text-gray-900">
             {totalBugs > 0 ? `${Math.round(((totalBugs - totalPending) / totalBugs) * 100)}%` : '—'}
           </div>
-          <div className="text-sm text-gray-600">Eficiencia General</div>
+          <div className="text-sm text-gray-600">Overall Efficiency</div>
         </div>
       </div>
 
       <div className="executive-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">Análisis Detallado por Desarrollador</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Detailed Developer Analysis</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Desarrollador</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Developer</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bugs</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pendientes</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resueltos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eficiencia</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carga</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% del Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resolved</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Efficiency</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Workload</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% of Total</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedDevelopers.map((developer, index) => {
                 const total = developer.totalBugs || developer.total_bugs || 0;
-                const resolved = developer.resolved || developer.resueltos || 0;
-                const pending = developer.pending || developer.pending_bugs || 0;
+                const resolved = developer.resolved || 0;
+                const pending = developer.pending || 0;
                 const efficiency = total > 0 ? Math.round((resolved / total) * 100) : 0;
                 const percentageOfTotal = totalBugs > 0 ? Math.round((total / totalBugs) * 100) : 0;
 
@@ -247,12 +246,12 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
                         <div className="flex-shrink-0 h-8 w-8">
                           <div className="h-8 w-8 rounded-full bg-executive-100 flex items-center justify-center">
                             <span className="text-sm font-medium text-executive-600">
-                              {(developer.name || developer.developer || 'NA').toString().split(' ').map(n => n[0]).join('').substring(0,2)}
+                              {(developer.name || 'NA').toString().split(' ').map(n => n[0]).join('').substring(0,2)}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{developer.name || developer.developer || 'Sin nombre'}</div>
+                          <div className="text-sm font-medium text-gray-900">{developer.name || 'No name'}</div>
                         </div>
                       </div>
                     </td>
@@ -270,7 +269,7 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkloadColor(developer.workload || developer.carga || '')}`}>{developer.workload || developer.carga || 'N/A'}</span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkloadColor(developer.workload || '')}`}>{developer.workload || 'N/A'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex items-center">
@@ -289,24 +288,24 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
       </div>
 
       <div className="executive-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recomendaciones para el Equipo</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Recommendations</h3>
         <div className="space-y-3">
-          {sortedDevelopers[0] && (sortedDevelopers[0].pending || sortedDevelopers[0].pending_bugs) > 15 && (
+          {sortedDevelopers[0] && (sortedDevelopers[0].pending || 0) > 15 && (
             <div className="flex items-start p-3 bg-red-50 border border-red-200 rounded-lg">
               <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-red-800">Sobrecarga Crítica Detectada</p>
-                <p className="text-sm text-red-700">{sortedDevelopers[0].name || sortedDevelopers[0].developer} tiene {sortedDevelopers[0].pending || sortedDevelopers[0].pending_bugs} bugs pendientes. Considerar redistribuir carga de trabajo inmediatamente.</p>
+                <p className="text-sm font-medium text-red-800">Critical Overload Detected</p>
+                <p className="text-sm text-red-700">{sortedDevelopers[0].name} has {sortedDevelopers[0].pending} pending bugs. Consider redistributing workload immediately.</p>
               </div>
             </div>
           )}
 
-          {developers.filter(dev => (dev.workload || dev.carga || '').toString().toLowerCase().includes('bajo')).length > 0 && (
+          {developers.filter(dev => (dev.workload || '').toString().toLowerCase().includes('low')).length > 0 && (
             <div className="flex items-start p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <TrendingUp className="w-5 h-5 text-blue-500 mr-3 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-800">Oportunidad de Balanceo</p>
-                <p className="text-sm text-blue-700">{developers.filter(dev => (dev.workload || dev.carga || '').toString().toLowerCase().includes('bajo')).length} desarrolladores con carga baja pueden asumir más responsabilidades.</p>
+                <p className="text-sm font-medium text-blue-800">Balancing Opportunity</p>
+                <p className="text-sm text-blue-700">{developers.filter(dev => (dev.workload || '').toString().toLowerCase().includes('low')).length} developers with low workload can take on more responsibilities.</p>
               </div>
             </div>
           )}
@@ -314,8 +313,8 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
           <div className="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg">
             <TrendingUp className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-green-800">Eficiencia General del Equipo</p>
-              <p className="text-sm text-green-700">El equipo mantiene una eficiencia del {totalBugs > 0 ? Math.round(((totalBugs - totalPending) / totalBugs) * 100) : 0}% en resolución de bugs.</p>
+              <p className="text-sm font-medium text-green-800">Overall Team Efficiency</p>
+              <p className="text-sm text-green-700">The team maintains an efficiency of {totalBugs > 0 ? Math.round(((totalBugs - totalPending) / totalBugs) * 100) : 0}% in bug resolution.</p>
             </div>
           </div>
         </div>
