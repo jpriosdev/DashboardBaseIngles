@@ -1523,24 +1523,24 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {isKpiVisible('bugsCriticos') && (
           <KPICard
-          title="Critical Findings Detected"
-          value={criticalBugsTotal}
+          title="Findings Detected"
+          value={totalBugs}
           icon={<Bug className="w-6 h-6 text-danger-600" />}
           trend={criticalBugsTrend}
-          status={criticalBugsTotal <= 20 ? "success" : "danger"}
-          subtitle={`${criticalBugsTotal} critical findings of ${totalBugs}`}
-          formula={`Critical = Highest (${criticalBugsMasAlta}) + High (${criticalBugsAlta})`}
+          status={totalBugs <= 50 ? "success" : "danger"}
+          subtitle={`${totalBugs} total findings`}
+          formula={`All Findings = ${totalBugs}`}
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Number of findings with priority classified as Major (treated as Critical).</div>
+              <div className="text-xs text-gray-600 mb-2">Total number of findings regardless of priority level.</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Measures the volume of severe incidents that can impact releases and require immediate prioritization.</div>
+              <div className="text-xs text-gray-600">Provides a complete overview of all issues that need to be tracked and resolved.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'criticalBugs',
-            title: 'Analysis of Critical Findings Detected',
+            title: 'Analysis of Findings Detected',
             data: {
               total: criticalBugsTotal,
               highest: criticalBugsMasAlta,

@@ -2024,18 +2024,17 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           })()}
         </div>
         <p className="text-xs text-gray-500 mt-3 italic">
-          * Analysis focuses on critical priorities (Major and Trivial) due to their impact on product quality
+          * Analysis includes all priority levels to provide a comprehensive overview of findings
         </p>
       </div>
       
-      {/* Gráfico de tendencia: por defecto todas las prioridades, pero si el modal
-          es "Analysis of Critical Findings Detected" mostrar solo Major y Trivial */}
+      {/* Gráfico de tendencia: mostrar todas las prioridades para el análisis de Findings */}
       {(() => {
-        if (modal && modal.title === 'Analysis of Critical Findings Detected') {
-          // Mostrar sólo Major/Trivial si la fuente contiene esas prioridades reales.
+        if (modal && modal.title === 'Analysis of Findings Detected') {
+          // Mostrar TODAS las prioridades disponibles en los datos
           const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0000-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 
-          // Mapeo canónico (coincidente con renderCriticalBugsDetail)
+          // Mapeo canónico
           const mapCanonical = (kNorm) => {
             if (!kNorm) return 'Other';
             if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
@@ -2049,29 +2048,46 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           const prioritiesObj = (modal.data && modal.data.allPriorities) || {};
           const canonicalSet = new Set(Object.keys(prioritiesObj).map(k => mapCanonical(normalize(k))));
           const hasMajor = canonicalSet.has('Major');
+          const hasHigh = canonicalSet.has('High');
+          const hasMedium = canonicalSet.has('Medium');
+          const hasLow = canonicalSet.has('Low');
           const hasTrivial = canonicalSet.has('Trivial');
-
-          // Si no hay claves explícitas en el origen, no inventar series con heurísticos.
-          if (!hasMajor && !hasTrivial) {
-            return (
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
-                <p className="text-sm">There are no &apos;Major&apos; priorities in the source data.</p>
-              </div>
-            );
-          }
 
           const majorData = hasMajor && sprints ? sprints.map(sprint => {
             const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('major') || normalize(k) === 'major' || normalize(k).includes('mas') || normalize(k).includes('mayor'));
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('major') || normalize(k).includes('mas') || normalize(k).includes('mayor'));
             if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
-            // fallback: if sprint has explicit field
             if (sprint.major !== undefined) return sprint.major;
+            return 0;
+          }) : [];
+
+          const highData = hasHigh && sprints ? sprints.map(sprint => {
+            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('alta') || normalize(k).includes('high'));
+            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
+            if (sprint.high !== undefined) return sprint.high;
+            return 0;
+          }) : [];
+
+          const mediumData = hasMedium && sprints ? sprints.map(sprint => {
+            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('media') || normalize(k).includes('medium'));
+            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
+            if (sprint.medium !== undefined) return sprint.medium;
+            return 0;
+          }) : [];
+
+          const lowData = hasLow && sprints ? sprints.map(sprint => {
+            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('baja') || normalize(k).includes('low'));
+            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
+            if (sprint.low !== undefined) return sprint.low;
             return 0;
           }) : [];
 
           const trivialData = hasTrivial && sprints ? sprints.map(sprint => {
             const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('trivial') || normalize(k) === 'trivial' || normalize(k).includes('baja') || normalize(k).includes('masbaja'));
+            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('trivial') || normalize(k).includes('masbaja') || normalize(k).includes('lowest'));
             if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
             if (sprint.trivial !== undefined) return sprint.trivial;
             return 0;
@@ -2079,12 +2095,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
           const datasets = [];
           if (hasMajor && majorData.some(v => v !== 0)) datasets.push({ label: 'Major', data: majorData, color: '#dc2626' });
-          if (hasTrivial && trivialData.some(v => v !== 0)) datasets.push({ label: 'Trivial', data: trivialData, color: '#9ca3af' });
+          if (hasHigh && highData.some(v => v !== 0)) datasets.push({ label: 'High', data: highData, color: '#f97316' });
+          if (hasMedium && mediumData.some(v => v !== 0)) datasets.push({ label: 'Medium', data: mediumData, color: '#3b82f6' });
+          if (hasLow && lowData.some(v => v !== 0)) datasets.push({ label: 'Low', data: lowData, color: '#a3a3a3' });
+          if (hasTrivial && trivialData.some(v => v !== 0)) datasets.push({ label: 'Trivial', data: trivialData, color: '#d4d4d4' });
 
           if (datasets.length === 0) {
             return (
               <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
-                <p className="text-sm">No hay datos disponibles para Major / Trivial en los sprints.</p>
+                <p className="text-sm">No hay datos disponibles para mostrar el análisis de findings.</p>
               </div>
             );
           }
@@ -2092,7 +2111,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           return (
             <TrendChartMultiple
               datasets={datasets}
-              label="Analysis of Critical Findings Detected"
+              label="Analysis of Findings Detected"
               sprints={sprints}
               yAxisLabel="Amount of Bugs"
             />
