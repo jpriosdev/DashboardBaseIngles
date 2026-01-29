@@ -76,7 +76,7 @@ export default function ExecutiveDashboard({
   const [selectedDevelopers, setSelectedDevelopers] = useState(['All']);
   const [selectedCategories, setSelectedCategories] = useState(['All']);
   const [selectedFixVersions, setSelectedFixVersions] = useState(['All']);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, fixVersion: false });
 
   const handleFilterToggle = (filterType, value) => {
