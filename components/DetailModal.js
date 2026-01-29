@@ -1887,318 +1887,276 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     </div>
   );
 
-  const renderCriticalBugsDetail = (data) => (
+  const renderCriticalBugsDetail = (data) => {
+    // Calcular Major y Trivial directamente desde allPriorities
+    const priorities = data.allPriorities || {};
+    
+    const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    
+    const getMajorCount = () => {
+      return Object.keys(priorities).reduce((acc, key) => {
+        const lk = normalize(key);
+        if (lk.includes('major') || lk.includes('masalta') || lk.includes('mas') || lk.includes('highest') || lk.includes('mayor') || lk.includes('critical')) {
+          const val = priorities[key];
+          return acc + (typeof val === 'number' ? val : (val?.count || val?.total || 0));
+        }
+        return acc;
+      }, 0);
+    };
+
+    const getTrivialCount = () => {
+      return Object.keys(priorities).reduce((acc, key) => {
+        const lk = normalize(key);
+        if (lk.includes('trivial') || lk.includes('lowest') || lk.includes('masbaja')) {
+          const val = priorities[key];
+          return acc + (typeof val === 'number' ? val : (val?.count || val?.total || 0));
+        }
+        return acc;
+      }, 0);
+    };
+
+    const majorCount = getMajorCount();
+    const trivialCount = getTrivialCount();
+
+    return (
     <div className="space-y-6">
       <div>
         <h3 className="text-2xl font-bold text-danger-600 mb-2">
-          {data.total} Critical Findings
+          {data.total} Findings Detected
         </h3>
-        <p className="text-sm text-gray-600">Bugs of Major and High priority detected</p>
+        <p className="text-sm text-gray-600">Distribution of findings by priority level (Major and Trivial)</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Major Priority</div>
-          <div className="text-2xl font-bold text-danger-600">{data.highest}</div>
+          <div className="text-2xl font-bold text-danger-600">{majorCount}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">High Priority</div>
-          <div className="text-2xl font-bold text-warning-600">{data.high}</div>
+          <div className="text-sm text-gray-600 mb-1">Trivial Priority</div>
+          <div className="text-2xl font-bold text-gray-600">{trivialCount}</div>
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-3">Criticality Distribution</h4>
-        <div className="flex flex-col md:flex-row gap-6 items-center">
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-gray-800 mb-4">Priority Distribution (Major vs Trivial)</h4>
+        <div className="space-y-6">
           {(() => {
-            const priorities = data.allPriorities || {};
-
-            const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-
-            const mapCanonical = (kNorm) => {
-              if (!kNorm) return 'Other';
-              if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
-              if (kNorm.includes('alta') || kNorm.includes('high')) return 'High';
-              if (kNorm.includes('media') || kNorm.includes('medium')) return 'Medium';
-              if (kNorm.includes('baja') || kNorm.includes('low')) return 'Low';
-              if (kNorm.includes('trivial') || kNorm.includes('lowest') || kNorm.includes('masbaja')) return 'Trivial';
-              return 'Other';
-            };
-
-            const colorsByCanonical = {
-              Major: '#dc2626',
-              High: '#f97316',
-              Medium: '#3b82f6',
-              Low: '#9ca3af',
-              Trivial: '#d4d4d4',
-              Other: '#c7c7c7'
-            };
-
-            const mappedItems = Object.keys(priorities || {}).map(key => {
-              const raw = priorities[key] || {};
-              const count = (typeof raw === 'number') ? raw : (raw.count || raw.total || 0);
-              const kNorm = normalize(key);
-              const canonical = mapCanonical(kNorm);
-              return { key, label: key, canonical, value: Number(count) || 0, color: colorsByCanonical[canonical] || colorsByCanonical.Other };
-            }).filter(i => i.value > 0);
-
-            const total = mappedItems.reduce((s, it) => s + it.value, 0) || 1;
-            const values = mappedItems.map((item) => ({ label: item.canonical, value: item.value, color: item.color }));
+            const total = majorCount + trivialCount || 1;
+            const majorPct = Math.round((majorCount / total) * 100);
+            const trivialPct = Math.round((trivialCount / total) * 100);
 
             return (
               <>
-                <div className="flex-shrink-0">
-                  <svg width="220" height="220" viewBox="0 0 220 220" className="mx-auto">
-                    {(() => {
-                      let currentAngle = -90;
-                      const centerX = 110;
-                      const centerY = 110;
-                      const radius = 80;
-
-                      return (
-                        <g>
-                          {values.map((item, idx) => {
-                            const percentage = (item.value / total) * 100;
-                            const angle = (percentage / 100) * 360;
-                            const startAngle = currentAngle;
-                            const endAngle = currentAngle + angle;
-
-                            const startRad = (startAngle * Math.PI) / 180;
-                            const endRad = (endAngle * Math.PI) / 180;
-
-                            const x1 = centerX + radius * Math.cos(startRad);
-                            const y1 = centerY + radius * Math.sin(startRad);
-                            const x2 = centerX + radius * Math.cos(endRad);
-                            const y2 = centerY + radius * Math.sin(endRad);
-
-                            const largeArc = angle > 180 ? 1 : 0;
-
-                            const path = [
-                              `M ${centerX} ${centerY}`,
-                              `L ${x1} ${y1}`,
-                              `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-                              'Z'
-                            ].join(' ');
-
-                            currentAngle = endAngle;
-
-                            return (
-                              <path
-                                key={idx}
-                                d={path}
-                                fill={item.color}
-                                stroke="white"
-                                strokeWidth="2"
-                              />
-                            );
-                          })}
-                          <circle cx={centerX} cy={centerY} r="40" fill="white" />
-                          <text x={centerX} y={centerY - 5} textAnchor="middle" className="fill-gray-700 font-bold" fontSize="20">{total}</text>
-                          <text x={centerX} y={centerY + 12} textAnchor="middle" className="fill-gray-500" fontSize="12">Total Bugs</text>
-                        </g>
-                      );
-                    })()}
-                  </svg>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+                      <span className="text-sm font-medium text-gray-700">Major</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-danger-600">{majorCount}</span>
+                      <span className="text-xs text-gray-500 w-10 text-right">{majorPct}%</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                    <div 
+                      className="bg-danger-600 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                      style={{ width: `${majorPct}%` }}
+                    >
+                      {majorPct > 15 && <span className="text-xs font-bold text-white">{majorPct}%</span>}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex-1 space-y-2">
-                  {mappedItems.length === 0 ? (
-                    <div className="text-sm text-gray-600">No priority data available</div>
-                  ) : (
-                    mappedItems.map((item, idx) => (
-                      <div key={idx} className={`flex items-center justify-between p-2 rounded ${item.canonical === 'Major' ? 'bg-red-50' : item.canonical === 'High' ? 'bg-orange-50' : item.canonical === 'Medium' ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }}></div>
-                          <span className={`text-sm font-medium ${item.canonical === 'Major' ? 'text-red-700' : item.canonical === 'High' ? 'text-orange-700' : item.canonical === 'Medium' ? 'text-blue-700' : 'text-gray-700'}`}>{item.canonical}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-sm font-bold ${item.canonical === 'Major' ? 'text-red-700' : item.canonical === 'High' ? 'text-orange-700' : item.canonical === 'Medium' ? 'text-blue-700' : 'text-gray-700'}`}>{item.value}</span>
-                          <span className="text-xs text-gray-500 w-12 text-right">{Math.round((item.value / total) * 100)}%</span>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3a3a3d' }}></div>
+                      <span className="text-sm font-medium text-gray-700">Trivial</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-gray-600">{trivialCount}</span>
+                      <span className="text-xs text-gray-500 w-10 text-right">{trivialPct}%</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                    <div 
+                      className="bg-gray-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                      style={{ width: `${trivialPct}%` }}
+                    >
+                      {trivialPct > 15 && <span className="text-xs font-bold text-white">{trivialPct}%</span>}
+                    </div>
+                  </div>
                 </div>
               </>
             );
           })()}
         </div>
-        <p className="text-xs text-gray-500 mt-3 italic">
-          * Analysis includes all priority levels to provide a comprehensive overview of findings
-        </p>
       </div>
-      
-      {/* Gráfico de tendencia: mostrar todas las prioridades para el análisis de Findings */}
-      {(() => {
-        if (modal && modal.title === 'Analysis of Findings Detected') {
-          // Mostrar TODAS las prioridades disponibles en los datos
-          const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0000-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
 
-          // Mapeo canónico
-          const mapCanonical = (kNorm) => {
-            if (!kNorm) return 'Other';
-            if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
-            if (kNorm.includes('alta') || kNorm.includes('high')) return 'High';
-            if (kNorm.includes('media') || kNorm.includes('medium')) return 'Medium';
-            if (kNorm.includes('baja') || kNorm.includes('low')) return 'Low';
-            if (kNorm.includes('trivial') || kNorm.includes('lowest') || kNorm.includes('masbaja')) return 'Trivial';
-            return 'Other';
-          };
-
-          const prioritiesObj = (modal.data && modal.data.allPriorities) || {};
-          const canonicalSet = new Set(Object.keys(prioritiesObj).map(k => mapCanonical(normalize(k))));
-          const hasMajor = canonicalSet.has('Major');
-          const hasHigh = canonicalSet.has('High');
-          const hasMedium = canonicalSet.has('Medium');
-          const hasLow = canonicalSet.has('Low');
-          const hasTrivial = canonicalSet.has('Trivial');
-
-          const majorData = hasMajor && sprints ? sprints.map(sprint => {
-            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('major') || normalize(k).includes('mas') || normalize(k).includes('mayor'));
-            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
-            if (sprint.major !== undefined) return sprint.major;
-            return 0;
-          }) : [];
-
-          const highData = hasHigh && sprints ? sprints.map(sprint => {
-            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('alta') || normalize(k).includes('high'));
-            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
-            if (sprint.high !== undefined) return sprint.high;
-            return 0;
-          }) : [];
-
-          const mediumData = hasMedium && sprints ? sprints.map(sprint => {
-            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('media') || normalize(k).includes('medium'));
-            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
-            if (sprint.medium !== undefined) return sprint.medium;
-            return 0;
-          }) : [];
-
-          const lowData = hasLow && sprints ? sprints.map(sprint => {
-            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('baja') || normalize(k).includes('low'));
-            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
-            if (sprint.low !== undefined) return sprint.low;
-            return 0;
-          }) : [];
-
-          const trivialData = hasTrivial && sprints ? sprints.map(sprint => {
-            const pb = sprint.bugsByPriority || sprint.bugs_by_priority || {};
-            const foundKey = Object.keys(pb || {}).find(k => normalize(k).includes('trivial') || normalize(k).includes('masbaja') || normalize(k).includes('lowest'));
-            if (foundKey) return pb[foundKey]?.count || pb[foundKey] || 0;
-            if (sprint.trivial !== undefined) return sprint.trivial;
-            return 0;
-          }) : [];
-
-          const datasets = [];
-          if (hasMajor && majorData.some(v => v !== 0)) datasets.push({ label: 'Major', data: majorData, color: '#dc2626' });
-          if (hasHigh && highData.some(v => v !== 0)) datasets.push({ label: 'High', data: highData, color: '#f97316' });
-          if (hasMedium && mediumData.some(v => v !== 0)) datasets.push({ label: 'Medium', data: mediumData, color: '#3b82f6' });
-          if (hasLow && lowData.some(v => v !== 0)) datasets.push({ label: 'Low', data: lowData, color: '#a3a3a3' });
-          if (hasTrivial && trivialData.some(v => v !== 0)) datasets.push({ label: 'Trivial', data: trivialData, color: '#d4d4d4' });
-
-          if (datasets.length === 0) {
-            return (
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800">
-                <p className="text-sm">No hay datos disponibles para mostrar el análisis de findings.</p>
-              </div>
-            );
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-gray-800 mb-4">Trend by Sprint</h4>
+        {(() => {
+          const sprintData = data.sprints || data.sprintData || [];
+          
+          if (sprintData.length === 0) {
+            return <div className="text-sm text-gray-600">No sprint data available</div>;
           }
+
+          // Procesar datos de sprints - Extraer Major y Trivial de allPriorities por sprint
+          const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+          const processed = sprintData.slice(-12).map((sprint, idx) => {
+            const sprintName = sprint.sprint || `Sprint ${idx}`;
+            
+            // Intentar obtener datos por sprint
+            let major = 0, trivial = 0;
+            
+            // Si el sprint tiene bugsByPriority, usar eso
+            if (sprint.bugsByPriority) {
+              Object.keys(sprint.bugsByPriority).forEach(key => {
+                const lk = normalize(key);
+                const val = sprint.bugsByPriority[key];
+                const count = (typeof val === 'number') ? val : (val?.count || val?.total || 0);
+                if (lk.includes('major') || lk.includes('masalta') || lk.includes('mas') || lk.includes('highest') || lk.includes('mayor') || lk.includes('critical')) {
+                  major += count;
+                } else if (lk.includes('trivial') || lk.includes('lowest') || lk.includes('masbaja')) {
+                  trivial += count;
+                }
+              });
+            }
+            
+            // Fallback: usar campos directo o 'bugs' como major
+            if (major === 0) major = sprint.majorFindings || sprint.critical || sprint.bugs || 0;
+            if (trivial === 0) trivial = sprint.trivialFindings || 0;
+            
+            return { 
+              name: sprintName.substring(0, 15), 
+              major: Number(major) || 0, 
+              trivial: Number(trivial) || 0,
+              fullName: sprintName
+            };
+          });
+
+          const maxValue = Math.max(...processed.flatMap(p => [p.major, p.trivial])) || 10;
+          const chartHeight = 200;
+          const chartWidth = Math.max(400, processed.length * 40);
+          const padding = 30;
 
           return (
-            <TrendChartMultiple
-              datasets={datasets}
-              label="Analysis of Findings Detected"
-              sprints={sprints}
-              yAxisLabel="Amount of Bugs"
-            />
+            <div className="overflow-x-auto">
+              <svg width={chartWidth} height={chartHeight + 60} xmlns="http://www.w3.org/2000/svg" className="w-full">
+                {/* Grid lines */}
+                {[0, 25, 50, 75, 100].map((pct) => {
+                  const y = padding + ((100 - pct) / 100) * chartHeight;
+                  return (
+                    <g key={`grid-${pct}`}>
+                      <line x1={padding} y1={y} x2={chartWidth - 20} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                      <text x={10} y={y + 4} fontSize="11" fill="#9ca3af" textAnchor="end">{(pct / 100 * maxValue).toFixed(0)}</text>
+                    </g>
+                  );
+                })}
+
+                {/* Major line */}
+                <polyline
+                  points={processed.map((p, idx) => {
+                    const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
+                    const y = padding + chartHeight - (p.major / maxValue) * chartHeight;
+                    return `${x},${y}`;
+                  }).join(' ')}
+                  fill="none"
+                  stroke="#dc2626"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Trivial line */}
+                <polyline
+                  points={processed.map((p, idx) => {
+                    const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
+                    const y = padding + chartHeight - (p.trivial / maxValue) * chartHeight;
+                    return `${x},${y}`;
+                  }).join(' ')}
+                  fill="none"
+                  stroke="#3a3a3d"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Data points for Major */}
+                {processed.map((p, idx) => {
+                  const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
+                  const y = padding + chartHeight - (p.major / maxValue) * chartHeight;
+                  return (
+                    <circle key={`major-${idx}`} cx={x} cy={y} r="4" fill="#dc2626" />
+                  );
+                })}
+
+                {/* Data points for Trivial */}
+                {processed.map((p, idx) => {
+                  const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
+                  const y = padding + chartHeight - (p.trivial / maxValue) * chartHeight;
+                  return (
+                    <circle key={`trivial-${idx}`} cx={x} cy={y} r="4" fill="#3a3a3d" />
+                  );
+                })}
+
+                {/* X-axis labels */}
+                {processed.map((p, idx) => {
+                  const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
+                  return (
+                    <text 
+                      key={`label-${idx}`}
+                      x={x} 
+                      y={chartHeight + padding + 15} 
+                      fontSize="10" 
+                      fill="#6b7280" 
+                      textAnchor="middle"
+                      title={p.fullName}
+                    >
+                      {p.name}
+                    </text>
+                  );
+                })}
+
+                {/* Y-axis */}
+                <line x1={padding} y1={padding} x2={padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                <line x1={padding} y1={padding + chartHeight} x2={chartWidth - 20} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+              </svg>
+
+              {/* Legend */}
+              <div className="flex gap-6 mt-4 justify-center text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+                  <span className="text-gray-700">Major</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3a3a3d' }}></div>
+                  <span className="text-gray-700">Trivial</span>
+                </div>
+              </div>
+            </div>
           );
-        }
-
-        // Fallback: comportamiento original (todas las prioridades)
-        const masAltaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsMasAlta !== undefined) return sprint.criticalBugsMasAlta;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.05); // ~5% son Más alta
-        }) : [];
-        
-        const altaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsAlta !== undefined) return sprint.criticalBugsAlta;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.30); // ~30% son Alta
-        }) : [];
-        
-        const mediaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsMedia !== undefined) return sprint.criticalBugsMedia;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.55); // ~55% son Media
-        }) : [];
-        
-        const bajaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsBaja !== undefined) return sprint.criticalBugsBaja;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.08); // ~8% son Baja
-        }) : [];
-        
-        const masBajaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsMasBaja !== undefined) return sprint.criticalBugsMasBaja;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.02); // ~2% son Más baja
-        }) : [];
-        
-        const datasets = [
-          {
-            label: 'Major',
-            data: masAltaData,
-            color: '#dc2626'
-          },
-          {
-            label: 'High',
-            data: altaData,
-            color: '#f97316'
-          },
-          {
-            label: 'Medium',
-            data: mediaData,
-            color: '#3b82f6'
-          },
-          {
-            label: 'Low',
-            data: bajaData,
-            color: '#a3a3a3'
-          },
-          {
-            label: 'Trivial',
-            data: masBajaData,
-            color: '#d4d4d4'
-          }
-        ];
-        
-        return (
-          <TrendChartMultiple 
-            datasets={datasets} 
-            label="Evolution of Bugs by Priority by Sprint" 
-            sprints={sprints} 
-            yAxisLabel="Amount of Bugs" 
-          />
-        );
-      })()}
-
-      {/* Recomendaciones al final */}
-      <div className="bg-danger-50 p-4 rounded-lg border border-danger-200">
-        <h4 className="font-semibold text-danger-900 mb-2 flex items-center">
-          <AlertCircle className="w-5 h-5 mr-2" />
-           Urgent Actions
-        </h4>
-        <ul className="space-y-2 text-sm text-danger-800">
-          {RecommendationEngine.getRecommendations('criticalBugs', data, recommendations).map((rec, idx) => (
-            <li key={idx} dangerouslySetInnerHTML={{ __html: `${rec.icon} ${rec.text.includes(':') ? `<strong>${rec.text.split(':')[0]}:</strong>${rec.text.split(':').slice(1).join(':')}` : rec.text}` }} />
-          ))}
-        </ul>
+        })()}
       </div>
+    </div>
+    );
+  };
+
+  const renderRecommendations = () => (
+    <div className="bg-danger-50 p-4 rounded-lg border border-danger-200">
+      <h4 className="font-semibold text-danger-900 mb-2 flex items-center">
+        <AlertCircle className="w-5 h-5 mr-2" />
+        Urgent Actions
+      </h4>
+      <ul className="space-y-2 text-sm text-danger-800">
+        {RecommendationEngine.getRecommendations('criticalBugs', data, recommendations).map((rec, idx) => (
+          <li key={idx} dangerouslySetInnerHTML={{ __html: `${rec.icon} ${rec.text.includes(':') ? `<strong>${rec.text.split(':')[0]}:</strong>${rec.text.split(':').slice(1).join(':')}` : rec.text}` }} />
+        ))}
+      </ul>
     </div>
   );
 
@@ -2217,33 +2175,54 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       return 'Other';
     };
 
-    // Construir lista mapeada con pendientes/resueltos normalizados
+    // Construir lista mapeada con pendientes/resueltos normalizados para TODOS los niveles
     const mapped = Object.keys(priorities || {}).map(key => {
       const raw = priorities[key] || {};
-      const pending = raw.pending ?? raw.pendingCount ?? raw.countPending ?? raw.pending_total ?? raw.count ?? raw.total ?? 0;
-      const resolved = raw.resolved ?? raw.resolvedCount ?? raw.fixed ?? 0;
+      
+      // Extraer total (count o total)
+      const total = typeof raw === 'number' ? raw : (raw.count || raw.total || 0);
+      
+      // Extraer pending
+      const pending = raw.pending ?? 0;
+      
+      // Extraer resolved del objeto, o calcular como total - pending
+      const resolved = raw.resolved ?? Math.max(0, (typeof total === 'number' ? total : 0) - (typeof pending === 'number' ? pending : 0));
+      
       const kNorm = normalize(key);
       const canonical = mapCanonical(kNorm);
-      return { key, canonical, pending: Number(pending) || 0, resolved: Number(resolved) || 0 };
+      return { 
+        key, 
+        canonical, 
+        total: Number(total) || 0,
+        pending: Number(pending) || 0, 
+        resolved: Math.max(0, Number(resolved) || 0)
+      };
     });
 
-    const masAltaPending = mapped.find(m => m.canonical === 'Major')?.pending || 0;
-    const masAltaResolved = mapped.find(m => m.canonical === 'Major')?.resolved || 0;
-    const altaPending = mapped.find(m => m.canonical === 'High')?.pending || 0;
-    const altaResolved = mapped.find(m => m.canonical === 'High')?.resolved || 0;
+    // Obtener valores para TODOS los niveles de prioridad
+    const majorPending = mapped.find(m => m.canonical === 'Major')?.pending || 0;
+    const majorResolved = mapped.find(m => m.canonical === 'Major')?.resolved || 0;
+    const highPending = mapped.find(m => m.canonical === 'High')?.pending || 0;
+    const highResolved = mapped.find(m => m.canonical === 'High')?.resolved || 0;
+    const mediumPending = mapped.find(m => m.canonical === 'Medium')?.pending || 0;
+    const mediumResolved = mapped.find(m => m.canonical === 'Medium')?.resolved || 0;
+    const lowPending = mapped.find(m => m.canonical === 'Low')?.pending || 0;
+    const lowResolved = mapped.find(m => m.canonical === 'Low')?.resolved || 0;
+    const trivialPending = mapped.find(m => m.canonical === 'Trivial')?.pending || 0;
+    const trivialResolved = mapped.find(m => m.canonical === 'Trivial')?.resolved || 0;
     
     return (
     <div className="space-y-6">
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
         <h3 className="text-2xl font-bold text-warning-600 mb-2">
-          {data.pending} pending Critical Bugs
+          {data.pending} Pending Findings
         </h3>
-        <p className="text-sm text-gray-600">Unresolved Critical Bugs</p>
+        <p className="text-sm text-gray-600">Unresolved findings by priority level</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Total Critical</div>
+          <div className="text-sm text-gray-600 mb-1">Total Findings</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -2256,189 +2235,156 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
 
+      {/* Clasificación por Estado (Status) */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-gray-800 mb-4">Findings Classification by Status / Estado</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-300 bg-gray-50">
+                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Status Category</th>
+                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">States Included</th>
+                <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Count</th>
+                <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Percentage</th>
+                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Progress</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const total = data.total || 1;
+                // Estados pendientes (In Progress)
+                const pendingStates = ['To Do', 'In Development', 'In Testing', 'Ready for Testing'];
+                // Estados resueltos (Completed)
+                const resolvedStates = ['Done', 'Testing Completed'];
+                
+                const statusCategories = [
+                  { 
+                    category: 'Pendiente / Pending', 
+                    states: pendingStates,
+                    value: data.pending || 0, 
+                    color: '#f59e0b', 
+                    bgColor: '#fef3c7' 
+                  },
+                  { 
+                    category: 'Resuelto / Resolved', 
+                    states: resolvedStates,
+                    value: data.resolved || 0, 
+                    color: '#10b981', 
+                    bgColor: '#d1fae5' 
+                  },
+                  { 
+                    category: 'Cancelado / Canceled', 
+                    states: ['Canceled', 'Rejected'],
+                    value: data.canceled || 0, 
+                    color: '#6b7280', 
+                    bgColor: '#f3f4f6' 
+                  }
+                ];
+                
+                return statusCategories.map((status, idx) => (
+                  <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: status.color }}></div>
+                        {status.category}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {status.states.join(', ')}
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">{status.value}</td>
+                    <td className="px-4 py-3 text-center text-sm font-semibold text-gray-700">{Math.round((status.value / total) * 100)}%</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 w-full h-6 rounded overflow-hidden bg-gray-100">
+                        <div 
+                          className="h-full transition-all duration-300" 
+                          style={{ 
+                            width: `${(status.value / total) * 100}%`,
+                            backgroundColor: status.color
+                          }}
+                        ></div>
+                      </div>
+                    </td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-800">
+            <strong>Note:</strong> These states are based on the actual workflow: Pending includes items in To Do, In Development, In Testing, or Ready for Testing. Resolved includes items marked as Done or Testing Completed.
+          </p>
+        </div>
+      </div>
+
       {/* Gráficos circulares de Pendientes y Resueltos por criticidad */}
       <div>
-        <h4 className="font-semibold text-gray-800 mb-4">Distribution by Criticality</h4>
+        <h4 className="font-semibold text-gray-800 mb-4">Distribution by Priority Level</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sección de Pendientes */}
           <div className="bg-warning-50 p-4 rounded-lg border border-warning-200">
-            <h5 className="text-sm font-semibold text-warning-800 mb-3">Pending Bugs</h5>
-            <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
-              {/* Gráfico circular */}
-              <div className="flex-shrink-0">
-              <svg width="180" height="180" viewBox="0 0 180 180" className="mx-auto">
-                {(() => {
-                  const totalPending = masAltaPending + altaPending || 1;
-                  const masAltaPercent = (masAltaPending / totalPending) * 100;
-                  const altaPercent = (altaPending / totalPending) * 100;
-                  
-                  const centerX = 90;
-                  const centerY = 90;
-                  const radius = 65;
-                  
-                  // Más alta
-                  const masAltaAngle = (masAltaPercent / 100) * 360;
-                  const masAltaStartRad = (-90 * Math.PI) / 180;
-                  const masAltaEndRad = ((masAltaAngle - 90) * Math.PI) / 180;
-                  
-                  const masAltaX1 = centerX + radius * Math.cos(masAltaStartRad);
-                  const masAltaY1 = centerY + radius * Math.sin(masAltaStartRad);
-                  const masAltaX2 = centerX + radius * Math.cos(masAltaEndRad);
-                  const masAltaY2 = centerY + radius * Math.sin(masAltaEndRad);
-                  const masAltaLargeArc = masAltaAngle > 180 ? 1 : 0;
-                  
-                  // Alta
-                  const altaAngle = (altaPercent / 100) * 360;
-                  const altaStartRad = masAltaEndRad;
-                  const altaEndRad = ((masAltaAngle + altaAngle - 90) * Math.PI) / 180;
-                  
-                  const altaX1 = masAltaX2;
-                  const altaY1 = masAltaY2;
-                  const altaX2 = centerX + radius * Math.cos(altaEndRad);
-                  const altaY2 = centerY + radius * Math.sin(altaEndRad);
-                  const altaLargeArc = altaAngle > 180 ? 1 : 0;
-                  
-                  return (
-                    <g>
-                      {/* Más alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${masAltaX1} ${masAltaY1} A ${radius} ${radius} 0 ${masAltaLargeArc} 1 ${masAltaX2} ${masAltaY2} Z`}
-                        fill="#dc2626"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                      {/* Alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${altaX1} ${altaY1} A ${radius} ${radius} 0 ${altaLargeArc} 1 ${altaX2} ${altaY2} Z`}
-                        fill="#f97316"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                    </g>
-                  );
-                })()}
-              </svg>
-              </div>
-
-              {/* Leyenda */}
-              <div className="flex-1">
-                {(() => {
-                  const totalPending = masAltaPending + altaPending || 1;
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 rounded bg-red-50">
+            <h5 className="text-sm font-semibold text-warning-800 mb-3">Pending Findings</h5>
+            <div className="flex flex-col gap-3">
+              {(() => {
+                const totalPending = majorPending + highPending + mediumPending + lowPending + trivialPending || 1;
+                const priorities = [
+                  { label: 'Major', value: majorPending, color: '#dc2626', bg: 'bg-red-50', text: 'text-red-700' },
+                  { label: 'High', value: highPending, color: '#f97316', bg: 'bg-orange-50', text: 'text-orange-700' },
+                  { label: 'Medium', value: mediumPending, color: '#3b82f6', bg: 'bg-blue-50', text: 'text-blue-700' },
+                  { label: 'Low', value: lowPending, color: '#9ca3af', bg: 'bg-gray-50', text: 'text-gray-700' },
+                  { label: 'Trivial', value: trivialPending, color: '#d4d4d4', bg: 'bg-gray-100', text: 'text-gray-600' }
+                ];
+                
+                return (
+                  <div className="space-y-2">
+                    {priorities.map((p, idx) => (
+                      <div key={idx} className={`flex items-center justify-between p-2 rounded ${p.bg}`}>
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Major</span>
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }}></div>
+                          <span className={`text-sm font-medium ${p.text}`}>{p.label}</span>
                         </div>
-                        <span className="text-sm font-semibold text-red-700">
-                          {masAltaPending} ({totalPending > 0 ? Math.round((masAltaPending / totalPending) * 100) : 0}%)
+                        <span className={`text-sm font-semibold ${p.text}`}>
+                          {p.value} ({totalPending > 0 ? Math.round((p.value / totalPending) * 100) : 0}%)
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-2 rounded bg-orange-50">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></div>
-                          <span className="text-sm font-medium text-orange-700">High</span>
-                        </div>
-                        <span className="text-sm font-semibold text-orange-700">
-                          {altaPending} ({totalPending > 0 ? Math.round((altaPending / totalPending) * 100) : 0}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
           {/* Sección de Resueltos */}
           <div className="bg-success-50 p-4 rounded-lg border border-success-200">
-            <h5 className="text-sm font-semibold text-success-800 mb-3">Resolved Bugs</h5>
-            <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
-              {/* Gráfico circular */}
-              <div className="flex-shrink-0">
-              <svg width="180" height="180" viewBox="0 0 180 180" className="mx-auto">
-                {(() => {
-                  const totalResolved = masAltaResolved + altaResolved || 1;
-                  const masAltaPercent = (masAltaResolved / totalResolved) * 100;
-                  const altaPercent = (altaResolved / totalResolved) * 100;
-                  
-                  const centerX = 90;
-                  const centerY = 90;
-                  const radius = 65;
-                  
-                  // Más alta
-                  const masAltaAngle = (masAltaPercent / 100) * 360;
-                  const masAltaStartRad = (-90 * Math.PI) / 180;
-                  const masAltaEndRad = ((masAltaAngle - 90) * Math.PI) / 180;
-                  
-                  const masAltaX1 = centerX + radius * Math.cos(masAltaStartRad);
-                  const masAltaY1 = centerY + radius * Math.sin(masAltaStartRad);
-                  const masAltaX2 = centerX + radius * Math.cos(masAltaEndRad);
-                  const masAltaY2 = centerY + radius * Math.sin(masAltaEndRad);
-                  const masAltaLargeArc = masAltaAngle > 180 ? 1 : 0;
-                  
-                  // Alta
-                  const altaAngle = (altaPercent / 100) * 360;
-                  const altaStartRad = masAltaEndRad;
-                  const altaEndRad = ((masAltaAngle + altaAngle - 90) * Math.PI) / 180;
-                  
-                  const altaX1 = masAltaX2;
-                  const altaY1 = masAltaY2;
-                  const altaX2 = centerX + radius * Math.cos(altaEndRad);
-                  const altaY2 = centerY + radius * Math.sin(altaEndRad);
-                  const altaLargeArc = altaAngle > 180 ? 1 : 0;
-                  
-                  return (
-                    <g>
-                      {/* Más alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${masAltaX1} ${masAltaY1} A ${radius} ${radius} 0 ${masAltaLargeArc} 1 ${masAltaX2} ${masAltaY2} Z`}
-                        fill="#dc2626"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                      {/* Alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${altaX1} ${altaY1} A ${radius} ${radius} 0 ${altaLargeArc} 1 ${altaX2} ${altaY2} Z`}
-                        fill="#f97316"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                    </g>
-                  );
-                })()}
-              </svg>
-              </div>
-
-              {/* Leyenda */}
-              <div className="flex-1">
-                {(() => {
-                  const totalResolved = masAltaResolved + altaResolved || 1;
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 rounded bg-red-50">
+            <h5 className="text-sm font-semibold text-success-800 mb-3">Resolved Findings</h5>
+            <div className="flex flex-col gap-3">
+              {(() => {
+                const totalResolved = majorResolved + highResolved + mediumResolved + lowResolved + trivialResolved || 1;
+                const priorities = [
+                  { label: 'Major', value: majorResolved, color: '#dc2626', bg: 'bg-red-50', text: 'text-red-700' },
+                  { label: 'High', value: highResolved, color: '#f97316', bg: 'bg-orange-50', text: 'text-orange-700' },
+                  { label: 'Medium', value: mediumResolved, color: '#3b82f6', bg: 'bg-blue-50', text: 'text-blue-700' },
+                  { label: 'Low', value: lowResolved, color: '#9ca3af', bg: 'bg-gray-50', text: 'text-gray-700' },
+                  { label: 'Trivial', value: trivialResolved, color: '#d4d4d4', bg: 'bg-gray-100', text: 'text-gray-600' }
+                ];
+                
+                return (
+                  <div className="space-y-2">
+                    {priorities.map((p, idx) => (
+                      <div key={idx} className={`flex items-center justify-between p-2 rounded ${p.bg}`}>
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Major</span>
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }}></div>
+                          <span className={`text-sm font-medium ${p.text}`}>{p.label}</span>
                         </div>
-                        <span className="text-sm font-semibold text-red-700">
-                          {masAltaResolved} ({totalResolved > 0 ? Math.round((masAltaResolved / totalResolved) * 100) : 0}%)
+                        <span className={`text-sm font-semibold ${p.text}`}>
+                          {p.value} ({totalResolved > 0 ? Math.round((p.value / totalResolved) * 100) : 0}%)
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-2 rounded bg-orange-50">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></div>
-                          <span className="text-sm font-medium text-orange-700">High</span>
-                        </div>
-                        <span className="text-sm font-semibold text-orange-700">
-                          {altaResolved} ({totalResolved > 0 ? Math.round((altaResolved / totalResolved) * 100) : 0}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

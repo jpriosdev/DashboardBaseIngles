@@ -128,15 +128,16 @@ CREATE INDEX IF NOT EXISTS idx_dev_total ON developers_summary(total_bugs);
 -- VISTAS ÚTILES PARA QUERIES COMUNES (Agregaciones dinámicas)
 -- ============================================================================
 
--- Vista: Resumen general de bugs
+-- Vista: Resumen general de bugs (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_summary AS
 SELECT 
   COUNT(*) as total_bugs,
    SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
   SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical
-FROM bugs_detail;
+FROM bugs_detail
+WHERE tipo_incidencia = 'Bug';
 
--- Vista: Bugs por sprint (desde datos de detalle)
+-- Vista: Bugs por sprint (desde datos de detalle) (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_by_sprint AS
 SELECT 
   CAST(SUBSTR(sprint, -2) AS INTEGER) as sprint_num,
@@ -146,19 +147,20 @@ SELECT
     SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
     SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled
 FROM bugs_detail
-WHERE tipo_incidencia != 'Sugerencia'
+WHERE tipo_incidencia = 'Bug'
 GROUP BY sprint;
 
--- Vista: Bugs por estado en cada sprint
+-- Vista: Bugs por estado en cada sprint (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_by_sprint_status AS
 SELECT 
   sprint,
   estado,
   COUNT(*) as count
 FROM bugs_detail
+WHERE tipo_incidencia = 'Bug'
 GROUP BY sprint, estado;
 
--- Vista: Bugs por desarrollador desde detalle
+-- Vista: Bugs por desarrollador desde detalle (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_by_developer AS
 SELECT 
   asignado_a as developer_name,
@@ -166,7 +168,7 @@ SELECT
   SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
   SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical
 FROM bugs_detail
-WHERE asignado_a IS NOT NULL AND asignado_a != ''
+WHERE tipo_incidencia = 'Bug' AND asignado_a IS NOT NULL AND asignado_a != ''
 GROUP BY asignado_a;
 
 
@@ -175,30 +177,33 @@ CREATE VIEW IF NOT EXISTS vw_bugs_by_priority AS
 SELECT 
   prioridad,
   COUNT(*) as count,
-   SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
+  -- Pending: estados en flujo de trabajo (To Do, In Development, In Testing, Ready for Testing)
+  SUM(CASE WHEN estado IN ('To Do', 'In Development', 'In Testing', 'Ready for Testing') THEN 1 ELSE 0 END) as pending,
+  -- Canceled: estados cancelados
   SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled,
-  SUM(CASE WHEN estado NOT IN ('To Do', 'In Development', 'Canceled') THEN 1 ELSE 0 END) as resolved
+  -- Resolved: estados completados (Done, Testing Completed, Testing Complete, Approved for Release, Reviewed)
+  SUM(CASE WHEN estado IN ('Done', 'Testing Completed', 'Testing Complete', 'Approved for Release', 'Reviewed') THEN 1 ELSE 0 END) as resolved
 FROM bugs_detail
-WHERE prioridad IS NOT NULL AND tipo_incidencia != 'Sugerencia'
+WHERE prioridad IS NOT NULL AND tipo_incidencia = 'Bug'
 GROUP BY prioridad;
 
--- Vista: Bugs por módulo
+-- Vista: Bugs por módulo (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_by_module AS
 SELECT 
   modulo,
   COUNT(*) as count,
   SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical
 FROM bugs_detail
-WHERE modulo IS NOT NULL AND modulo != ''
+WHERE tipo_incidencia = 'Bug' AND modulo IS NOT NULL AND modulo != ''
 GROUP BY modulo;
 
--- Vista: Bugs por categoría
+-- Vista: Bugs por categoría (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_by_category AS
 SELECT 
   categoria,
   COUNT(*) as count
 FROM bugs_detail
-WHERE categoria IS NOT NULL AND categoria != ''
+WHERE tipo_incidencia = 'Bug' AND categoria IS NOT NULL AND categoria != ''
 GROUP BY categoria;
 
 -- Vista: Análisis de desarrolladores (desde bugs_detail)
