@@ -125,7 +125,10 @@ function SprintListPanel({ data, loading }) {
 
 export default function TeamAnalysis({ data, filteredSprintData }) {
   // Prefer developer summary arrays from incoming data
-  const incomingDevelopers = Array.isArray(data?.developerData) ? data.developerData : (Array.isArray(data?.developers) ? data.developers : []);
+  const incomingDevelopers = useMemo(() => 
+    Array.isArray(data?.developerData) ? data.developerData : (Array.isArray(data?.developers) ? data.developers : []),
+    [data?.developerData, data?.developers]
+  );
   const [fetchedDevelopers, setFetchedDevelopers] = useState(null);
   const developers = incomingDevelopers.length > 0 ? incomingDevelopers : (Array.isArray(fetchedDevelopers) ? fetchedDevelopers : []);
   // If incoming developer data is not present, fetch summaries from server-side API.

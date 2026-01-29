@@ -1721,7 +1721,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               tooltip={
                 <div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                  <div className="text-xs text-gray-600 mb-2">Status of all findings (tipo_incidencia = 'Bug'): pending vs resolved, grouped by priority level.</div>
+                  <div className="text-xs text-gray-600 mb-2">Status of all findings (tipo_incidencia = &apos;Bug&apos;): pending vs resolved, grouped by priority level.</div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">Status categories</div>
                   <div className="text-xs text-gray-600 mb-2">
                     • Pending: To Do, In Development, In Testing, Ready for Testing<br/>
