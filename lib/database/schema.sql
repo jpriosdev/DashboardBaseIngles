@@ -132,8 +132,8 @@ CREATE INDEX IF NOT EXISTS idx_dev_total ON developers_summary(total_bugs);
 CREATE VIEW IF NOT EXISTS vw_bugs_summary AS
 SELECT 
   COUNT(*) as total_bugs,
-   SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
-  SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical
+   SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,
+  SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical
 FROM bugs_detail
 WHERE tipo_incidencia = 'Bug';
 
@@ -143,8 +143,8 @@ SELECT
   CAST(SUBSTR(sprint, -2) AS INTEGER) as sprint_num,
   sprint,
   COUNT(*) as total,
-  SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical,
-    SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
+  SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical,
+    SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,
     SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled
 FROM bugs_detail
 WHERE tipo_incidencia = 'Bug'
@@ -165,8 +165,8 @@ CREATE VIEW IF NOT EXISTS vw_bugs_by_developer AS
 SELECT 
   asignado_a as developer_name,
   COUNT(*) as total_bugs,
-  SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
-  SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical
+  SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,
+  SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical
 FROM bugs_detail
 WHERE tipo_incidencia = 'Bug' AND asignado_a IS NOT NULL AND asignado_a != ''
 GROUP BY asignado_a;
@@ -178,11 +178,9 @@ SELECT
   prioridad,
   COUNT(*) as count,
   -- Pending: estados en flujo de trabajo (To Do, In Development, In Testing, Ready for Testing)
-  SUM(CASE WHEN estado IN ('To Do', 'In Development', 'In Testing', 'Ready for Testing') THEN 1 ELSE 0 END) as pending,
-  -- Canceled: estados cancelados
-  SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled,
+  SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,
   -- Resolved: estados completados (Done, Testing Completed, Testing Complete, Approved for Release, Reviewed)
-  SUM(CASE WHEN estado IN ('Done', 'Testing Completed', 'Testing Complete', 'Approved for Release', 'Reviewed') THEN 1 ELSE 0 END) as resolved
+  SUM(CASE WHEN estado IN ('Closed', 'Ready For Release','Released') THEN 1 ELSE 0 END) as resolved
 FROM bugs_detail
 WHERE prioridad IS NOT NULL AND tipo_incidencia = 'Bug'
 GROUP BY prioridad;
@@ -192,7 +190,7 @@ CREATE VIEW IF NOT EXISTS vw_bugs_by_module AS
 SELECT 
   modulo,
   COUNT(*) as count,
-  SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical
+  SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical
 FROM bugs_detail
 WHERE tipo_incidencia = 'Bug' AND modulo IS NOT NULL AND modulo != ''
 GROUP BY modulo;
@@ -213,15 +211,15 @@ CREATE VIEW IF NOT EXISTS vw_developers_analysis AS
 SELECT 
   asignado_a as developer_name,
   COUNT(*) as total_bugs,
-    SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) as pending,
-   SUM(CASE WHEN estado = 'In Development' THEN 1 ELSE 0 END) as in_progress,
-   SUM(CASE WHEN estado = 'Code Review' THEN 1 ELSE 0 END) as code_review,
+    SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,
+   SUM(CASE WHEN estado in ('In Progress - QA','In Progress', 'In Process' , 'Ready for QA') THEN 1 ELSE 0 END) as in_progress,
+   SUM(CASE WHEN estado IN ('Closed', 'Ready For Release','Released') THEN 1 ELSE 0 END) as resolved,
    SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled,
-  SUM(CASE WHEN prioridad = 'Major' THEN 1 ELSE 0 END) as critical,
-    ROUND(((COUNT(*) - SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END)) * 100.0 / NULLIF(COUNT(*), 0)), 2) as efficiency_percentage,
+  SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical,
+    ROUND(((COUNT(*) - SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END)) * 100.0 / NULLIF(COUNT(*), 0)), 2) as efficiency_percentage,
     CASE 
-      WHEN SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) > 15 THEN 'Alto'
-      WHEN SUM(CASE WHEN estado IN ('To Do', 'In Development') THEN 1 ELSE 0 END) > 8 THEN 'Medio'
+      WHEN SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) > 15 THEN 'Alto'
+      WHEN SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) > 8 THEN 'Medio'
     ELSE 'Bajo'
   END as workload_level
 FROM bugs_detail
