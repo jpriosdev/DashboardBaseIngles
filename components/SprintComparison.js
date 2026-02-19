@@ -27,8 +27,22 @@ export default function SprintComparison({ sprintData, selectedSprints }) {
         const resolved = sprint.bugsResolved || sprint.bugs_resueltos || 0;
         return total > 0 ? Math.round((resolved / total) * 100) : 0;
       case 'criticalBugs':
-        const priorities = sprint.bugsByPriority || {};
-        return (priorities['Más alta'] || priorities['Alta'] || 0);
+        const priorities = sprint.bugsByPriority || sprint.priorities || sprint.bugs_by_priority || {};
+        if (!priorities || Object.keys(priorities).length === 0) return 0;
+        const normalize = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const keys = Object.keys(priorities);
+        // Find keys that explicitly look like critical/high
+        const criticalKeys = keys.filter(k => {
+          const kn = normalize(k);
+          return kn.includes('crit') || kn.includes('highest') || kn.includes('másalta') || kn.includes('masalta') || kn.includes('más alta') || kn.includes('mas alta') || kn === 'alta' || kn.includes('\balta\b');
+        });
+        if (criticalKeys.length > 0) {
+          return criticalKeys.reduce((sum, k) => sum + Number(priorities[k] || 0), 0);
+        }
+        // Fallback: sum top 1-2 priorities by count
+        const sorted = keys.map(k => ({ k, v: Number(priorities[k] || 0) })).sort((a, b) => b.v - a.v);
+        const take = sorted.slice(0, Math.min(2, sorted.length));
+        return take.reduce((s, it) => s + it.v, 0);
       default:
         return 0;
     }

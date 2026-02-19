@@ -13,8 +13,8 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const excelPath = path.resolve(__dirname, '../data/qa-data-upload.xlsx');
-const dbPath = path.resolve(__dirname, '../public/data/qa-dashboard.db');
+const excelPath = path.resolve(__dirname, '..', '..', 'data', 'qa-data-upload.xlsx');
+const dbPath = path.resolve(__dirname, '..', '..', 'public', 'data', 'qa-dashboard.db');
 
 let processedVersions = 0;
 let processedBugs = 0;
@@ -244,7 +244,7 @@ async function migrateData() {
     console.log('📝 Registrando metadata de origen...');
     
     // Importar DAL para registrar metadata
-    const { default: DAL } = await import('../lib/database/dal.js');
+    const { default: DAL } = await import('../../lib/database/dal.js');
     
     try {
       await DAL.recordDataSourceMetadata(

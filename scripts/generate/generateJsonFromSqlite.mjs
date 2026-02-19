@@ -35,7 +35,8 @@ function generateJsonFromSqlite() {
     queryAsync('SELECT COUNT(*) as pending FROM bugs_detail WHERE estado != "Cerrado"'),
     queryAsync(`
       SELECT sprint, COUNT(*) as count, 
-             SUM(CASE WHEN prioridad IN ('Más alta', 'Alta') THEN 1 ELSE 0 END) as critical
+             SUM(CASE WHEN prioridad IN ('Más alta', 'Alta') THEN 1 ELSE 0 END) as critical,
+             SUM(CASE WHEN estado = 'Cerrado' THEN 1 ELSE 0 END) as resolved
       FROM bugs_detail 
       GROUP BY sprint 
       ORDER BY CAST(SUBSTR(sprint, -2) AS INTEGER)
@@ -70,9 +71,10 @@ function generateJsonFromSqlite() {
     const sprintData = sprints.map(row => ({
       sprint: row.sprint || 'Unknown',
       bugs: row.count || 0,
-      bugsResolved: row.critical || 0,
-      bugsPending: row.count - (row.critical || 0),
-      testCases: row.count || 0,  // Casos ejecutados = cantidad de bugs encontrados
+      // Use the resolved count per sprint (estado = 'Cerrado') when available
+      bugsResolved: (row.resolved !== undefined) ? Number(row.resolved) : (row.critical || 0),
+      bugsPending: (row.count || 0) - ((row.resolved !== undefined) ? Number(row.resolved) : (row.critical || 0)),
+      testCases: row.count || 0,  // Casos ejecutados = cantidad de bugs encontrados (fallback)
       velocity: Math.round((row.count || 0) * 0.85),
       plannedVelocity: Math.round((row.count || 0) * 1.0),
       change: 0,

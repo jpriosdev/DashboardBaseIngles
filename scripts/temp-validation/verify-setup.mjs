@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// verify-setup moved here
+console.log('verify-setup diagnostic moved to temp-validation.')
+#!/usr/bin/env node
 
 /**
  * Script de verificación de la configuración

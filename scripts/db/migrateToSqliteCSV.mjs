@@ -13,8 +13,8 @@ import { parse } from 'csv-parse/sync';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const csvPath = path.resolve(__dirname, '../data/MockDataV0.csv');
-const dbPath = path.resolve(__dirname, '../public/data/qa-dashboard.db');
+const csvPath = path.resolve(__dirname, '..', '..', 'data', 'MockDataV0.csv');
+const dbPath = path.resolve(__dirname, '..', '..', 'public', 'data', 'qa-dashboard.db');
 
 let processedBugs = 0;
 
@@ -132,7 +132,7 @@ async function migrateData() {
     // REGISTRAR METADATA DE ORIGEN
     // ========================================
     console.log('📝 Registrando metadata de origen...');
-    const { default: DAL } = await import('../lib/database/dal.js');
+    const { default: DAL } = await import('../../lib/database/dal.js');
     try {
       await DAL.recordDataSourceMetadata(
         csvFileName,

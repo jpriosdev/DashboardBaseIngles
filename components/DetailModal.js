@@ -49,32 +49,55 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
+            <strong>Note:</strong> {label} requires more data points to show a meaningful trend.
+          </p>
+        </div>
+      );
+    }
+    // If there are few months, show warning
+    if (!sprints || sprints.length < 2) {
+      return (
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+          <p className="text-sm text-yellow-800">
+            <strong>Note:</strong> {label} requires multiple months to show trend. More data needed.
           </p>
         </div>
       );
     }
     
-    const labels = sprints && sprints.length > 0 ? sprints.map(s => s.sprint || s.name || 'Sprint') : chartData.map((_, idx) => `Sprint ${idx + 1}`);
+    const labels = sprints.map(s => s.sprint || s.name || 'Month');
     
+    // Construir datasets locales a partir del prop `chartData`
+    const datasetsLocal = Array.isArray(chartData) ? [{ label, data: chartData, color }] : (chartData && Array.isArray(chartData.datasets) ? chartData.datasets : [{ label, data: chartData || [], color }]);
+    const targetsLocal = {}; // no hay targets por defecto aquí
+
+    const validDatasets = (datasetsLocal || [])
+      .filter(dataset => dataset.data && dataset.data.length > 0)
+      .map((dataset) => {
+        const target = targetsLocal?.[dataset.label] || 0;
+        const pointColors = dataset.data.map(value => value <= target ? '#10b981' : '#ef4444');
+        return {
+          label: dataset.label,
+          data: dataset.data,
+          borderColor: dataset.color,
+          backgroundColor: pointColors,
+          tension: 0.3,
+          fill: false,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 1.5,
+          borderWidth: 1.5,
+          showLine: true
+        };
+      });
+
+    if (validDatasets.length === 0) return null;
+
     const chartConfig = {
       labels: labels,
-      datasets: [
-        {
-          label: yAxisLabel,
-          data: chartData,
-          borderColor: color,
-          backgroundColor: color,
-          tension: 0.4,
-          fill: false,
-          pointRadius: 3.5,
-          pointHoverRadius: 5,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: color,
-          pointBorderWidth: 2,
-          borderWidth: 2,
-        }
-      ],
+      datasets: validDatasets
     };
 
     const options = {
@@ -86,28 +109,57 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       },
       plugins: {
         legend: {
-          display: false,
+          display: true,
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            padding: 10,
+            font: {
+              size: 11
+            },
+            generateLabels: function(chart) {
+              return (datasetsLocal || []).map((dataset, idx) => ({
+                text: `${dataset.label}${targetsLocal[dataset.label] ? ` (target: ${targetsLocal[dataset.label]}d)` : ''}`,
+                fillStyle: dataset.color,
+                strokeStyle: dataset.color,
+                lineWidth: 1.5,
+                pointStyle: 'circle',
+                datasetIndex: idx
+              }));
+            }
+          }
         },
         title: {
-          display: false,
+          display: true,
+          text: label,
+          font: {
+            size: 13,
+            weight: 'bold',
+          },
+          padding: {
+            bottom: 12
+          }
         },
         tooltip: {
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          padding: 8,
+          padding: 10,
           cornerRadius: 6,
           titleFont: {
-            size: 11,
+            size: 12,
             weight: 'bold'
           },
           bodyFont: {
-            size: 10
+            size: 11
           },
           callbacks: {
             title: function(context) {
               return context[0].label || '';
             },
             label: function(context) {
-              return `${context.dataset.label}: ${context.parsed.y}`;
+              const value = context.parsed.y;
+              const target = targetsLocal[context.dataset.label] || 0;
+              const status = target ? (value <= target ? '✓ Cumple' : '✗ No cumple') : '';
+              return `${context.dataset.label}: ${value}${yAxisLabel === 'Días' ? 'd' : ''}${status ? ` (${status})` : ''}`;
             }
           }
         }
@@ -116,7 +168,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         x: {
           display: true,
           title: {
-            display: false
+            display: true,
+            text: 'Months',
+            font: {
+              size: 11,
+              weight: 'bold'
+            }
           },
           grid: {
             display: false
@@ -132,10 +189,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           display: true,
           position: 'left',
           title: {
-            display: false
+            display: true,
+            text: yAxisLabel,
+            font: {
+              size: 11,
+              weight: 'bold'
+            }
           },
           grid: {
-            color: 'rgba(0, 0, 0, 0.04)',
+            color: 'rgba(0, 0, 0, 0.06)',
             drawBorder: false
           },
           ticks: {
@@ -148,52 +210,30 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     };
     
     return (
-      <div className="bg-white p-2 rounded-lg border border-gray-200">
-        <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">{label}</h5>
-        <div className="h-40">
+      <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
+        <div className="h-64">
           <Line data={chartConfig} options={options} />
         </div>
       </div>
     );
   };
 
-  const renderModuleDetail = (data) => {
-    // Ensure ModuleAnalysis receives an object keyed by module name
-    let payload = data;
-    // If data is a single module entry keyed by module name already, pass through
-    // If data contains one module under an arbitrary key, keep as-is
-    // If user passed a single module object (not keyed), try to wrap it
-    if (data && !Object.values(data).some(v => v && v.total !== undefined)) {
-      // heuristics: if object looks like a single module (has total/resolved/pending), wrap it
-      const keys = Object.keys(data || {});
-      if (keys.length > 0 && (data.total !== undefined || data.resolved !== undefined || data.pending !== undefined)) {
-        payload = { [keys[0]]: data };
-      }
-    }
-
-    return (
-      <div className="space-y-6">
-        <ModuleAnalysis data={payload} />
-      </div>
-    );
-  };
-
   // Componente de gráfico con puntos de cumplimiento (verde/rojo según target)
-  const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Days', targets }) => {
+  const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Días', targets = {} }) => {
     if (!datasets || datasets.length === 0) return null;
     
-    // If there are few sprints, show warning
+    // Si hay pocos meses, mostrar advertencia
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
+            <strong>Note:</strong> {label} requires multiple months to show trend. Available months: {sprints?.length || 0}
           </p>
         </div>
       );
     }
     
-    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
+    const labels = sprints.map(s => s.sprint || s.name || 'Month');
     
     const validDatasets = datasets
       .filter(dataset => dataset.data && dataset.data.length > 0)
@@ -243,7 +283,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             },
             generateLabels: function(chart) {
               return datasets.map((dataset, idx) => ({
-                text: `${dataset.label} (target: ${targets[dataset.label]}d)`,
+                text: `${dataset.label}${targets[dataset.label] ? ` (target: ${targets[dataset.label]}d)` : ''}`,
                 fillStyle: dataset.color,
                 strokeStyle: dataset.color,
                 lineWidth: 1.5,
@@ -282,8 +322,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             label: function(context) {
               const value = context.parsed.y;
               const target = targets[context.dataset.label] || 0;
-              const status = value <= target ? '✓ Cumple' : '✗ No cumple';
-              return `${context.dataset.label}: ${value}d (${status})`;
+              const status = target ? (value <= target ? '✓ Cumple' : '✗ No cumple') : '';
+              return `${context.dataset.label}: ${value}d${status ? ` (${status})` : ''}`;
             }
           }
         }
@@ -293,46 +333,26 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           display: true,
           title: {
             display: true,
-            text: 'Sprints',
+            text: 'Months',
             font: {
               size: 11,
               weight: 'bold'
             }
           },
-          grid: {
-            display: false
-          },
-          ticks: {
-            font: {
-              size: 10
-            }
-          }
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
         },
         y: {
           type: 'linear',
           display: true,
           position: 'left',
-          title: {
-            display: true,
-            text: yAxisLabel,
-            font: {
-              size: 11,
-              weight: 'bold'
-            }
-          },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.06)',
-            drawBorder: false
-          },
-          ticks: {
-            font: {
-              size: 10
-            }
-          }
-        },
-      },
+          title: { display: true, text: yAxisLabel, font: { size: 11, weight: 'bold' } },
+          grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+          ticks: { font: { size: 10 } }
+        }
+      }
     };
-    
+
     return (
       <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
         <div className="h-64">
@@ -346,12 +366,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   const TrendChartMultiple = ({ datasets, label, sprints, yAxisLabel = 'Valor', isPercentage = false }) => {
     if (!datasets || datasets.length === 0) return null;
     
-    // Si hay pocos sprints, mostrar advertencia
+    // Si hay pocos meses, mostrar advertencia
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Available sprints: {sprints?.length || 0}
+            <strong>Note:</strong> {label} requires multiple months to show trend. Available months: {sprints?.length || 0}
           </p>
         </div>
       );
@@ -437,7 +457,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           display: true,
           title: {
             display: true,
-            text: 'Sprints',
+            text: 'Months',
             font: {
               size: 12,
               weight: 'bold'
@@ -492,6 +512,84 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     );
   };
 
+  // Specialized chart: Executed vs Planned with percent tooltip
+  const ExecutionComparisonChart = ({ executed = [], planned = [], sprints = [], monthLabels = null }) => {
+    if (!sprints || sprints.length === 0) return null;
+    // Use monthLabels if provided (for month-based data), otherwise use sprint names
+    const labels = monthLabels && monthLabels.length > 0 
+      ? monthLabels 
+      : sprints.map(s => s.sprint || s.name || 'Sprint');
+
+    const chartConfig = {
+      labels,
+      datasets: [
+        {
+          label: 'Planned',
+          data: planned,
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59,130,246,0.08)',
+          tension: 0.3,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderDash: [6, 4]
+        },
+        {
+          label: 'Executed',
+          data: executed,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16,185,129,0.06)',
+          tension: 0.3,
+          fill: false,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }
+      ]
+    };
+
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'top' },
+        tooltip: {
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          callbacks: {
+            title: (ctx) => ctx[0]?.label || '',
+            label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}`,
+            afterBody: (ctx) => {
+              const idx = ctx[0]?.dataIndex || 0;
+              const exec = Number(executed[idx] || 0);
+              const plan = Number(planned[idx] || 0);
+              const pct = plan > 0 ? Math.round((exec / plan) * 100) : 0;
+              return `Executed/Planned: ${exec}/${plan} (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { display: true, title: { display: true, text: monthLabels ? 'Month-Year' : 'Months' } },
+        y: {
+          display: true,
+          title: { display: true, text: 'Cases' },
+          beginAtZero: true,
+          min: 0,
+          max: 50,
+          ticks: { stepSize: 5 }
+        }
+      }
+    };
+
+    return (
+      <div className="mt-4 bg-white p-3 rounded-lg border border-gray-200">
+        <div className="h-64">
+          <Line data={chartConfig} options={options} />
+        </div>
+      </div>
+    );
+  };
+
   const renderCycleTimeDetail = (data) => (
     <div className="space-y-6">
       {/* Resumen general */}
@@ -522,18 +620,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
 
             return (
               <div key={priority} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-600">{config.label}</span>
-                  {isGood ? (
-                    <CheckCircle className="w-4 h-4 text-success-500" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-warning-500" />
-                  )}
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold text-gray-900">{days}</span>
-                  <span className="text-sm text-gray-500 ml-1">days</span>
-                </div>
+                <div className="text-sm text-gray-600 mb-1">{config.label}</div>
+                <div className="text-2xl font-bold">{days} <span className="text-sm text-gray-500 ml-1">days</span></div>
+              
                 <div className="mt-2">
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                     <span>Target: {config.target}d</span>
@@ -598,7 +687,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartWithTargets 
             datasets={datasets} 
-            label="Evolution of Resolution Time by Sprint" 
+            label="Evolution of Resolution Time by Month" 
             sprints={sprints} 
             yAxisLabel="Days"
             targets={targets}
@@ -725,7 +814,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Gráfico de tendencia */}
       {data.trend && data.trend.length > 0 && (
         <div>
-          <h4 className="font-semibold text-gray-800 mb-3">Automation Coverage Evolution by Sprint</h4>
+          <h4 className="font-semibold text-gray-800 mb-3">Automation Coverage Evolution by Month</h4>
           <TrendChartMultiple 
             datasets={[{ 
               label: 'Automation Coverage', 
@@ -830,9 +919,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Resumen general */}
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
         <h3 className="text-2xl font-bold text-orange-600 mb-2">
-          {data.avg} bugs/sprint
+          {data.avg} bugs/month
         </h3>
-        <p className="text-sm text-gray-600">Average bugs detected per sprint</p>
+        <p className="text-sm text-gray-600">Average bugs detected per month</p>
       </div>
 
       {/* Key metrics */}
@@ -840,17 +929,17 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Total Bugs</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
-          <div className="text-xs text-gray-500 mt-1">En {data.sprints} sprints</div>
+          <div className="text-xs text-gray-500 mt-1">En {data.months} months</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Maximum</div>
           <div className="text-2xl font-bold text-danger-600">{data.max}</div>
-          <div className="text-xs text-gray-500 mt-1">Worst sprint</div>
+          <div className="text-xs text-gray-500 mt-1">Worst month</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Minimum</div>
           <div className="text-2xl font-bold text-success-600">{data.min}</div>
-          <div className="text-xs text-gray-500 mt-1">Best sprint</div>
+          <div className="text-xs text-gray-500 mt-1">Best month</div>
         </div>
       </div>
 
@@ -863,7 +952,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               <CheckCircle className="w-5 h-5 text-success-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
                 <div className="font-medium text-success-900">Exceptional Quality</div>
-                <div className="text-sm text-success-700">Low defect density per sprint. Development process is robust and quality practices are effective.</div>
+                <div className="text-sm text-success-700">Low defect density per month. Development process is robust and quality practices are effective.</div>
               </div>
             </div>
           )}
@@ -917,28 +1006,28 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="p-3 bg-success-50 rounded-lg">
             <div className="text-xs text-success-700 font-medium mb-1">Excellent</div>
             <div className="text-sm font-bold text-success-600">≤ 15</div>
-            <div className="text-xs text-success-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-success-600 mt-1">bugs/month</div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <div className="text-xs text-blue-700 font-medium mb-1">Good</div>
             <div className="text-sm font-bold text-blue-600">16 - 25</div>
-            <div className="text-xs text-blue-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-blue-600 mt-1">bugs/month</div>
           </div>
           <div className="p-3 bg-warning-50 rounded-lg">
             <div className="text-xs text-warning-700 font-medium mb-1">Needs Improvement</div>
             <div className="text-sm font-bold text-warning-600">26 - 35</div>
-            <div className="text-xs text-warning-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-warning-600 mt-1">bugs/month</div>
           </div>
           <div className="p-3 bg-danger-50 rounded-lg">
             <div className="text-xs text-danger-700 font-medium mb-1">Critical</div>
             <div className="text-sm font-bold text-danger-600">&gt; 35</div>
-            <div className="text-xs text-danger-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-danger-600 mt-1">bugs/month</div>
           </div>
         </div>
       </div>
       
       {/* Gráfico de tendencia */}
-      <TrendChart data={sparklineData} label="Bug Evolution by Sprint" color="#f97316" sprints={sprints} yAxisLabel="Bugs" />
+      <TrendChart data={sparklineData} label="Bug Evolution by Month" color="#f97316" sprints={sprints} yAxisLabel="Bugs" />
 
       {/* Recommended actions */}
       <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -977,19 +1066,19 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     <div className="space-y-6">
       <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
         <h3 className="text-2xl font-bold text-blue-600 mb-2">
-          {data.avg} test cases/sprint
+          {data.avg} test cases/month
         </h3>
-        <p className="text-sm text-gray-600">Average test cases executed per sprint</p>
+        <p className="text-sm text-gray-600">Average test cases designed per month</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-600 mb-1">Total Executed</div>
+            <div className="text-sm text-gray-600 mb-1">Total Designed</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-600 mb-1">Sprints Analyzed</div>
-          <div className="text-2xl font-bold text-gray-900">{data.sprints}</div>
+            <div className="text-sm text-gray-600 mb-1">Months Analyzed</div>
+          <div className="text-2xl font-bold text-gray-900">{data.months}</div>
         </div>
       </div>
 
@@ -1024,8 +1113,21 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
       
-      {/* Trend chart */}
-      <TrendChart data={sparklineData} label="Evolution of Executed Test Cases by Sprint" color="#60a5fa" sprints={sprints} yAxisLabel="Cases" />
+      {/* Trend chart - Designed Test Cases */}
+      <TrendChart data={sparklineData} label="Evolution of Test Cases Designed by Month" color="#60a5fa" sprints={sprints} yAxisLabel="Cases" />
+
+      {/* Planned vs Executed Comparison Chart */}
+      {data.plannedSeries && data.executedSeries && sprints && sprints.length > 0 && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <h4 className="font-semibold text-gray-800 mb-3">Test Cases by Month - Planned vs Executed</h4>
+          <ExecutionComparisonChart
+            planned={data.plannedSeries}
+            executed={data.executedSeries}
+            sprints={sprints}
+            monthLabels={modal.monthLabels}
+          />
+        </div>
+      )}
 
       {/* Recommendations (test cases) */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -1133,7 +1235,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         
         const datasets = [
           {
-            label: 'Highest',
+            label: 'Major',
             data: masAltaEfficiency,
             color: '#dc2626'
           },
@@ -1153,7 +1255,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             color: '#a3a3a3'
           },
           {
-            label: 'Lowest',
+            label: 'Trivial',
             data: masBajaEfficiency,
             color: '#d4d4d4'
           }
@@ -1251,7 +1353,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <TrendChart
             data={sparklineData}
-            label="Regression Rate by Sprint"
+            label="Regression Rate by Month"
             color="#f97316"
             sprints={sprints}
             yAxisLabel="%"
@@ -1280,36 +1382,34 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-blue-600 mb-2">
           {data.executionRate}%
         </h3>
-        <p className="text-sm text-gray-600">Test case execution rate</p>
+        <p className="text-sm text-gray-600">Average Bug Completion Rate (Monthly)</p>
       </div>
 
-      {/* Métricas de detalles */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Métricas de detalles - Monthly Summary */}
+      <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Executed</span>
-              <CheckCircle className="w-4 h-4 text-success-500" />
-            </div>
-          <div className="flex items-baseline">
-            <span className="text-2xl font-bold text-gray-900">{data.executed || 0}</span>
-          </div>
+          <div className="text-sm text-gray-600 mb-1">Total Completed</div>
+          <div className="text-2xl font-bold text-gray-900">{data.completed || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">across {data.months} months</div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Planned</span>
-            <Target className="w-4 h-4 text-blue-500" />
-          </div>
-          <div className="flex items-baseline">
-            <span className="text-2xl font-bold text-gray-900">{data.planned || 0}</span>
-          </div>
+          <div className="text-sm text-gray-600 mb-1">Total Bugs</div>
+          <div className="text-2xl font-bold text-gray-900">{data.total || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">across {data.months} months</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+          <div className="text-sm text-gray-600 mb-1">Avg Rate</div>
+          <div className="text-2xl font-bold text-blue-600">{data.executionRate}%</div>
+          <div className="text-xs text-gray-500 mt-1">per month</div>
         </div>
       </div>
 
       {/* Barra de progreso */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Execution Coverage</span>
+          <span className="text-sm font-medium text-gray-700">Average Bug Completion Coverage</span>
           <span className="text-sm font-bold text-blue-600">{data.executionRate}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -1318,6 +1418,20 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             style={{ width: `${Math.min(data.executionRate, 100)}%` }}
           ></div>
         </div>
+        <p className="text-xs text-gray-600 mt-2">
+          Monthly average: {data.completed} completed / {data.total} total = {data.executionRate}%
+        </p>
+      </div>
+
+      {/* Monthly Trend Analysis */}
+      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+        <h4 className="font-semibold text-purple-900 mb-2 flex items-center">
+          <Activity className="w-4 h-4 mr-2" />
+          Monthly Trend
+        </h4>
+        <p className="text-sm text-purple-800 mb-3">
+          Bug completion rate tracked by month-year. Each point represents the % of bugs completed (Ready For QA, Ready For Release, Released, Closed) for that month.
+        </p>
       </div>
 
       {/* Interpretation */}
@@ -1329,46 +1443,34 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="text-sm text-blue-800 space-y-1">
           {data.executionRate >= 95 && (
             <>
-              <p>✓ <strong>Excellent:</strong> Above 95% coverage is the ideal target.</p>
-              <p>Almost all planned test cases are being executed.</p>
+              <p>✓ <strong>Excellent:</strong> Above 95% completion rate is the ideal target.</p>
+              <p>Almost all bugs are being resolved or completed each month.</p>
             </>
           )}
           {data.executionRate >= 80 && data.executionRate < 95 && (
             <>
               <p>⚠️ <strong>Acceptable:</strong> Between 80-95% requires improvement.</p>
-              <p>Investigate why not all planned test cases were executed.</p>
+              <p>Investigate why some bugs are not being completed. Plan additional resources.</p>
             </>
           )}
           {data.executionRate < 80 && (
             <>
               <p>🔴 <strong>Critical:</strong> Less than 80% is insufficient.</p>
-              <p>Too many test cases are being skipped. Requires immediate action.</p>
+              <p>Too many bugs remain uncompleted each month. Requires immediate action.</p>
             </>
           )}
         </div>
       </div>
 
-      {/* Trend chart */}
-      {sparklineData && sprints && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <TrendChart
-            data={sparklineData}
-            label="Execution Rate by Sprint"
-            color="#3b82f6"
-            sprints={sprints}
-            yAxisLabel="%"
-          />
-        </div>
-      )}
-
       {/* Recommendations by severity */}
       <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-        <h4 className="font-semibold text-red-900 mb-3">Recommended Actions by Severity</h4>
+        <h4 className="font-semibold text-red-900 mb-3">Recommended Actions</h4>
         <ul className="space-y-2 text-sm text-blue-800">
-          <li>📊 Maintaining coverage ≥95% is critical for complete validation</li>
-          <li>🔍 Analyze why test cases are skipped (resources, time, blocking defects)</li>
-          <li>⏱️ If there are changes, document the impact on test scope</li>
-          <li>✓ Implement automation to increase coverage</li>
+          <li>📊 Track monthly trends to identify seasonal variations in bug completion</li>
+          <li>🔍 Analyze months with low completion rates (below 80%) to find bottlenecks</li>
+          <li>⏱️ Maintain minimum 95% bug completion rate to ensure quality velocity</li>
+          <li>✓ Use monthly data to forecast resource needs and plan testing capacity</li>
+          <li>📈 Compare month-over-month changes to evaluate process improvements</li>
         </ul>
       </div>
     </div>
@@ -1388,7 +1490,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-danger-50 p-4 rounded-lg border-2 border-danger-200">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-danger-800">Highest</span>
+            <span className="text-sm font-medium text-danger-800">Major</span>
             <AlertTriangle className="w-4 h-4 text-danger-600" />
           </div>
           <div className="flex items-baseline">
@@ -1440,14 +1542,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                 const total = masAlta + alta + media + baja || 1;
                 
                 const colors = {
-                  'Highest': '#dc2626',
+                  'Major': '#dc2626',
                   'High': '#f59e0b',
                   'Medium': '#3b82f6',
                   'Low': '#9ca3af'
                 };
 
                 const values = [
-                  { label: 'Highest', value: masAlta, color: colors['Highest'] },
+                  { label: 'Major', value: masAlta, color: colors['Major'] },
                   { label: 'High', value: alta, color: colors['High'] },
                   { label: 'Medium', value: media, color: colors['Medium'] },
                   { label: 'Low', value: baja, color: colors['Low'] }
@@ -1506,21 +1608,21 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               const total = masAlta + alta + media + baja || 1;
               
               const items = [
-                { label: 'Highest', value: masAlta, color: 'bg-danger-500' },
+                { label: 'Major', value: masAlta, color: 'bg-danger-500' },
                 { label: 'High', value: alta, color: 'bg-warning-500' },
                 { label: 'Medium', value: media, color: 'bg-blue-500' },
                 { label: 'Low', value: baja, color: 'bg-gray-500' }
               ];
 
               const bgColorMap = {
-                'Highest': 'bg-red-50',
+                'Major': 'bg-red-50',
                 'High': 'bg-orange-50',
                 'Medium': 'bg-blue-50',
                 'Low': 'bg-gray-50'
               };
 
               const textColorMap = {
-                'Highest': 'text-red-700',
+                'Major': 'text-red-700',
                 'High': 'text-orange-700',
                 'Medium': 'text-blue-700',
                 'Low': 'text-gray-700'
@@ -1546,14 +1648,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
         <div className="mt-3 p-2 bg-gray-50 rounded border border-gray-200 text-xs text-gray-700">
           <p><strong>Total:</strong> {(data.critical || 0) + (data.high || 0) + (data.medium || 0) + (data.low || 0)} hallazgos</p>
-          <p className="text-xs mt-1">🔴 Critical Risk (Highest + High): {(data.critical || 0) + (data.high || 0)}</p>
+          <p className="text-xs mt-1">🔴 Critical Risk (Major + High): {(data.critical || 0) + (data.high || 0)}</p>
         </div>
       </div>
 
       {/* Gráfico de tendencia de Hallazgos Críticos - Todas las severidades */}
       {sprints && sprints.length > 0 && (
         <div className="bg-white p-2 rounded-lg border border-gray-200">
-          <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">Critical Findings by Sprint</h5>
+          <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">Critical Findings by Month</h5>
           <div className="h-40">
           {(() => {
             // Generar datos por severidad desde los sprints
@@ -1591,8 +1693,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             const chartData = {
               labels: sprintLabels,
               datasets: [
-              {
-                  label: 'Highest',
+                {
+                  label: 'Major',
                   data: criticoData,
                   borderColor: '#dc2626',
                   backgroundColor: 'rgba(220, 38, 38, 0.1)',
@@ -1802,308 +1904,429 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     </div>
   );
 
-  const renderCriticalBugsDetail = (data) => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-2xl font-bold text-danger-600 mb-2">
-          {data.total} Critical Findings
-        </h3>
-        <p className="text-sm text-gray-600">Bugs of Highest and High priority detected</p>
-      </div>
+  const renderCriticalBugsDetail = (data) => {
+    // Obtener conteos por prioridad desde allPriorities
+    const priorities = data.allPriorities || {};
+    
+    // Critical: Highest + High
+    const criticalCount = (priorities['Highest']?.count || 0) + (priorities['High']?.count || 0);
+    
+    // Medium: Medium
+    const mediumCount = priorities['Medium']?.count || 0;
+    
+    // Low Priority: Low + Lowest
+    const lowPriorityCount = (priorities['Low']?.count || 0) + (priorities['Lowest']?.count || 0);
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Highest Priority</div>
-          <div className="text-2xl font-bold text-danger-600">{data.highest}</div>
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-2xl font-bold text-danger-600 mb-2">
+            {data.total} Findings Detected
+          </h3>
+          <p className="text-sm text-gray-600">Distribution of findings by priority level (Critical, Medium, Low Priority)</p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">High Priority</div>
-          <div className="text-2xl font-bold text-warning-600">{data.high}</div>
-        </div>
-      </div>
 
-      <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-3">Criticality Distribution</h4>
-        <div className="flex flex-col md:flex-row gap-6 items-center">
-          {/* Gráfico circular */}
-          <div className="flex-shrink-0">
-            <svg width="220" height="220" viewBox="0 0 220 220" className="mx-auto">
-              {(() => {
-                const priorities = data.allPriorities || {};
-                
-                // Función para buscar clave con normalización
-                const findKey = (searchTerm) => {
-                  const normalized = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                  return Object.keys(priorities).find(key => 
-                    key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized
-                  ) || searchTerm;
-                };
-                
-                const masAltaKey = findKey('Más Alta');
-                const altaKey = findKey('Alta');
-                const mediaKey = findKey('Media');
-                const bajaKey = findKey('Baja');
-                const masBajaKey = findKey('Más Baja');
-                
-                const masAlta = priorities[masAltaKey]?.count || 0;
-                const alta = priorities[altaKey]?.count || 0;
-                const media = priorities[mediaKey]?.count || 0;
-                const baja = priorities[bajaKey]?.count || 0;
-                const masBaja = priorities[masBajaKey]?.count || 0;
-                const total = masAlta + alta + media + baja + masBaja || 1;
-                
-                const colors = {
-                  'Highest': '#dc2626',
-                  'High': '#f97316',
-                  'Medium': '#3b82f6',
-                  'Low': '#a3a3a3',
-                  'Lowest': '#d4d4d4'
-                };
-
-                const values = [
-                  { label: 'Highest', value: masAlta, color: colors['Highest'] },
-                  { label: 'High', value: alta, color: colors['High'] },
-                  { label: 'Medium', value: media, color: colors['Medium'] },
-                  { label: 'Low', value: baja, color: colors['Low'] },
-                  { label: 'Lowest', value: masBaja, color: colors['Lowest'] }
-                ].filter(v => v.value > 0);
-                
-                let currentAngle = -90;
-                const centerX = 110;
-                const centerY = 110;
-                const radius = 80;
-                
-                return (
-                  <g>
-                    {values.map((item, idx) => {
-                      const percentage = (item.value / total) * 100;
-                      const angle = (percentage / 100) * 360;
-                      const startAngle = currentAngle;
-                      const endAngle = currentAngle + angle;
-                      
-                      const startRad = (startAngle * Math.PI) / 180;
-                      const endRad = (endAngle * Math.PI) / 180;
-                      
-                      const x1 = centerX + radius * Math.cos(startRad);
-                      const y1 = centerY + radius * Math.sin(startRad);
-                      const x2 = centerX + radius * Math.cos(endRad);
-                      const y2 = centerY + radius * Math.sin(endRad);
-                      
-                      const largeArc = angle > 180 ? 1 : 0;
-                      
-                      const path = [
-                        `M ${centerX} ${centerY}`,
-                        `L ${x1} ${y1}`,
-                        `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-                        'Z'
-                      ].join(' ');
-                      
-                      currentAngle = endAngle;
-                      
-                      return (
-                        <path
-                          key={idx}
-                          d={path}
-                          fill={item.color}
-                          stroke="white"
-                          strokeWidth="2"
-                        />
-                      );
-                    })}
-                    {/* Centro blanco */}
-                    <circle cx={centerX} cy={centerY} r="40" fill="white" />
-                    <text
-                      x={centerX}
-                      y={centerY - 5}
-                      textAnchor="middle"
-                      className="fill-gray-700 font-bold"
-                      fontSize="20"
-                    >
-                      {total}
-                    </text>
-                    <text
-                      x={centerX}
-                      y={centerY + 12}
-                      textAnchor="middle"
-                      className="fill-gray-500"
-                      fontSize="12"
-                    >
-                      Total Bugs
-                    </text>
-                  </g>
-                );
-              })()}
-            </svg>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Critical</div>
+            <div className="text-2xl font-bold text-danger-600">{criticalCount}</div>
+            <div className="text-xs text-gray-500">Highest + High</div>
           </div>
-          
-          {/* Leyenda */}
-          <div className="flex-1 space-y-2">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Medium</div>
+            <div className="text-2xl font-bold text-warning-600">{mediumCount}</div>
+            <div className="text-xs text-gray-500">Medium priority</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Low Priority</div>
+            <div className="text-2xl font-bold text-gray-600">{lowPriorityCount}</div>
+            <div className="text-xs text-gray-500">Low + Lowest</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-gray-200 mt-6">
+          <h4 className="font-semibold text-gray-800 mb-4">Priority Distribution</h4>
+          <div className="space-y-6">
             {(() => {
-              const priorities = data.allPriorities || {};
-              
-              // Función para buscar clave con normalización
-              const findKey = (searchTerm) => {
-                const normalized = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                return Object.keys(priorities).find(key => 
-                  key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized
-                ) || searchTerm;
-              };
-              
-              const masAltaKey = findKey('Más Alta');
-              const altaKey = findKey('Alta');
-              const mediaKey = findKey('Media');
-              const bajaKey = findKey('Baja');
-              const masBajaKey = findKey('Más Baja');
-              
-              const items = [
-                { label: 'Highest', value: priorities[masAltaKey]?.count || 0, color: '#dc2626', bgColor: 'bg-red-50', textColor: 'text-red-700' },
-                { label: 'High', value: priorities[altaKey]?.count || 0, color: '#f97316', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
-                { label: 'Medium', value: priorities[mediaKey]?.count || 0, color: '#3b82f6', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
-                { label: 'Low', value: priorities[bajaKey]?.count || 0, color: '#a3a3a3', bgColor: 'bg-gray-50', textColor: 'text-gray-700' },
-                { label: 'Lowest', value: priorities[masBajaKey]?.count || 0, color: '#d4d4d4', bgColor: 'bg-gray-50', textColor: 'text-gray-600' }
-              ];
-              
-              const total = items.reduce((sum, item) => sum + item.value, 0) || 1;
-              
-              return items.map((item, idx) => (
-                <div key={idx} className={`flex items-center justify-between p-2 rounded ${item.bgColor}`}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }}></div>
-                    <span className={`text-sm font-medium ${item.textColor}`}>{item.label}</span>
+              const total = criticalCount + mediumCount + lowPriorityCount || 1;
+              const criticalPct = Math.round((criticalCount / total) * 100);
+              const mediumPct = Math.round((mediumCount / total) * 100);
+              const lowPriorityPct = Math.round((lowPriorityCount / total) * 100);
+
+              return (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+                        <span className="text-sm font-medium text-gray-700">Critical (Highest + High)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-danger-600">{criticalCount}</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{criticalPct}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div 
+                        className="bg-danger-600 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                        style={{ width: `${criticalPct}%` }}
+                      >
+                        {criticalPct > 15 && <span className="text-xs font-bold text-white">{criticalPct}%</span>}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold ${item.textColor}`}>{item.value}</span>
-                    <span className="text-xs text-gray-500 w-12 text-right">
-                      {Math.round((item.value / total) * 100)}%
-                    </span>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+                        <span className="text-sm font-medium text-gray-700">Medium</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-warning-600">{mediumCount}</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{mediumPct}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div 
+                        className="bg-warning-600 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                        style={{ width: `${mediumPct}%` }}
+                      >
+                        {mediumPct > 15 && <span className="text-xs font-bold text-white">{mediumPct}%</span>}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ));
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+                        <span className="text-sm font-medium text-gray-700">Low Priority (Low + Lowest)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-gray-600">{lowPriorityCount}</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{lowPriorityPct}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div 
+                        className="bg-gray-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                        style={{ width: `${lowPriorityPct}%` }}
+                      >
+                        {lowPriorityPct > 15 && <span className="text-xs font-bold text-white">{lowPriorityPct}%</span>}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
             })()}
           </div>
         </div>
-        <p className="text-xs text-gray-500 mt-3 italic">
-          * Analysis focuses on critical priorities (Highest and High) due to their impact on product quality
-        </p>
-      </div>
-      
-      {/* Gráfico de tendencia con todas las prioridades */}
-      {(() => {
-        // Calcular datos separados para todas las criticidades
-        const masAltaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsMasAlta !== undefined) return sprint.criticalBugsMasAlta;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.05); // ~5% son Más alta
-        }) : [];
-        
-        const altaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsAlta !== undefined) return sprint.criticalBugsAlta;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.30); // ~30% son Alta
-        }) : [];
-        
-        const mediaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsMedia !== undefined) return sprint.criticalBugsMedia;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.55); // ~55% son Media
-        }) : [];
-        
-        const bajaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsBaja !== undefined) return sprint.criticalBugsBaja;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.08); // ~8% son Baja
-        }) : [];
-        
-        const masBajaData = sprints ? sprints.map(sprint => {
-          if (sprint.criticalBugsMasBaja !== undefined) return sprint.criticalBugsMasBaja;
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.02); // ~2% son Más baja
-        }) : [];
-        
-        const datasets = [
-          {
-            label: 'Highest',
-            data: masAltaData,
-            color: '#dc2626'
-          },
-          {
-            label: 'High',
-            data: altaData,
-            color: '#f97316'
-          },
-          {
-            label: 'Medium',
-            data: mediaData,
-            color: '#3b82f6'
-          },
-          {
-            label: 'Low',
-            data: bajaData,
-            color: '#a3a3a3'
-          },
-          {
-            label: 'Lowest',
-            data: masBajaData,
-            color: '#d4d4d4'
-          }
-        ];
-        
-        return (
-          <TrendChartMultiple 
-            datasets={datasets} 
-            label="Evolution of Bugs by Priority by Sprint" 
-            sprints={sprints} 
-            yAxisLabel="Amount of Bugs" 
-          />
-        );
-      })()}
 
-      {/* Recomendaciones al final */}
-      <div className="bg-danger-50 p-4 rounded-lg border border-danger-200">
-        <h4 className="font-semibold text-danger-900 mb-2 flex items-center">
-          <AlertCircle className="w-5 h-5 mr-2" />
-           Urgent Actions
-        </h4>
-        <ul className="space-y-2 text-sm text-danger-800">
-          {RecommendationEngine.getRecommendations('criticalBugs', data, recommendations).map((rec, idx) => (
-            <li key={idx} dangerouslySetInnerHTML={{ __html: `${rec.icon} ${rec.text.includes(':') ? `<strong>${rec.text.split(':')[0]}:</strong>${rec.text.split(':').slice(1).join(':')}` : rec.text}` }} />
-          ))}
-        </ul>
+        {/* Interpretation */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-6">
+          <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
+            <Info className="w-4 h-4 mr-2" />
+            Key Metrics
+          </h4>
+          <div className="text-sm text-blue-800 space-y-1">
+            <p><strong>Critical Findings:</strong> {criticalCount} issues requiring immediate attention (Highest + High priority)</p>
+            <p><strong>Medium Findings:</strong> {mediumCount} issues for scheduled resolution</p>
+            <p><strong>Low Priority:</strong> {lowPriorityCount} issues for backlog tracking</p>
+          </div>
+        </div>
+
+        {/* Trend Chart by Priority */}
+        {data.trendDataByPriority && Object.keys(data.trendDataByPriority).length > 0 && (
+          <div className="bg-white p-6 rounded-lg border border-gray-200 mt-8">
+            <h4 className="font-semibold text-gray-800 mb-6">Findings Detected Trend by Priority (Last 12 Months)</h4>
+            <div className="h-80 relative">
+              <svg viewBox="0 0 800 300" className="w-full h-full">
+                {(() => {
+                  const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => {
+                    const aDate = new Date(a[0].replace('-', ' 1, 20'));
+                    const bDate = new Date(b[0].replace('-', ' 1, 20'));
+                    return aDate - bDate;
+                  });
+                  
+                  if (monthEntries.length === 0) return null;
+                  
+                  const padding = 40;
+                  const chartWidth = 800 - padding * 2;
+                  const chartHeight = 300 - padding * 2;
+                  
+                  // Obtener max value de todos los datos
+                  const allValues = [];
+                  monthEntries.forEach(([_, monthData]) => {
+                    allValues.push(Number(monthData.critical) || 0);
+                    allValues.push(Number(monthData.medium) || 0);
+                    allValues.push(Number(monthData.lowPriority) || 0);
+                  });
+                  const maxValue = Math.max(...allValues, 1);
+                  
+                  // Calcular puntos para cada serie
+                  const criticalPoints = monthEntries.map(([month, v], idx) => {
+                    const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((Number(v.critical) || 0) / maxValue) * chartHeight;
+                    return { x, y, value: Number(v.critical) || 0, month, total: v.total };
+                  });
+                  
+                  const mediumPoints = monthEntries.map(([month, v], idx) => {
+                    const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((Number(v.medium) || 0) / maxValue) * chartHeight;
+                    return { x, y, value: Number(v.medium) || 0, month, total: v.total };
+                  });
+                  
+                  const lowPriorityPoints = monthEntries.map(([month, v], idx) => {
+                    const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((Number(v.lowPriority) || 0) / maxValue) * chartHeight;
+                    return { x, y, value: Number(v.lowPriority) || 0, month, total: v.total };
+                  });
+                  
+                  return (
+                    <>
+                      {/* Grid lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                        const y = padding + chartHeight * (1 - pct);
+                        return (
+                          <line key={`grid-${i}`} x1={padding} y1={y} x2={800 - padding} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                        );
+                      })}
+                      
+                      {/* Y-axis labels */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                        const y = padding + chartHeight * (1 - pct);
+                        const value = Math.round(maxValue * pct);
+                        return (
+                          <text key={`y-label-${i}`} x={padding - 10} y={y + 5} fontSize="12" fill="#6b7280" textAnchor="end">
+                            {value}
+                          </text>
+                        );
+                      })}
+                      
+                      {/* Critical Line */}
+                      <polyline
+                        points={criticalPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#dc2626"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      
+                      {/* Medium Line */}
+                      <polyline
+                        points={mediumPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      
+                      {/* Low Priority Line */}
+                      <polyline
+                        points={lowPriorityPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#6b7280"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      
+                      {/* Critical Points with tooltips */}
+                      {criticalPoints.map((p, idx) => (
+                        <g key={`critical-${idx}`}>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="5" 
+                            fill="#dc2626"
+                            opacity="0"
+                            className="cursor-pointer hover:opacity-100"
+                            style={{transition: 'opacity 0.2s'}}
+                          >
+                            <title>{`${p.month}\nCritical: ${p.value}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                          </circle>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="3" 
+                            fill="#dc2626"
+                            className="hover:r-5"
+                          />
+                        </g>
+                      ))}
+                      
+                      {/* Medium Points with tooltips */}
+                      {mediumPoints.map((p, idx) => (
+                        <g key={`medium-${idx}`}>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="5" 
+                            fill="#f59e0b"
+                            opacity="0"
+                            className="cursor-pointer hover:opacity-100"
+                          >
+                            <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                          </circle>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="3" 
+                            fill="#f59e0b"
+                          />
+                        </g>
+                      ))}
+                      
+                      {/* Low Priority Points with tooltips */}
+                      {lowPriorityPoints.map((p, idx) => (
+                        <g key={`low-${idx}`}>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="5" 
+                            fill="#6b7280"
+                            opacity="0"
+                            className="cursor-pointer hover:opacity-100"
+                          >
+                            <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
+                          </circle>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="3" 
+                            fill="#6b7280"
+                          />
+                        </g>
+                      ))}
+                      
+                      {/* X-axis labels */}
+                      {monthEntries.map(([month, _], idx) => (
+                        monthEntries.length <= 12 || idx % Math.ceil(monthEntries.length / 6) === 0 ? (
+                          <text
+                            key={`x-label-${idx}`}
+                            x={padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth}
+                            y={padding + chartHeight + 20}
+                            fontSize="11"
+                            fill="#6b7280"
+                            textAnchor="middle"
+                          >
+                            {month}
+                          </text>
+                        ) : null
+                      ))}
+                      
+                      {/* X-axis */}
+                      <line x1={padding} y1={padding + chartHeight} x2={800 - padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                      {/* Y-axis */}
+                      <line x1={padding} y1={padding} x2={padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                    </>
+                  );
+                })()}
+              </svg>
+            </div>
+            
+            {/* Legend */}
+            <div className="flex gap-6 mt-4 justify-center text-sm flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+                <span className="text-gray-700">Critical (Highest + High)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+                <span className="text-gray-700">Medium</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+                <span className="text-gray-700">Low Priority (Low + Lowest)</span>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-600 mt-2">
+              💡 Hover over each point to see detailed breakdown for that month
+            </p>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+          <h4 className="font-semibold text-amber-900 mb-3">Recommended Actions</h4>
+          <ul className="space-y-2 text-sm text-amber-800">
+            <li>🎯 <strong>Critical Focus:</strong> Address {criticalCount} critical findings immediately to prevent production issues</li>
+            <li>📅 <strong>Medium Resolution:</strong> Schedule resolution of {mediumCount} medium priority items within sprint</li>
+            <li>📚 <strong>Backlog Management:</strong> Maintain {lowPriorityCount} low priority findings in product backlog for future cycles</li>
+            <li>📊 <strong>Tracking:</strong> Monitor critical findings daily; review medium and low priorities weekly</li>
+          </ul>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderCriticalBugsStatusDetail = (data) => {
     const priorities = data.allPriorities || {};
-    
-    // Función para buscar clave con normalización
-    const findKey = (searchTerm) => {
-      const normalized = searchTerm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return Object.keys(priorities).find(key => 
-        key.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') === normalized
-      ) || searchTerm;
+
+    const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+    const mapCanonical = (kNorm) => {
+      if (!kNorm) return 'Other';
+      if (kNorm.includes('major') || kNorm.includes('masalta') || kNorm.includes('mas') || kNorm.includes('highest') || kNorm.includes('mayor') || kNorm.includes('critical')) return 'Major';
+      if (kNorm.includes('alta') || kNorm.includes('high')) return 'High';
+      if (kNorm.includes('media') || kNorm.includes('medium')) return 'Medium';
+      if (kNorm.includes('baja') || kNorm.includes('low')) return 'Low';
+      if (kNorm.includes('trivial') || kNorm.includes('lowest') || kNorm.includes('masbaja')) return 'Trivial';
+      return 'Other';
     };
-    
-    const masAltaKey = findKey('Más Alta');
-    const altaKey = findKey('Alta');
-    
-    const masAltaPending = priorities[masAltaKey]?.pending || 0;
-    const masAltaResolved = (priorities[masAltaKey]?.resolved || 0);
-    const altaPending = priorities[altaKey]?.pending || 0;
-    const altaResolved = (priorities[altaKey]?.resolved || 0);
+
+    // Construir lista mapeada con pendientes/resueltos normalizados para TODOS los niveles
+    const mapped = Object.keys(priorities || {}).map(key => {
+      const raw = priorities[key] || {};
+      
+      // Extraer total (count o total)
+      const total = typeof raw === 'number' ? raw : (raw.count || raw.total || 0);
+      
+      // Extraer pending
+      const pending = raw.pending ?? 0;
+      
+      // Extraer resolved del objeto, o calcular como total - pending
+      const resolved = raw.resolved ?? Math.max(0, (typeof total === 'number' ? total : 0) - (typeof pending === 'number' ? pending : 0));
+      
+      const kNorm = normalize(key);
+      const canonical = mapCanonical(kNorm);
+      return { 
+        key, 
+        canonical, 
+        total: Number(total) || 0,
+        pending: Number(pending) || 0, 
+        resolved: Math.max(0, Number(resolved) || 0)
+      };
+    });
+
+    // Obtener valores para TODOS los niveles de prioridad
+    const majorPending = mapped.find(m => m.canonical === 'Major')?.pending || 0;
+    const majorResolved = mapped.find(m => m.canonical === 'Major')?.resolved || 0;
+    const highPending = mapped.find(m => m.canonical === 'High')?.pending || 0;
+    const highResolved = mapped.find(m => m.canonical === 'High')?.resolved || 0;
+    const mediumPending = mapped.find(m => m.canonical === 'Medium')?.pending || 0;
+    const mediumResolved = mapped.find(m => m.canonical === 'Medium')?.resolved || 0;
+    const lowPending = mapped.find(m => m.canonical === 'Low')?.pending || 0;
+    const lowResolved = mapped.find(m => m.canonical === 'Low')?.resolved || 0;
+    const trivialPending = mapped.find(m => m.canonical === 'Trivial')?.pending || 0;
+    const trivialResolved = mapped.find(m => m.canonical === 'Trivial')?.resolved || 0;
     
     return (
     <div className="space-y-6">
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
         <h3 className="text-2xl font-bold text-warning-600 mb-2">
-          {data.pending} pending Critical Bugs
+          {data.pending} Pending Findings
         </h3>
-        <p className="text-sm text-gray-600">Unresolved Critical Bugs</p>
+        <p className="text-sm text-gray-600">Unresolved findings by priority level</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Total Critical</div>
+          <div className="text-sm text-gray-600 mb-1">Total Findings</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -2116,189 +2339,369 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
 
+      {/* Clasificación por Estado (Status) */}
+      <div className="bg-white p-6 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-gray-800 mb-4">Findings Classification by Status / Estado</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-300 bg-gray-50">
+                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Status Category</th>
+                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">States Included</th>
+                <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Count</th>
+                <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Percentage</th>
+                <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Progress</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const total = data.total || 1;
+                // Estados pendientes (In Progress)
+                const pendingStates = ['To Do', 'In Development', 'In Testing', 'Ready for Testing'];
+                // Estados resueltos (Completed)
+                const resolvedStates = ['Done', 'Testing Completed'];
+                
+                const statusCategories = [
+                  { 
+                    category: 'Pendiente / Pending', 
+                    states: pendingStates,
+                    value: data.pending || 0, 
+                    color: '#f59e0b', 
+                    bgColor: '#fef3c7' 
+                  },
+                  { 
+                    category: 'Resuelto / Resolved', 
+                    states: resolvedStates,
+                    value: data.resolved || 0, 
+                    color: '#10b981', 
+                    bgColor: '#d1fae5' 
+                  },
+                  { 
+                    category: 'Cancelado / Canceled', 
+                    states: ['Canceled', 'Rejected'],
+                    value: data.canceled || 0, 
+                    color: '#6b7280', 
+                    bgColor: '#f3f4f6' 
+                  }
+                ];
+                
+                return statusCategories.map((status, idx) => (
+                  <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: status.color }}></div>
+                        {status.category}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {status.states.join(', ')}
+                    </td>
+                    <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">{status.value}</td>
+                    <td className="px-4 py-3 text-center text-sm font-semibold text-gray-700">{Math.round((status.value / total) * 100)}%</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 w-full h-6 rounded overflow-hidden bg-gray-100">
+                        <div 
+                          className="h-full transition-all duration-300" 
+                          style={{ 
+                            width: `${(status.value / total) * 100}%`,
+                            backgroundColor: status.color
+                          }}
+                        ></div>
+                      </div>
+                    </td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-800">
+            <strong>Note:</strong> These states are based on the actual workflow: Pending includes items in To Do, In Development, In Testing, or Ready for Testing. Resolved includes items marked as Done or Testing Completed.
+          </p>
+        </div>
+      </div>
+
+      {/* Trend Chart: Resolution Status Over Time */}
+      {data.trendDataByPriority && Object.keys(data.trendDataByPriority).length > 0 && (
+        <div className="bg-white p-6 rounded-lg border border-gray-200 mt-8">
+          <h4 className="font-semibold text-gray-800 mb-6">Findings Resolution Trend by Priority (Last 12 Months)</h4>
+          <div className="h-80 relative">
+            <svg viewBox="0 0 800 300" className="w-full h-full">
+              {(() => {
+                const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => {
+                  const aDate = new Date(a[0].replace('-', ' 1, 20'));
+                  const bDate = new Date(b[0].replace('-', ' 1, 20'));
+                  return aDate - bDate;
+                });
+                
+                console.log('[DetailModal] monthEntries:', monthEntries.length, monthEntries.slice(0, 2));
+                
+                if (monthEntries.length === 0) return null;
+                
+                const padding = 40;
+                const chartWidth = 800 - padding * 2;
+                const chartHeight = 300 - padding * 2;
+                
+                // Obtener max value de todos los datos
+                const allValues = [];
+                monthEntries.forEach(([_, monthData]) => {
+                  console.log('[DetailModal] monthData sample:', monthData);
+                  allValues.push(Number(monthData.critical) || 0);
+                  allValues.push(Number(monthData.medium) || 0);
+                  allValues.push(Number(monthData.lowPriority) || 0);
+                });
+                const maxValue = Math.max(...allValues, 1);
+                console.log('[DetailModal] allValues sample:', allValues.slice(0, 6), 'maxValue:', maxValue);
+                
+                // Calcular puntos para cada serie
+                const criticalPoints = monthEntries.map(([month, v], idx) => {
+                  const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                  const y = padding + chartHeight - ((Number(v.critical) || 0) / maxValue) * chartHeight;
+                  return { x, y, value: Number(v.critical) || 0, month, total: v.total };
+                });
+                
+                const mediumPoints = monthEntries.map(([month, v], idx) => {
+                  const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                  const y = padding + chartHeight - ((Number(v.medium) || 0) / maxValue) * chartHeight;
+                  return { x, y, value: Number(v.medium) || 0, month, total: v.total };
+                });
+                
+                const lowPriorityPoints = monthEntries.map(([month, v], idx) => {
+                  const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                  const y = padding + chartHeight - ((Number(v.lowPriority) || 0) / maxValue) * chartHeight;
+                  return { x, y, value: Number(v.lowPriority) || 0, month, total: v.total };
+                });
+                
+                return (
+                  <>
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                      const y = padding + chartHeight * (1 - pct);
+                      return (
+                        <line key={`grid-${i}`} x1={padding} y1={y} x2={800 - padding} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                      );
+                    })}
+                    
+                    {/* Y-axis labels */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                      const y = padding + chartHeight * (1 - pct);
+                      const value = Math.round(maxValue * pct);
+                      return (
+                        <text key={`y-label-${i}`} x={padding - 10} y={y + 5} fontSize="12" fill="#6b7280" textAnchor="end">
+                          {value}
+                        </text>
+                      );
+                    })}
+                    
+                    {/* Critical Line */}
+                    <polyline
+                      points={criticalPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    
+                    {/* Medium Line */}
+                    <polyline
+                      points={mediumPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    
+                    {/* Low Priority Line */}
+                    <polyline
+                      points={lowPriorityPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#6b7280"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    
+                    {/* Critical Points with tooltips */}
+                    {criticalPoints.map((p, idx) => (
+                      <g key={`critical-${idx}`}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="5" 
+                          fill="#dc2626"
+                          opacity="0"
+                        >
+                          <title>{`${p.month}\nCritical: ${p.value}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                        </circle>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="3" 
+                          fill="#dc2626"
+                        />
+                      </g>
+                    ))}
+                    
+                    {/* Medium Points with tooltips */}
+                    {mediumPoints.map((p, idx) => (
+                      <g key={`medium-${idx}`}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="5" 
+                          fill="#f59e0b"
+                          opacity="0"
+                        >
+                          <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                        </circle>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="3" 
+                          fill="#f59e0b"
+                        />
+                      </g>
+                    ))}
+                    
+                    {/* Low Priority Points with tooltips */}
+                    {lowPriorityPoints.map((p, idx) => (
+                      <g key={`low-${idx}`}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="5" 
+                          fill="#6b7280"
+                          opacity="0"
+                        >
+                          <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
+                        </circle>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="3" 
+                          fill="#6b7280"
+                        />
+                      </g>
+                    ))}
+                    
+                    {/* X-axis labels */}
+                    {monthEntries.map(([month, _], idx) => (
+                      monthEntries.length <= 12 || idx % Math.ceil(monthEntries.length / 6) === 0 ? (
+                        <text
+                          key={`x-label-${idx}`}
+                          x={padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth}
+                          y={padding + chartHeight + 20}
+                          fontSize="11"
+                          fill="#6b7280"
+                          textAnchor="middle"
+                        >
+                          {month}
+                        </text>
+                      ) : null
+                    ))}
+                    
+                    {/* X-axis */}
+                    <line x1={padding} y1={padding + chartHeight} x2={800 - padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                    {/* Y-axis */}
+                    <line x1={padding} y1={padding} x2={padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                  </>
+                );
+              })()}
+            </svg>
+          </div>
+          
+          {/* Legend */}
+          <div className="flex gap-6 mt-4 justify-center text-sm flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+              <span className="text-gray-700">Critical (Highest + High)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+              <span className="text-gray-700">Medium</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+              <span className="text-gray-700">Low Priority (Low + Lowest)</span>
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-600 mt-2">
+            💡 Hover over each point to see detailed breakdown for that month
+          </p>
+        </div>
+      )}
+
       {/* Gráficos circulares de Pendientes y Resueltos por criticidad */}
-      <div>
-        <h4 className="font-semibold text-gray-800 mb-4">Distribution by Criticality</h4>
+      <div className="mt-8">
+        <h4 className="font-semibold text-gray-800 mb-4">Distribution by Priority Level</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sección de Pendientes */}
           <div className="bg-warning-50 p-4 rounded-lg border border-warning-200">
-            <h5 className="text-sm font-semibold text-warning-800 mb-3">Pending Bugs</h5>
-            <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
-              {/* Gráfico circular */}
-              <div className="flex-shrink-0">
-              <svg width="180" height="180" viewBox="0 0 180 180" className="mx-auto">
-                {(() => {
-                  const totalPending = masAltaPending + altaPending || 1;
-                  const masAltaPercent = (masAltaPending / totalPending) * 100;
-                  const altaPercent = (altaPending / totalPending) * 100;
-                  
-                  const centerX = 90;
-                  const centerY = 90;
-                  const radius = 65;
-                  
-                  // Más alta
-                  const masAltaAngle = (masAltaPercent / 100) * 360;
-                  const masAltaStartRad = (-90 * Math.PI) / 180;
-                  const masAltaEndRad = ((masAltaAngle - 90) * Math.PI) / 180;
-                  
-                  const masAltaX1 = centerX + radius * Math.cos(masAltaStartRad);
-                  const masAltaY1 = centerY + radius * Math.sin(masAltaStartRad);
-                  const masAltaX2 = centerX + radius * Math.cos(masAltaEndRad);
-                  const masAltaY2 = centerY + radius * Math.sin(masAltaEndRad);
-                  const masAltaLargeArc = masAltaAngle > 180 ? 1 : 0;
-                  
-                  // Alta
-                  const altaAngle = (altaPercent / 100) * 360;
-                  const altaStartRad = masAltaEndRad;
-                  const altaEndRad = ((masAltaAngle + altaAngle - 90) * Math.PI) / 180;
-                  
-                  const altaX1 = masAltaX2;
-                  const altaY1 = masAltaY2;
-                  const altaX2 = centerX + radius * Math.cos(altaEndRad);
-                  const altaY2 = centerY + radius * Math.sin(altaEndRad);
-                  const altaLargeArc = altaAngle > 180 ? 1 : 0;
-                  
-                  return (
-                    <g>
-                      {/* Más alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${masAltaX1} ${masAltaY1} A ${radius} ${radius} 0 ${masAltaLargeArc} 1 ${masAltaX2} ${masAltaY2} Z`}
-                        fill="#dc2626"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                      {/* Alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${altaX1} ${altaY1} A ${radius} ${radius} 0 ${altaLargeArc} 1 ${altaX2} ${altaY2} Z`}
-                        fill="#f97316"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                    </g>
-                  );
-                })()}
-              </svg>
-              </div>
-
-              {/* Leyenda */}
-              <div className="flex-1">
-                {(() => {
-                  const totalPending = masAltaPending + altaPending || 1;
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 rounded bg-red-50">
+            <h5 className="text-sm font-semibold text-warning-800 mb-3">Pending Findings</h5>
+            <div className="flex flex-col gap-3">
+              {(() => {
+                const totalPending = majorPending + highPending + mediumPending + lowPending + trivialPending || 1;
+                const priorities = [
+                  { label: 'Major', value: majorPending, color: '#dc2626', bg: 'bg-red-50', text: 'text-red-700' },
+                  { label: 'High', value: highPending, color: '#f97316', bg: 'bg-orange-50', text: 'text-orange-700' },
+                  { label: 'Medium', value: mediumPending, color: '#3b82f6', bg: 'bg-blue-50', text: 'text-blue-700' },
+                  { label: 'Low', value: lowPending, color: '#9ca3af', bg: 'bg-gray-50', text: 'text-gray-700' },
+                  { label: 'Trivial', value: trivialPending, color: '#d4d4d4', bg: 'bg-gray-100', text: 'text-gray-600' }
+                ];
+                
+                return (
+                  <div className="space-y-2">
+                    {priorities.map((p, idx) => (
+                      <div key={idx} className={`flex items-center justify-between p-2 rounded ${p.bg}`}>
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Highest</span>
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }}></div>
+                          <span className={`text-sm font-medium ${p.text}`}>{p.label}</span>
                         </div>
-                        <span className="text-sm font-semibold text-red-700">
-                          {masAltaPending} ({totalPending > 0 ? Math.round((masAltaPending / totalPending) * 100) : 0}%)
+                        <span className={`text-sm font-semibold ${p.text}`}>
+                          {p.value} ({totalPending > 0 ? Math.round((p.value / totalPending) * 100) : 0}%)
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-2 rounded bg-orange-50">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></div>
-                          <span className="text-sm font-medium text-orange-700">High</span>
-                        </div>
-                        <span className="text-sm font-semibold text-orange-700">
-                          {altaPending} ({totalPending > 0 ? Math.round((altaPending / totalPending) * 100) : 0}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
           {/* Sección de Resueltos */}
           <div className="bg-success-50 p-4 rounded-lg border border-success-200">
-            <h5 className="text-sm font-semibold text-success-800 mb-3">Resolved Bugs</h5>
-            <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
-              {/* Gráfico circular */}
-              <div className="flex-shrink-0">
-              <svg width="180" height="180" viewBox="0 0 180 180" className="mx-auto">
-                {(() => {
-                  const totalResolved = masAltaResolved + altaResolved || 1;
-                  const masAltaPercent = (masAltaResolved / totalResolved) * 100;
-                  const altaPercent = (altaResolved / totalResolved) * 100;
-                  
-                  const centerX = 90;
-                  const centerY = 90;
-                  const radius = 65;
-                  
-                  // Más alta
-                  const masAltaAngle = (masAltaPercent / 100) * 360;
-                  const masAltaStartRad = (-90 * Math.PI) / 180;
-                  const masAltaEndRad = ((masAltaAngle - 90) * Math.PI) / 180;
-                  
-                  const masAltaX1 = centerX + radius * Math.cos(masAltaStartRad);
-                  const masAltaY1 = centerY + radius * Math.sin(masAltaStartRad);
-                  const masAltaX2 = centerX + radius * Math.cos(masAltaEndRad);
-                  const masAltaY2 = centerY + radius * Math.sin(masAltaEndRad);
-                  const masAltaLargeArc = masAltaAngle > 180 ? 1 : 0;
-                  
-                  // Alta
-                  const altaAngle = (altaPercent / 100) * 360;
-                  const altaStartRad = masAltaEndRad;
-                  const altaEndRad = ((masAltaAngle + altaAngle - 90) * Math.PI) / 180;
-                  
-                  const altaX1 = masAltaX2;
-                  const altaY1 = masAltaY2;
-                  const altaX2 = centerX + radius * Math.cos(altaEndRad);
-                  const altaY2 = centerY + radius * Math.sin(altaEndRad);
-                  const altaLargeArc = altaAngle > 180 ? 1 : 0;
-                  
-                  return (
-                    <g>
-                      {/* Más alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${masAltaX1} ${masAltaY1} A ${radius} ${radius} 0 ${masAltaLargeArc} 1 ${masAltaX2} ${masAltaY2} Z`}
-                        fill="#dc2626"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                      {/* Alta */}
-                      <path
-                        d={`M ${centerX} ${centerY} L ${altaX1} ${altaY1} A ${radius} ${radius} 0 ${altaLargeArc} 1 ${altaX2} ${altaY2} Z`}
-                        fill="#f97316"
-                        stroke="white"
-                        strokeWidth="2"
-                      />
-                    </g>
-                  );
-                })()}
-              </svg>
-              </div>
-
-              {/* Leyenda */}
-              <div className="flex-1">
-                {(() => {
-                  const totalResolved = masAltaResolved + altaResolved || 1;
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 rounded bg-red-50">
+            <h5 className="text-sm font-semibold text-success-800 mb-3">Resolved Findings</h5>
+            <div className="flex flex-col gap-3">
+              {(() => {
+                const totalResolved = majorResolved + highResolved + mediumResolved + lowResolved + trivialResolved || 1;
+                const priorities = [
+                  { label: 'Major', value: majorResolved, color: '#dc2626', bg: 'bg-red-50', text: 'text-red-700' },
+                  { label: 'High', value: highResolved, color: '#f97316', bg: 'bg-orange-50', text: 'text-orange-700' },
+                  { label: 'Medium', value: mediumResolved, color: '#3b82f6', bg: 'bg-blue-50', text: 'text-blue-700' },
+                  { label: 'Low', value: lowResolved, color: '#9ca3af', bg: 'bg-gray-50', text: 'text-gray-700' },
+                  { label: 'Trivial', value: trivialResolved, color: '#d4d4d4', bg: 'bg-gray-100', text: 'text-gray-600' }
+                ];
+                
+                return (
+                  <div className="space-y-2">
+                    {priorities.map((p, idx) => (
+                      <div key={idx} className={`flex items-center justify-between p-2 rounded ${p.bg}`}>
                         <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                          <span className="text-sm font-medium text-red-700">Higher</span>
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: p.color }}></div>
+                          <span className={`text-sm font-medium ${p.text}`}>{p.label}</span>
                         </div>
-                        <span className="text-sm font-semibold text-red-700">
-                          {masAltaResolved} ({totalResolved > 0 ? Math.round((masAltaResolved / totalResolved) * 100) : 0}%)
+                        <span className={`text-sm font-semibold ${p.text}`}>
+                          {p.value} ({totalResolved > 0 ? Math.round((p.value / totalResolved) * 100) : 0}%)
                         </span>
                       </div>
-                      <div className="flex items-center justify-between p-2 rounded bg-orange-50">
-                        <div className="flex items-center gap-2">
-                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f97316' }}></div>
-                          <span className="text-sm font-medium text-orange-700">High</span>
-                        </div>
-                        <span className="text-sm font-semibold text-orange-700">
-                          {altaResolved} ({totalResolved > 0 ? Math.round((altaResolved / totalResolved) * 100) : 0}%)
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -2341,7 +2744,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartMultiple 
             datasets={datasets} 
-            label="Evolution of Pending Critical Findings by Sprint" 
+            label="Evolution of Pending Critical Findings by Month" 
             sprints={sprints} 
             yAxisLabel="Pending Critical Findings" 
           />

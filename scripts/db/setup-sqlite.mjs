@@ -20,7 +20,7 @@ async function setupDatabase() {
     console.log('\n📍 Paso 1: Inicializando base de datos...\n');
     
     execSync('node lib/database/init.js', {
-      cwd: path.resolve(__dirname, '..'),
+      cwd: path.resolve(__dirname, '..', '..'),
       stdio: 'inherit'
     });
 
@@ -28,7 +28,7 @@ async function setupDatabase() {
     console.log('\n📍 Paso 2: Migrando datos desde Excel...\n');
     
     execSync('node scripts/migrateToSqlite.mjs', {
-      cwd: path.resolve(__dirname, '..'),
+      cwd: path.resolve(__dirname, '..', '..'),
       stdio: 'inherit'
     });
 

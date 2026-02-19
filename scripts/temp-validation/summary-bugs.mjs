@@ -1,4 +1,20 @@
 #!/usr/bin/env node
+// Summary bugs diagnostic moved to temp-validation
+import fs from 'fs'
+import path from 'path'
+
+const dataPath = path.resolve(new URL(import.meta.url).pathname, '../../public/data/qa-data.json')
+try {
+  const raw = fs.readFileSync(dataPath, 'utf8')
+  const data = JSON.parse(raw)
+  console.log('Summary from', dataPath)
+  console.log('Total bugs:', data.summary?.totalBugs)
+  console.log('Bugs by priority:', Object.keys(data.bugsByPriority || {}))
+} catch (e) {
+  console.error('Unable to read qa-data.json at', dataPath)
+  console.error(e.message)
+}
+#!/usr/bin/env node
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import { fileURLToPath } from 'url';

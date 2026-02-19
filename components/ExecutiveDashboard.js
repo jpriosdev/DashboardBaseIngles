@@ -1,3 +1,4 @@
+import { BarChart3, Target, CheckCircle, Filter, ChevronDown, AlertTriangle, X, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
 // ExecutiveDashboard.js - Refactorizado y alineado
 // Main dashboard component, normalized with SQL/CSV structure
 // Todas las variables, cálculos y referencias actualizadas
@@ -5,28 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { 
-  RefreshCw, 
-  AlertTriangle,
-  BarChart3,
-  Target,
-  Users,
-  Activity,
-  CheckCircle,
-  TrendingUp,
-  TrendingDown,
-  Bug,
-  Clock,
-  Settings
-  , ChevronDown, ChevronUp
-} from 'lucide-react';
-
-import KPICard from './KPICard';
-import UnderConstructionCard from './UnderConstructionCard';
-import SprintTrendChart from './SprintTrendChart';
-import DeveloperAnalysis from './DeveloperAnalysis';
-import ModuleAnalysis from './ModuleAnalysis';
+import { enUS } from 'date-fns/locale';
 import ExecutiveRecommendations from './ExecutiveRecommendations';
 import QualityMetrics from './QualityMetrics';
 import DetailModal from './DetailModal';
@@ -34,6 +14,15 @@ import SprintComparison from './SprintComparison';
 import ActionableRecommendations from './ActionableRecommendations';
 import SettingsMenu from './SettingsMenu';
 import { QADataProcessor } from '../utils/dataProcessor'; // Nueva importación
+import KPICard from './KPICard';
+import UnderConstructionCard from './UnderConstructionCard';
+import SprintTrendChart from './SprintTrendChart';
+import ModuleAnalysis from './ModuleAnalysis';
+import DeveloperAnalysis from './DeveloperAnalysis';
+import TeamAnalysis from './TeamAnalysis';
+import dynamic from 'next/dynamic';
+const QualityRadarChart = dynamic(() => import('../ANterior/QualityRadarChart'), { ssr: false });
+// TeamAnalysis tab/component removed
 
 export default function ExecutiveDashboard({ 
   // Original props
@@ -77,6 +66,74 @@ export default function ExecutiveDashboard({
 
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
+
+  // ===== Global filter state (shared across tabs) =====
+  const [selectedSprints, setSelectedSprints] = useState(['All']);
+  const [stagedSelectedSprints, setStagedSelectedSprints] = useState(selectedSprints);
+  const [testTypeFilter, setTestTypeFilter] = useState('all'); // 'all', 'system', 'uat'
+  const [selectedStatus, setSelectedStatus] = useState(['All']);
+  const [selectedPriorities, setSelectedPriorities] = useState(['All']);
+  const [selectedDevelopers, setSelectedDevelopers] = useState(['All']);
+  const [selectedCategories, setSelectedCategories] = useState(['All']);
+  const [selectedFixVersions, setSelectedFixVersions] = useState(['All']);
+  const [showFilters, setShowFilters] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, fixVersion: false });
+
+  const handleFilterToggle = (filterType, value) => {
+    const setterMap = {
+      sprint: setSelectedSprints,
+      status: setSelectedStatus,
+      priority: setSelectedPriorities,
+      developer: setSelectedDevelopers,
+      category: setSelectedCategories,
+      fixVersion: setSelectedFixVersions
+    };
+
+    const setter = setterMap[filterType];
+    if (!setter) return;
+
+    if (value === 'All') {
+      setter(['All']);
+    } else {
+      setter(prev => {
+        if (prev.includes('All')) return [value];
+        if (prev.includes(value)) {
+          const filtered = prev.filter(v => v !== value);
+          return filtered.length === 0 ? ['All'] : filtered;
+        }
+        return [...prev, value];
+      });
+    }
+  };
+
+  // Generic handler for compact multi-select inputs
+  const handleMultiSelectChange = (filterType, e) => {
+    const setterMap = {
+      sprint: setSelectedSprints,
+      status: setSelectedStatus,
+      priority: setSelectedPriorities,
+      developer: setSelectedDevelopers,
+      category: setSelectedCategories,
+      fixVersion: setSelectedFixVersions
+    };
+    const setter = setterMap[filterType];
+    if (!setter) return;
+
+    const values = Array.from(e.target.selectedOptions).map(o => o.value);
+    if (values.includes('All') || values.length === 0) {
+      setter(['All']);
+    } else {
+      setter(values.filter(v => v !== 'All'));
+    }
+  };
+
+  // Wrapper for sprint toggle to keep compatibility with XTemporal design
+  const handleSprintToggle = (sprint) => handleFilterToggle('sprint', sprint);
+
+  // Keep staged sprint selection in sync when committed externally
+  useEffect(() => {
+    setStagedSelectedSprints(selectedSprints);
+  }, [selectedSprints]);
 
   const showSprintTooltip = (e, sprintKey, sprintData) => {
     try {
@@ -216,6 +273,13 @@ export default function ExecutiveDashboard({
     };
   }, [loadConfiguration]);
 
+  // If no external data is provided, enable parametric mode by default
+  useEffect(() => {
+    if (!externalData) {
+      setUseParametricMode(true);
+    }
+  }, [externalData]);
+
   // Load recommendations on mount
   useEffect(() => {
     loadRecommendations();
@@ -226,30 +290,7 @@ export default function ExecutiveDashboard({
   
 
   // Auto-refresh mejorado
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      if (isParametricMode) {
-        loadParametricData();
-      } else if (externalOnRefresh) {
-        externalOnRefresh();
-      }
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, isParametricMode, externalOnRefresh, refreshInterval, dataSource, config]);
-
-  // Cargar datos paramétricos cuando hay configuración
-  useEffect(() => {
-    if (isParametricMode && config) {
-      loadParametricData();
-    }
-  }, [isParametricMode, config, dataSource]);
-
-  
-
-  async function loadParametricData() {
+  const loadParametricData = useCallback(async () => {
     setParametricLoading(true);
     setError(null);
     try {
@@ -270,7 +311,31 @@ export default function ExecutiveDashboard({
     } finally {
       setParametricLoading(false);
     }
-  }
+  }, [dataSource, config]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      if (isParametricMode) {
+        loadParametricData();
+      } else if (externalOnRefresh) {
+        externalOnRefresh();
+      }
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, isParametricMode, externalOnRefresh, refreshInterval, dataSource, config, loadParametricData]);
+
+  // Cargar datos paramétricos cuando hay configuración
+  useEffect(() => {
+    if (isParametricMode && config) {
+      loadParametricData();
+    }
+  }, [isParametricMode, config, dataSource, loadParametricData]);
+
+  
+
 
   async function loadRecommendations() {
     try {
@@ -321,12 +386,156 @@ export default function ExecutiveDashboard({
 
   const { kpis, summary, alerts } = currentData;
 
+  // Derived lists are computed from `filteredData` below so they update dynamically
+
+  // Helper to classify sprint test type (reuse light logic from OverviewTab)
+  const classifyTestType = (sprint) => {
+    if (!sprint) return 'system';
+    if (sprint.testType) return sprint.testType;
+    const tags = (sprint.tags || '').toLowerCase();
+    if (tags.includes('uat') || tags.includes('equipo')) return 'uat';
+    if (tags.includes('integración') || tags.includes('smoke')) return 'system';
+    return 'system';
+  };
+
+  // Apply global filters to currentData and return a filtered copy
+  const applyGlobalFilters = (data) => {
+    if (!data) return data;
+
+    const normalize = v => (v || '').toString().trim().toLowerCase();
+    const selectedStatusSet = new Set(selectedStatus.map(s => normalize(s)));
+    const selectedPrioritiesSet = new Set(selectedPriorities.map(s => normalize(s)));
+    const selectedDevelopersSet = new Set(selectedDevelopers.map(s => normalize(s)));
+    const selectedCategoriesSet = new Set(selectedCategories.map(s => normalize(s)));
+    const selectedFixVersionsSet = new Set(selectedFixVersions.map(s => normalize(s)));
+    const bugs = (data.bugs || []).filter(b => {
+      // Status
+      if (!selectedStatus.includes('All')) {
+        if (!selectedStatusSet.has(normalize(b.status || b.estado || b.status))) return false;
+      }
+      // Priority
+      if (!selectedPriorities.includes('All')) {
+        if (!selectedPrioritiesSet.has(normalize(b.priority || b.prioridad || ''))) return false;
+      }
+      // Developer
+      if (!selectedDevelopers.includes('All')) {
+        if (!selectedDevelopersSet.has(normalize(b.developer || b.developer_name || ''))) return false;
+      }
+      // Category
+      if (!selectedCategories.includes('All')) {
+        if (!selectedCategoriesSet.has(normalize(b.category || b.categoria || ''))) return false;
+      }
+
+      // Execution strategy filter removed per request
+      // Fix version
+      if (!selectedFixVersions.includes('All')) {
+        const fv = normalize(b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '');
+        if (!selectedFixVersionsSet.has(fv)) return false;
+      }
+      return true;
+    });
+
+    // Filter sprintData by selectedSprints and testTypeFilter
+    let sprintData = data.sprintData || [];
+    const selectedSprintsSet = new Set(selectedSprints.map(s => (s || '').toString()));
+    if (!selectedSprints.includes('All')) {
+      sprintData = sprintData.filter(s => selectedSprintsSet.has(((s.sprint || s.name || s.id) || '').toString()));
+    }
+    if (testTypeFilter !== 'all') {
+      sprintData = sprintData.filter(s => classifyTestType(s) === testTypeFilter);
+    }
+
+    // Further filter sprintData by other selected filpenditers so KPIs and charts respond
+    const sprintMatches = (s) => {
+      // Fix version / version
+      if (!selectedFixVersions.includes('All')) {
+        const fv = normalize(s.fixVersion || s.version || s['Version de correccion 1'] || s.release || '');
+        if (!selectedFixVersionsSet.has(fv)) return false;
+      }
+
+      return true;
+    };
+
+    if (sprintData && sprintData.length > 0) {
+      sprintData = sprintData.filter(sprintMatches);
+    }
+
+    return { ...data, bugs, sprintData };
+  };
+
+  const filteredData = applyGlobalFilters(currentData);
+
+  // Recompute filter option lists from the filtered data so options are dynamic
+  const sprintList = (filteredData.sprintData || [])
+    .map(s => ((s.sprint || s.name || s.id) || '').toString())
+    .filter(Boolean);
+
+  const bugsArray = Array.isArray(filteredData.bugs) ? filteredData.bugs : [];
+
+  // Backwards-compatible alias: some compiled artifacts/reference patches expect `sourceBugs`.
+  // Ensure it's always defined to avoid ReferenceError during server-side rendering.
+  const sourceBugs = (currentData && Array.isArray(currentData.bugs) && currentData.bugs.length > 0)
+    ? currentData.bugs
+    : bugsArray;
+
+  // Modules
+  let moduleList = [];
+  if (bugsArray.length > 0) {
+    moduleList = Array.from(new Set(bugsArray.map(b => (b.module || 'Other').toString().trim()))).filter(Boolean).sort();
+  } else if (Array.isArray(filteredData.bugsByModule) && filteredData.bugsByModule.length > 0) {
+    moduleList = Array.from(new Set(filteredData.bugsByModule.map(m => (m.module || m.name || m[0] || '').toString().trim()))).filter(Boolean).sort();
+  }
+
+  // Priorities
+  let priorityList = [];
+  if (bugsArray.length > 0) {
+    priorityList = Array.from(new Set(bugsArray.map(b => (b.priority || 'No priority').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  } else if (filteredData.bugsByPriority && typeof filteredData.bugsByPriority === 'object') {
+    priorityList = Object.keys(filteredData.bugsByPriority || {}).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  }
+
+  // Status
+  let statusList = [];
+  if (bugsArray.length > 0) {
+    statusList = Array.from(new Set(bugsArray.map(b => (b.status || 'Unknown').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  }
+  // Fallback: if no bug-level data, use server-extracted status list
+  if (statusList.length === 0 && filteredData && Array.isArray(filteredData._statusList) && filteredData._statusList.length > 0) {
+    statusList = Array.from(new Set(filteredData._statusList)).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  }
+
+  // Developers
+  let developerList = [];
+  if (bugsArray.length > 0) {
+    developerList = Array.from(new Set(bugsArray.map(b => (b.developer || 'Unassigned').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  } else if (Array.isArray(filteredData.developerData) && filteredData.developerData.length > 0) {
+    developerList = Array.from(new Set(filteredData.developerData.map(d => (d.developer_name || d.name || d[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
+  }
+
+  // Categories
+  let categoryList = [];
+  if (bugsArray.length > 0) {
+    categoryList = Array.from(new Set(bugsArray.map(b => (b.category || 'Uncategorized').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  } else if (filteredData.bugsByCategory && Array.isArray(filteredData.bugsByCategory) && filteredData.bugsByCategory.length > 0) {
+    categoryList = Array.from(new Set(filteredData.bugsByCategory.map(c => (c.category || c.name || c[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+  }
+
+  let fixVersionList = [];
+  if (bugsArray.length > 0) {
+    fixVersionList = Array.from(new Set(bugsArray.map(b => (b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+  }
+
+  // Fallbacks for strategy/environment/fixVersion from server-provided lists
+  // Strategy/environment lists removed per request
+  if (fixVersionList.length === 0 && filteredData && Array.isArray(filteredData._fixVersionList) && filteredData._fixVersionList.length > 0) {
+    fixVersionList.push(...filteredData._fixVersionList);
+  }
+
   const tabs = [
     { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
-    { id: 'teams', label: 'Team Analysis', icon: <Users className="w-4 h-4" /> },
-    { id: 'trends', label: 'Trends', icon: <Activity className="w-4 h-4" /> },
-    { id: 'recommendations', label: 'Recommendations', icon: <CheckCircle className="w-4 h-4" /> }
+    { id: 'teams', label: 'Team Analysis', icon: <Activity className="w-4 h-4" /> },
+    { id: 'roadmap', label: 'Quality Radar', icon: <Target className="w-4 h-4" /> }
   ];
 
   return (
@@ -408,9 +617,9 @@ export default function ExecutiveDashboard({
               
               {/* Última actualización */}
               <div className="text-right hidden sm:block">
-                <p className="text-xs text-slate-500 font-medium">Last reported incident</p>
+                <p className="text-xs text-slate-500 font-medium">Last reported Sprint</p>
                 <p className="text-sm font-semibold text-slate-900 mt-0.5">
-                  {currentLastUpdated ? format(currentLastUpdated, 'dd/MM/yyyy HH:mm', { locale: es }) : 'Sin reportar'}
+                  {currentLastUpdated ? format(currentLastUpdated, 'MM/dd/yyyy HH:mm', { locale: enUS }) : 'Not reported'}
                 </p>
               </div>
               
@@ -418,12 +627,227 @@ export default function ExecutiveDashboard({
                 onRefresh={handleRefresh}
                 loading={currentLoading}
               />
+              {/* Toggle global filters visibility */}
+              <button
+                onClick={() => {
+                  setShowFilters(prev => {
+                    try { if (typeof window !== 'undefined') localStorage.setItem('qa-show-filters', JSON.stringify(!prev)); } catch(e) {}
+                    return !prev;
+                  });
+                }}
+                className="ml-3 inline-flex items-center px-3 py-1.5 bg-white border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showFilters ? 'Hide filters' : 'Show filters'}
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Critical Alerts (improved) */}
+          {/* Filtro Moderno Estilo DashboardDemo */}
+          {/* Encabezado con gradiente */}
+          <div 
+            onClick={() => setShowFilters(!showFilters)}
+            className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 rounded-t-lg p-3 text-white flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow mb-0"
+          >
+            <div className="flex items-center gap-2">
+              <Filter />
+              <h2 className="text-sm font-bold">Filters</h2>
+                {(() => {
+                const activeFilters = 
+                  (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
+                  (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
+                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0);
+                return activeFilters > 0 ? (
+                  <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs font-semibold">
+                    {activeFilters} active{activeFilters > 1 ? 's' : ''}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <div className="flex items-center gap-2">
+                {(() => {
+                const activeFilters = 
+                  (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
+                  (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
+                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0);
+                return activeFilters > 0 ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedStatus(['All']);
+                      setSelectedPriorities(['All']);
+                      setSelectedCategories(['All']);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 rounded text-xs font-semibold transition-all"
+                  >
+                    <X size={14} />
+                    Clear
+                  </button>
+                ) : null;
+              })()}
+              <ChevronDown 
+                size={18} 
+                className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`}
+              />
+            </div>
+          </div>
+
+          {/* Grid de Filtros - Colapsable */}
+          {showFilters && (
+            <div className="bg-gray-50 rounded-b-lg p-4 border border-gray-200 border-t-0 mb-6">
+              <div className="flex gap-2 overflow-x-auto py-2">
+                {/* Module filter removed as requested */}
+
+                {/* Sprint Filter Section (added) */}
+                <div className="border rounded-lg p-1 bg-indigo-50 border-indigo-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, sprint: !prev.sprint}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">📅</span>
+                      <p className="font-bold uppercase text-xs">Sprint</p>
+                      {selectedSprints.length > 0 && selectedSprints[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedSprints.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.sprint ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.sprint && (
+                    <div>
+                      {sprintList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                      ) : (
+                        <>
+                          <select
+                            multiple
+                            size={Math.min(6, Math.max(3, sprintList.length))}
+                            value={stagedSelectedSprints}
+                            onChange={(e) => {
+                              const values = Array.from(e.target.selectedOptions).map(o => o.value);
+                              if (values.includes('All') || values.length === 0) {
+                                setStagedSelectedSprints(['All']);
+                              } else {
+                                setStagedSelectedSprints(values.filter(v => v !== 'All'));
+                              }
+                            }}
+                            className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                          >
+                            <option value="All">All</option>
+                            {sprintList.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedSprints(stagedSelectedSprints); }}
+                              className="text-xs px-2 py-1 bg-indigo-600 text-white rounded-sm"
+                            >
+                              Apply
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setStagedSelectedSprints(selectedSprints); }}
+                              className="text-xs px-2 py-1 bg-white border rounded-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Priority Filter Section */}
+                <div className="border rounded-lg p-1 bg-orange-50 border-orange-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, priority: !prev.priority}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">⚡</span>
+                      <p className="font-bold uppercase text-xs">Priority</p>
+                      {selectedPriorities.length > 0 && selectedPriorities[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedPriorities.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.priority ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.priority && (
+                    <div>
+                      {priorityList.length === 0 ? (
+                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                      ) : (
+                        <select
+                          multiple
+                          size={Math.min(6, Math.max(3, priorityList.length))}
+                          value={selectedPriorities}
+                          onChange={(e) => handleMultiSelectChange('priority', e)}
+                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                        >
+                          <option value="All">All</option>
+                          {priorityList.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Filter Section */}
+                <div className="border rounded-lg p-1 bg-green-50 border-green-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, status: !prev.status}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">✓</span>
+                      <p className="font-bold uppercase text-xs">Status</p>
+                      {selectedStatus.length > 0 && selectedStatus[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedStatus.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.status ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.status && (
+                      <div>
+                        {statusList.length === 0 ? (
+                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                        ) : (
+                          <select
+                              multiple
+                              size={Math.min(6, Math.max(3, statusList.length))}
+                              value={selectedStatus}
+                              onChange={(e) => handleMultiSelectChange('status', e)}
+                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                            >
+                            <option value="All">All</option>
+                            {statusList.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
+                      </div>
+                  )}
+                </div>
+                {/* Developer filter removed per request */}
+
+                {/* Strategy filter removed per user request */}
+
+                {/* Environment filter removed per user request */}
+
+                {/* Fix Version filter removed per request */}
+              </div>
+            </div>
+          )}
+
+          {/* Critical Alerts (improved) */}
       {alerts && alerts.length > 0 && (
         <div className="bg-red-50 border-l-4 border-red-400 p-3 mb-3">
           <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -448,7 +872,7 @@ export default function ExecutiveDashboard({
                   ))}
                   {alerts.length > 3 && (
                     <p className="text-xs text-red-600 mt-1">
-                      +{alerts.length - 3} alertas adicionales
+                      +{alerts.length - 3} additional alerts
                     </p>
                   )}
                 </div>
@@ -494,6 +918,7 @@ export default function ExecutiveDashboard({
           {activeTab === 'overview' && (
             <OverviewTab
               data={currentData}
+              filteredData={filteredData}
               recommendations={recommendations}
               config={config}
               setDetailModal={setDetailModal}
@@ -502,12 +927,37 @@ export default function ExecutiveDashboard({
               showSprintTooltip={showSprintTooltip}
               hideSprintTooltip={hideSprintTooltip}
               setTooltipInfo={setTooltipInfo}
+              // filter lists
+              sprintList={sprintList}
+              moduleList={moduleList}
+              priorityList={priorityList}
+              statusList={statusList}
+              developerList={developerList}
+              categoryList={categoryList}
+              // filter state & handlers
+              selectedSprints={selectedSprints}
+              setSelectedSprints={setSelectedSprints}
+              testTypeFilter={testTypeFilter}
+              setTestTypeFilter={setTestTypeFilter}
+              selectedStatus={selectedStatus}
+              selectedPriorities={selectedPriorities}
+              selectedDevelopers={selectedDevelopers}
+              selectedCategories={selectedCategories}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+              collapsedSections={collapsedSections}
+              setCollapsedSections={setCollapsedSections}
+              handleFilterToggle={handleFilterToggle}
             />
           )}
-          {activeTab === 'quality' && <QualityTab data={currentData} config={config} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'teams' && <TeamsTab data={currentData} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'trends' && <TrendsTab data={currentData} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'recommendations' && <RecommendationsTab data={currentData} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {activeTab === 'quality' && <QualityTab data={currentData} filteredData={filteredData} config={config} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {activeTab === 'teams' && <TeamAnalysis data={currentData} filteredSprintData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {/* trends tab removed */}
+          {activeTab === 'roadmap' && (
+            <div className="pb-6">
+              <QualityRadarChart data={currentData} />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -518,13 +968,19 @@ export default function ExecutiveDashboard({
 // TAB COMPONENTS (keep existing ones)
 // ===============================
 
-function OverviewTab({ data, recommendations, config, setDetailModal, detailModal, tooltipInfo, showSprintTooltip, hideSprintTooltip, setTooltipInfo }) {
+function OverviewTab({ data, filteredData, recommendations, config, setDetailModal, detailModal, tooltipInfo, showSprintTooltip, hideSprintTooltip, setTooltipInfo,
+  sprintList, moduleList, priorityList, statusList, developerList, categoryList,
+  selectedSprints, setSelectedSprints, testTypeFilter, setTestTypeFilter,
+  selectedStatus, selectedPriorities, selectedDevelopers, selectedCategories,
+  showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle
+}) {
+  // DEBUG: log incoming data
+  console.log('[OverviewTab] data properties:', Object.keys(data || {}).slice(0, 15));
+  console.log('[OverviewTab] bugsByMonthByPriority:', data?.bugsByMonthByPriority ? 'EXISTS' : 'MISSING');
+  
   const { kpis, summary } = data;
-  const sprintList = data.sprintData?.map(s => s.sprint || s.name || s.id) || [];
-  const [selectedSprints, setSelectedSprints] = React.useState(['Todos']);
-  const [sprintCollapsed, setSprintCollapsed] = React.useState(false);
-  const [testTypeFilter, setTestTypeFilter] = React.useState('all'); // 'all', 'system', 'uat'
-  const [filterCollapsed, setFilterCollapsed] = React.useState(false);
+  // Use filtered sprint data computed at parent level
+  const filteredSprintData = filteredData?.sprintData || data.sprintData || [];
 
   // Helper to check if a KPI should be visible according to config
   const isKpiVisible = (kpiId) => {
@@ -562,23 +1018,23 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 
   // Filtro de sprints con checkboxes
   const handleSprintToggle = (sprint) => {
-    if (sprint === 'Todos') {
-      setSelectedSprints(['Todos']);
+    if (sprint === 'All') {
+      setSelectedSprints(['All']);
     } else {
       setSelectedSprints(prev => {
-        // Si "Todos" está seleccionado, lo quitamos y solo dejamos el sprint clickeado
-        if (prev.includes('Todos')) {
+        // If 'All' is selected, replace with the clicked sprint
+        if (prev.includes('All')) {
           return [sprint];
         }
-        
-        // Si el sprint ya está seleccionado, lo quitamos
+
+        // If the sprint is already selected, remove it
         if (prev.includes(sprint)) {
           const filtered = prev.filter(s => s !== sprint);
-          // Si no queda ninguno, volvemos a "Todos"
-          return filtered.length === 0 ? ['Todos'] : filtered;
+          // If none left, return to 'All'
+          return filtered.length === 0 ? ['All'] : filtered;
         }
-        
-        // Si no está seleccionado, lo agregamos
+
+        // Otherwise add it
         return [...prev, sprint];
       });
     }
@@ -587,8 +1043,8 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
   // Manejar cambio de tipo de prueba - resetear sprints seleccionados
   const handleTestTypeChange = (newType) => {
     setTestTypeFilter(newType);
-    // Resetear sprints a 'Todos' cuando cambias el tipo de prueba
-    setSelectedSprints(['Todos']);
+    // Reset sprints to 'All' when test type changes
+    setSelectedSprints(['All']);
   };
 
   // Obtener sprints disponibles según el tipo de prueba seleccionado
@@ -597,95 +1053,106 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
       return sprintList;
     }
     // Filtrar sprints según el tipo seleccionado
-    return sprintList.filter(sprint => {
-      const sprintData = data.sprintData?.find(s => (s.sprint || s.name || s.id) === sprint);
-      return classifyTestType(sprintData) === testTypeFilter;
-    });
+      return sprintList.filter(sprint => {
+        const sprintData = data.sprintData?.find(s => (((s.sprint || s.name || s.id) || '').toString() === (sprint || '').toString()));
+        return classifyTestType(sprintData) === testTypeFilter;
+      });
   };
 
   const availableSprints = getAvailableSprints();
-
-  // Filtrar datos por sprints seleccionados Y por tipo de prueba
-  let filteredSprintData = selectedSprints.includes('Todos')
-    ? data.sprintData
-    : data.sprintData?.filter(s => selectedSprints.includes(s.sprint || s.name || s.id));
-
-  // Aplicar filtro de tipo de prueba
-  if (testTypeFilter !== 'all') {
-    filteredSprintData = filteredSprintData?.filter(s => classifyTestType(s) === testTypeFilter);
-  }
+  
 
   // Recalcular KPIs basados en los sprints seleccionados y tipo de prueba
   const totalTestCases = filteredSprintData?.reduce((acc, s) => acc + (s.testCases || s.testCasesExecuted || 0), 0) || 0;
   
+  // If any filters are active (sprint, type or any other filter), treat as filtered mode
+  const hasFiltersActive = (
+    !selectedSprints.includes('All') ||
+    testTypeFilter !== 'all' ||
+    (typeof selectedStatus !== 'undefined' && selectedStatus[0] !== 'All') ||
+    (typeof selectedPriorities !== 'undefined' && selectedPriorities[0] !== 'All') ||
+    (typeof selectedFixVersions !== 'undefined' && selectedFixVersions[0] !== 'All')
+  );
+
   // Para totalBugs: si hay filtros activos, usar sprints filtrados. Si no, usar el total global (238)
-  const totalBugs = (selectedSprints.includes('Todos') && testTypeFilter === 'all') 
-    ? summary.totalBugs 
-    : filteredSprintData?.reduce((acc, s) => acc + (s.bugs || s.bugsFound || 0), 0) || 0;
-  const bugsClosed = filteredSprintData?.reduce((acc, s) => acc + (s.bugsResolved || s.bugsClosed || 0), 0) || summary.bugsClosed || 0;
+  const totalBugs = hasFiltersActive
+    ? (filteredSprintData?.reduce((acc, s) => acc + (s.bugs || s.bugsFound || 0), 0) || 0)
+    : (summary.totalBugs || 0);
+  const bugsClosed = hasFiltersActive
+    ? (filteredSprintData?.reduce((acc, s) => acc + (s.bugsResolved || s.bugsClosed || 0), 0) || 0)
+    : (summary.bugsClosed || 0);
   
   // Calcular bugs críticos desde los sprints filtrados (usar datos reales del JSON)
-  let criticalBugsPending, criticalBugsTotal, criticalBugsMasAlta, criticalBugsAlta;
-  
-  // Si hay filtros activos (NO "Todas las pruebas" O hay filtro de tipo)
-  const hasFiltersActive = !selectedSprints.includes('Todos') || testTypeFilter !== 'all';
-  
+  let criticalBugsPending, criticalBugsTotal, criticalBugsMasAlta, criticalBugsAlta, trivialBugs;
   if (hasFiltersActive) {
     // Con filtros: calcular desde datos reales de sprints filtrados
     const sprintsCriticalData = filteredSprintData?.reduce((acc, sprint) => {
-      acc.total += (sprint.criticalBugsTotal || 0);
-      acc.pending += (sprint.criticalBugsPending || 0);
+      // sprint may expose the Major count under different names depending on processor
+      acc.total += (sprint.critical || sprint.criticalBugsTotal || sprint.criticalBugs || 0);
+      acc.pending += (sprint.criticalBugsPending || sprint.critical_pending || 0);
       return acc;
     }, { total: 0, pending: 0 });
-    
+
     criticalBugsTotal = sprintsCriticalData?.total || 0;
     criticalBugsPending = sprintsCriticalData?.pending || 0;
-    criticalBugsMasAlta = Math.round(criticalBugsTotal * 0.4);
-    criticalBugsAlta = Math.round(criticalBugsTotal * 0.6);
+    // Only 'Major' exists -> treat as the single critical bucket
+    criticalBugsMasAlta = criticalBugsTotal;
+    criticalBugsAlta = 0;
+    trivialBugs = 0;
   } else {
-    // Sin filtros: usar datos globales de bugsByPriority
-    if (!data.bugsByPriority || Object.keys(data.bugsByPriority).length === 0) {
-      // Si no hay datos, usar 0
-      criticalBugsMasAlta = 0;
-      criticalBugsAlta = 0;
-      criticalBugsPending = 0;
-      criticalBugsTotal = 0;
-    } else {
-      // Encontrar las claves correctas buscando por contenido (maneja caracteres especiales)
-      let masAltaKey = null;
-      let altaKey = null;
-      
-      // Buscar "Más alta" considerando variaciones de codificación
-      for (const key of Object.keys(data.bugsByPriority || {})) {
-        const lowerKey = key.toLowerCase();
-        if (lowerKey.includes('mas') || lowerKey.includes('maa') || lowerKey.includes('más')) {
-          if (lowerKey.includes('alta')) {
-            masAltaKey = key;
-          }
+    // Sin filtros: preferir valores agregados en summary si existen
+    criticalBugsTotal = data.summary?.total_critical || data.summary?.critical || data.summary?.criticalBugs || data.summary?.totalCritical || 0;
+    criticalBugsPending = data.summary?.criticalPending || data.summary?.critical_pending || 0;
+
+    // Fallback: sumar cualquier prioridad que indique 'major' en las claves de bugsByPriority
+    if (!criticalBugsTotal || criticalBugsTotal === 0) {
+      criticalBugsTotal = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
+        const lk = (key || '').toString().toLowerCase();
+        if (lk.includes('major') || lk.includes('más alta') || lk === 'major' || lk === 'más alta') {
+          return acc + ((data.bugsByPriority[key]?.count) || 0);
         }
-        if (lowerKey === 'alta') {
-          altaKey = key;
-        }
-      }
-      
-      // Si no se encontró la clave, usar la más probable
-      if (!masAltaKey) {
-        const allKeys = Object.keys(data.bugsByPriority || {});
-        masAltaKey = allKeys.find(k => !k.toLowerCase().includes('baja') && !k.toLowerCase().includes('media') && k !== 'Alta') || 'Más Alta';
-      }
-      if (!altaKey) altaKey = 'Alta';
-      
-      criticalBugsMasAlta = data.bugsByPriority?.[masAltaKey]?.count || 0;
-      criticalBugsAlta = data.bugsByPriority?.[altaKey]?.count || 0;
-      criticalBugsPending = ((data.bugsByPriority?.[masAltaKey]?.pending || 0) + (data.bugsByPriority?.[altaKey]?.pending || 0)) || 0;
-      
-      criticalBugsTotal = (criticalBugsMasAlta || 0) + (criticalBugsAlta || 0);
+        return acc;
+      }, 0);
     }
+
+    if (!criticalBugsPending || criticalBugsPending === 0) {
+      criticalBugsPending = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
+        const lk = (key || '').toString().toLowerCase();
+        if (lk.includes('major') || lk.includes('más alta') || lk === 'major' || lk === 'más alta') {
+          return acc + ((data.bugsByPriority[key]?.pending) || 0);
+        }
+        return acc;
+      }, 0);
+    }
+
+    // Buscar Trivial en bugsByPriority
+    trivialBugs = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
+      const lk = (key || '').toString().toLowerCase();
+      if (lk.includes('trivial') || lk.includes('más baja') || lk.includes('lowest') || lk === 'trivial') {
+        return acc + ((data.bugsByPriority[key]?.count) || 0);
+      }
+      return acc;
+    }, 0);
+
+    criticalBugsMasAlta = criticalBugsTotal;
+    criticalBugsAlta = 0;
   }
   
-  const avgTestCasesPerSprint = filteredSprintData && filteredSprintData.length > 0
-    ? Math.round(totalTestCases / filteredSprintData.length)
-    : kpis.avgTestCasesPerSprint || 0;
+  // Calculate average test cases per MONTH (not per sprint)
+  const calculateTestCasesPerMonth = () => {
+    const testCasesByMonth = data.testCasesByMonth || {};
+    if (!testCasesByMonth || Object.keys(testCasesByMonth).length === 0) {
+      return kpis.avgTestCasesPerSprint || 0;
+    }
+    
+    const plannedPerMonth = Object.values(testCasesByMonth).map(m => m.planned || 0);
+    if (plannedPerMonth.length === 0) return 0;
+    
+    const totalPlanned = plannedPerMonth.reduce((a, b) => a + b, 0);
+    return Math.round(totalPlanned / plannedPerMonth.length);
+  };
+  
+  const avgTestCasesPerSprint = calculateTestCasesPerMonth();
   
   const resolutionEfficiency = totalBugs > 0 
     ? Math.round((bugsClosed / totalBugs) * 100) 
@@ -694,6 +1161,43 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
   const criticalBugsRatio = totalBugs > 0 
     ? Math.round((criticalBugsPending / totalBugs) * 100) 
     : kpis.criticalBugsRatio || 0;
+
+  // Calculate Execution Rate by MONTH (based on bugs completed / total bugs)
+  const calculateExecutionRatePerMonth = () => {
+    const executionRateByMonth = data.executionRateByMonth || {};
+    if (!executionRateByMonth || Object.keys(executionRateByMonth).length === 0) {
+      return { avg: 0, completed: 0, total: 0, months: 0 };
+    }
+
+    // Calculate average execution rate across all months
+    const rates = [];
+    let totalCompleted = 0;
+    let totalBugs = 0;
+
+    Object.values(executionRateByMonth).forEach(month => {
+      const completed = month.completed || 0;
+      const total = month.total || 0;
+      totalCompleted += completed;
+      totalBugs += total;
+      if (total > 0) {
+        rates.push(Math.round((completed / total) * 100));
+      }
+    });
+
+    const avgRate = rates.length > 0 ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+
+    return {
+      avg: avgRate,
+      completed: totalCompleted,
+      total: totalBugs,
+      months: Object.keys(executionRateByMonth).length
+    };
+  };
+
+  const executionRateData = calculateExecutionRatePerMonth();
+
+  // Derived leakage rate: prefer kpis value, fallback to 0
+  const derivedLeakageRate = (kpis && kpis.bugLeakageRate !== undefined) ? kpis.bugLeakageRate : 0;
 
   // Calculate trends comparing first half vs second half of selected sprints
   const calculateTrend = (getData) => {
@@ -717,6 +1221,18 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
     return total > 0 ? (resolved / total) * 100 : 0;
   });
   const criticalBugsTrend = calculateTrend(s => s.bugs || s.bugsFound || 0) * -1; // Invertido porque menos bugs es mejor
+
+  const executionTrend = calculateTrend(s => {
+    const planned = (s.testCasesPlanned || s.testCasesTotal || s.testCases || 0) || 0;
+    const executed = (s.testCases || s.testCasesExecuted || 0) || 0;
+    return planned > 0 ? Math.round((executed / planned) * 100) : 0;
+  });
+
+  // Series para gráficas: executed vs planned por MES (no por sprint, para series de tiempo en modal)
+  const testCasesByMonth = data.testCasesByMonth || {};
+  const monthLabels = Object.keys(testCasesByMonth).sort();
+  const executedSeries = monthLabels.map(month => testCasesByMonth[month]?.executed || 0);
+  const plannedSeries = monthLabels.map(month => testCasesByMonth[month]?.planned || 0);
 
   // 1. Cycle Time: Tiempo promedio de resolución de bugs
   const calculateCycleTime = () => {
@@ -763,14 +1279,16 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
     // Calcular Cycle Time por prioridad basado en eficiencia de resolución
     let priorityCycleTime = {};
     if (data.bugsByPriority) {
-      const masAltaTotal = data.bugsByPriority['Más alta']?.count || 0;
-      const masAltaResolved = data.bugsByPriority['Más alta']?.resolved || 0;
-      const altaTotal = data.bugsByPriority['Alta']?.count || 0;
-      const altaResolved = data.bugsByPriority['Alta']?.resolved || 0;
-      const mediaTotal = data.bugsByPriority['Media']?.count || 0;
-      const mediaResolved = data.bugsByPriority['Media']?.resolved || 0;
-      const bajaTotal = data.bugsByPriority['Baja']?.count || 0;
-      const bajaResolved = data.bugsByPriority['Baja']?.resolved || 0;
+      const masAltaTotal = data.bugsByPriority['Highest']?.count || 0;
+      const masAltaResolved = data.bugsByPriority['Highest']?.resolved || 0;
+      const altaTotal = data.bugsByPriority['High']?.count || 0;
+      const altaResolved = data.bugsByPriority['High']?.resolved || 0;
+      const mediaTotal = data.bugsByPriority['Medium']?.count || 0;
+      const mediaResolved = data.bugsByPriority['Medium']?.resolved || 0;
+      const bajaTotal = data.bugsByPriority['Low']?.count || 0;
+      const bajaResolved = data.bugsByPriority['Low']?.resolved || 0;
+      const trivialTotal = data.bugsByPriority['Lowest']?.count || 0;
+      const trivialResolved = data.bugsByPriority['Lowest']?.resolved || 0;
       
       // Calcular cycle time por prioridad: (bugs pendientes / bugs resueltos) × promedio de días
       // Para "Más alta" debería ser más rápido (menos días)
@@ -789,6 +1307,10 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
       priorityCycleTime.low = bajaResolved > 0 
         ? Math.round(((bajaTotal - bajaResolved) / bajaResolved * 21) * 10) / 10  // 21 días para baja
         : Math.round(avgCycleTime * 1.5);
+      
+      priorityCycleTime.trivial = trivialResolved > 0
+        ? Math.round(((trivialTotal - trivialResolved) / trivialResolved * 28) * 10) / 10  // 28 días para trivial
+        : Math.round(avgCycleTime * 2);
     } else {
       // Fallback si no hay datos
       priorityCycleTime = {
@@ -842,26 +1364,31 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
   const automationData = calculateAutomationCoverage();
   
   // 2. Defect Density: Densidad de defectos por sprint (datos reales)
-  const calculateDefectDensityPerSprint = () => {
-    if (!filteredSprintData || filteredSprintData.length === 0) return { avg: 0, total: 0, max: 0, min: 0 };
+  const calculateDefectDensityPerMonth = () => {
+    const bugsByMonth = data.bugsByMonth || {};
+    if (!bugsByMonth || Object.keys(bugsByMonth).length === 0) {
+      return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
+    }
     
-    // Usar datos reales de bugs por sprint (excluye Sugerencias)
-    const bugsPerSprint = filteredSprintData.map(s => s.bugs || 0);
-    const totalBugsInSprints = bugsPerSprint.reduce((acc, bugs) => acc + bugs, 0);
-    const avgBugsPerSprint = totalBugsInSprints / filteredSprintData.length;
-    const maxBugs = Math.max(...bugsPerSprint);
-    const minBugs = Math.min(...bugsPerSprint);
+    // Usar datos de bugs por mes
+    const bugsPerMonth = Object.values(bugsByMonth).map(m => m.count || 0);
+    if (bugsPerMonth.length === 0) return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
+    
+    const totalBugs = bugsPerMonth.reduce((acc, bugs) => acc + bugs, 0);
+    const avgBugsPerMonth = totalBugs / bugsPerMonth.length;
+    const maxBugs = Math.max(...bugsPerMonth);
+    const minBugs = Math.min(...bugsPerMonth);
     
     return {
-      avg: Math.round(avgBugsPerSprint * 10) / 10, // Redondear a 1 decimal
-      total: totalBugsInSprints,
+      avg: Math.round(avgBugsPerMonth * 10) / 10, // Redondear a 1 decimal
+      total: totalBugs,
       max: maxBugs,
       min: minBugs,
-      sprints: filteredSprintData.length
+      months: bugsPerMonth.length
     };
   };
   
-  const defectDensityData = calculateDefectDensityPerSprint();
+  const defectDensityData = calculateDefectDensityPerMonth();
 
   // Calcular datos de sparkline para cada métrica
   const getSparklineData = (metric) => {
@@ -869,6 +1396,10 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
     
     return filteredSprintData.map(sprint => {
       switch(metric) {
+        case 'executionRate':
+          const planned = sprint.testCasesPlanned || sprint.testPlanned || sprint.testCasesTotal || sprint.testCases || 0;
+          const executed = sprint.testCases || sprint.testCasesExecuted || 0;
+          return planned > 0 ? Math.round((executed / planned) * 100) : 0;
         case 'testCases':
           return sprint.testCases || sprint.testCasesExecuted || 0;
         case 'resolutionEfficiency':
@@ -952,193 +1483,56 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 
   return (
     <div className="space-y-8">
-      {/* Filters: groups Test Type + Sprint */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center">
-            <Settings className="w-4 h-4 inline mr-2" />
-            <h3 className="text-sm font-medium text-gray-700">Filters</h3>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="text-xs text-gray-600">Sprints: {availableSprints.length}</div>
-            <div className="text-xs text-gray-600">Selected: {selectedSprints.includes('Todos') ? 'All' : selectedSprints.length}</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Panel: Tipo de Prueba */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center">
-                <label className="text-sm font-medium text-gray-700 mr-2">
-                  Test Type
-                </label>
-                {testTypeFilter !== 'all' && (
-                  <span className="text-sm text-executive-600 font-medium">
-                    📋 {testTypeFilter === 'system' ? 'System Tests' : 'UAT Tests'}
-                  </span>
-                )}
-              </div>
-
-              <button
-                onClick={() => setFilterCollapsed(prev => !prev)}
-                className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800 focus:outline-none"
-                aria-expanded={!filterCollapsed}
-                aria-controls="test-type-filter-panel"
-              >
-                {filterCollapsed ? (
-                  <>
-                    <ChevronDown className="w-4 h-4 mr-2" />
-                    Show
-                  </>
-                ) : (
-                  <>
-                    <ChevronUp className="w-4 h-4 mr-2" />
-                    Hide
-                  </>
-                )}
-              </button>
-            </div>
-
-            {!filterCollapsed && (
-              <div id="test-type-filter-panel" className="flex gap-2 flex-wrap items-center">
-                <button
-                  type="button"
-                  onClick={() => handleTestTypeChange('all')}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none ${
-                    testTypeFilter === 'all' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-                >
-                  All Information
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTestTypeChange('system')}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none ${
-                    testTypeFilter === 'system' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-                >
-                  System Tests
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTestTypeChange('uat')}
-                  className={`px-2 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none ${
-                    testTypeFilter === 'uat' ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                  }`}
-                >
-                  UAT Tests
-                </button>
-              </div>
-            )}
-
-          <p className="text-xs text-gray-500 mt-3">💡 Filter by test type to see specific metrics for System Tests or UAT Tests.</p>
-        </div>
-
-        {/* Panel: Sprints */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Sprints</span>
-              {!selectedSprints.includes('All') && selectedSprints.length > 0 && (
-                <span className="text-xs text-executive-600 font-medium">📊 {selectedSprints.length}</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => setSprintCollapsed(prev => !prev)}
-              className="inline-flex items-center text-xs text-gray-600 hover:text-gray-800 focus:outline-none"
-              aria-expanded={!sprintCollapsed}
-              aria-controls="sprint-filter-panel"
-            >
-              {sprintCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {!sprintCollapsed && (
-            <div id="sprint-filter-panel" className="flex gap-2 overflow-x-auto overflow-y-visible items-center py-1">
-              {/* 'All' chip */}
-              <label
-                className={`flex items-center px-2 py-1 rounded-full border text-xs cursor-pointer transition-colors ${
-                  selectedSprints.includes('All') ? 'bg-executive-50 border-executive-500 text-executive-700' : 'border-gray-200 bg-white text-gray-700'
-                }`}
-                title="Select all sprints"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedSprints.includes('All')}
-                  onChange={() => handleSprintToggle('All')}
-                  className="sr-only"
-                />
-                <span>All</span>
-              </label>
-
-              {availableSprints.map((sprint) => {
-                const sprintData = data.sprintData?.find(s => (s.sprint || s.name || s.id) === sprint);
-                const active = selectedSprints.includes(sprint) && !selectedSprints.includes('All');
-                return (
-                  <label
-                    key={sprint}
-                    className={`relative flex items-center px-2 py-1 rounded-full text-xs cursor-pointer transition-colors whitespace-nowrap ${
-                      active ? 'bg-executive-50 border-executive-500 text-executive-700 border' : 'border border-gray-200 bg-white text-gray-700'
-                    }`}
-                    onClick={() => handleSprintToggle(sprint)}
-                    onMouseEnter={(e) => showSprintTooltip(e, sprint, sprintData)}
-                    onMouseLeave={() => hideSprintTooltip()}
-                    onFocus={(e) => showSprintTooltip(e, sprint, sprintData)}
-                    onBlur={() => hideSprintTooltip()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() => handleSprintToggle(sprint)}
-                      className="sr-only"
-                    />
-                    <span className="text-xs">{sprint}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-
-          <p className="text-xs text-gray-500 mt-3">💡 Select &quot;All&quot; or choose specific sprints. Indicators and charts will update automatically.</p>
-          </div>
-        </div>
-      </div>
-
+      
+      
       {/* Coverage Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* 1. COBERTURA: Media de Casos */}
         {isKpiVisible('cobertura') && (
           <KPICard
-          title="Average Test Cases Executed per Sprint"
-          value={avgTestCasesPerSprint}
+          title="Test Cases designed"
+          value={
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600">{totalTestCases}</div>
+              <div className="text-xs text-gray-500 font-normal mt-0.5">Total Designed</div>
+            </div>
+          }
           icon={<Activity className="w-6 h-6 text-blue-600" />}
           trend={testCasesTrend}
           status={avgTestCasesPerSprint >= 170 ? "success" : "warning"}
-          subtitle={`${totalTestCases} total executed test cases`}
-          formula={`Average = ${totalTestCases} / ${filteredSprintData?.length || 1}`}
+          subtitle={
+            <div className="flex items-center gap-2">
+              <span>{monthLabels?.length || 0} months analyzed</span>
+              <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${avgTestCasesPerSprint >= 170 ? 'bg-success-500' : 'bg-warning-500'}`}
+                  style={{ width: `${Math.min((avgTestCasesPerSprint / 170) * 100, 100)}%` }}
+                ></div>
+              </div>
+            </div>
+          }
+          formula={`Average = ${totalTestCases} / ${monthLabels?.length || 1} = ${avgTestCasesPerSprint}`}
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average number of test cases executed per sprint.</div>
+              <div className="text-xs text-gray-600 mb-2">Average number of test cases designed per month (calculated from month-year data).</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Measures the productivity of the test team and helps dimension planning and coverage per sprint.</div>
+              <div className="text-xs text-gray-600">Measures the test planning and design capacity of the QA team on a monthly basis and helps identify trends in test case creation and specification.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'testCases',
-            title: 'Analysis of Executed Test Cases',
+            title: 'Analysis of Test Cases designed by Month',
             data: {
               avg: avgTestCasesPerSprint,
               total: totalTestCases,
-              sprints: filteredSprintData?.length || 0
+              months: monthLabels?.length || 0,
+              plannedSeries: plannedSeries,
+              executedSeries: executedSeries
             },
-            sparklineData: getSparklineData('testCases'),
-            sprints: filteredSprintData
+            sparklineData: plannedSeries,
+            sprints: monthLabels.map(month => ({ sprint: month })),
+            monthLabels: monthLabels
           })}
           detailData={{ avg: avgTestCasesPerSprint, total: totalTestCases }}
         />
@@ -1147,197 +1541,322 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
         {/* 2. PRODUCT QUALITY: Finding Density */}
         {isKpiVisible('densidad') && (
           <KPICard
-          title="Finding Density per Sprint"
-          value={defectDensityData.avg}
+          title="Finding Density per Month"
+          value={
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-600">{defectDensityData.avg}</div>
+                <div className="text-xs text-gray-500 font-normal mt-0.5">findings/month</div>
+              </div>
+              <div className="h-12 w-px bg-gray-200"></div>
+              <div className="flex gap-3 text-sm">
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-gray-700">{defectDensityData.max}</div>
+                  <div className="text-xs text-gray-500 font-normal">Max</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-gray-700">{defectDensityData.min}</div>
+                  <div className="text-xs text-gray-500 font-normal">Min</div>
+                </div>
+              </div>
+            </div>
+          }
           icon={<Target className="w-6 h-6 text-orange-600" />}
           trend={defectDensityData.avg <= 20 ? 5 : -5}
           status={defectDensityData.avg <= 20 ? "success" : defectDensityData.avg <= 30 ? "warning" : "danger"}
-          subtitle={`Max: ${defectDensityData.max} | Min: ${defectDensityData.min} findings/sprint`}
-          formula={`Average = ${defectDensityData.total} findings / ${defectDensityData.sprints} sprints`}
+          subtitle={
+            <div className="flex items-center gap-2">
+              <span>{defectDensityData.total} findings in {defectDensityData.months} months</span>
+            </div>
+          }
+          formula={`Average = ${defectDensityData.total} / ${defectDensityData.months} = ${defectDensityData.avg}`}
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average findings detected per sprint. Target: ≤20 findings/sprint.</div>
+              <div className="text-xs text-gray-600 mb-2">Average findings detected per month. Target: ≤20 findings/month.</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Indicates product quality; high values suggest reviewing development, testing or requirements.</div>
+              <div className="text-xs text-gray-600">Indicates product quality over time; trends help identify improvements in development and testing processes.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'defectDensity',
-            title: 'Analysis of Finding Density per Sprint',
+            title: 'Analysis of Finding Density per Month',
             data: defectDensityData,
-            sparklineData: getSparklineData('defectDensity'),
-            sprints: filteredSprintData
+            sparklineData: Object.keys(data.bugsByMonth || {}).sort().map(month => (data.bugsByMonth[month]?.count || 0)),
+            sprints: monthLabels.map(month => ({ sprint: month })),
+            monthLabels: monthLabels
           })}
           detailData={defectDensityData}
         />
         )}
         
-        {/* 3. EXECUTION RATE - UNDER CONSTRUCTION */}
+        {/* 3. EXECUTION RATE */}
         {isKpiVisible('testExecutionRate') && (
-          <UnderConstructionCard
+          <KPICard
             title="Execution Rate"
-            value={`${kpis.testExecutionRate || 0}%`}
+            value={
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600">{executionRateData.avg || 0}%</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">avg execution</div>
+                </div>
+                <div className="h-12 w-px bg-gray-200"></div>
+                <div className="flex gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-success-600">{executionRateData.completed}</div>
+                    <div className="text-xs text-gray-500 font-normal">Completed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-gray-600">{executionRateData.total}</div>
+                    <div className="text-xs text-gray-500 font-normal">Total Bugs</div>
+                  </div>
+                </div>
+              </div>
+            }
             icon={<Activity className="w-6 h-6 text-blue-600" />}
-            subtitle="Executed vs planned tests"
-            onClick={() => setDetailModal({
-              type: 'testExecutionRate',
-              title: 'Analysis of Execution Rate',
-              data: {
-                executionRate: kpis.testExecutionRate,
-                executed: data.summary?.testCasesExecuted || 0,
-                planned: data.summary?.testCasesTotal || 0,
-                trend: getSparklineData('executionRate')
-              },
-              sparklineData: getSparklineData('executionRate'),
-              sprints: filteredSprintData
-            })}
-            help={(
+            trend={executionTrend}
+            status={executionRateData.avg >= 95 ? 'success' : executionRateData.avg >= 80 ? 'warning' : 'danger'}
+            subtitle={
+              <div className="flex items-center gap-2">
+                <span>{executionRateData.months} months analyzed</span>
+                <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full ${executionRateData.avg >= 95 ? 'bg-success-500' : executionRateData.avg >= 80 ? 'bg-warning-500' : 'bg-danger-500'}`}
+                    style={{ width: `${executionRateData.avg}%` }}
+                  ></div>
+                </div>
+              </div>
+            }
+            formula={`Execution Rate = ${executionRateData.completed} / ${executionRateData.total} × 100 = ${executionRateData.avg}%`}
+            tooltip={(
               <div>
-                <div className="font-semibold">What it measures:</div>
-                <div className="text-xs">Percentage of test cases executed relative to what was planned.</div>
-                <div className="font-semibold mt-2">Why it matters:</div>
-                <div className="text-xs">Allows you to know if scheduled tests are completed and helps adjust resources and timelines.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of bugs completed (Ready For QA, Ready For Release, Released, Closed) out of total bugs tracked.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                <div className="text-xs text-gray-600">Shows the progress in closing bugs; higher rates indicate better bug resolution velocity and quality control.</div>
               </div>
             )}
+            onClick={() => setDetailModal({
+              type: 'testExecutionRate',
+              title: 'Analysis of Execution Rate (Monthly Trend)',
+              data: {
+                executionRate: executionRateData.avg,
+                completed: executionRateData.completed,
+                total: executionRateData.total,
+                months: executionRateData.months,
+                executionRateByMonth: data.executionRateByMonth || {}
+              },
+              sparklineData: monthLabels.map(month => (data.executionRateByMonth?.[month]?.rate || 0)),
+              sprints: monthLabels.map(month => ({ sprint: month })),
+              monthLabels: monthLabels
+            })}
+            detailData={{ completed: executionRateData.completed, total: executionRateData.total }}
           />
         )}
       </div>
 
       {/* Main and tracking metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {isKpiVisible('bugsCriticos') && (
-          <KPICard
-          title="Critical Findings Detected"
-          value={criticalBugsTotal}
-          icon={<Bug className="w-6 h-6 text-danger-600" />}
-          trend={criticalBugsTrend}
-          status={criticalBugsTotal <= 20 ? "success" : "danger"}
-          subtitle={`${criticalBugsTotal} critical findings of ${totalBugs}`}
-          formula={`Critical = Highest (${criticalBugsMasAlta}) + High (${criticalBugsAlta})`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Number of findings with priority &apos;Highest&apos; and &apos;High&apos;.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Measures the volume of severe incidents that can impact releases and require immediate prioritization.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'criticalBugs',
-            title: 'Analysis of Critical Findings Detected',
-            data: {
-              total: criticalBugsTotal,
-              highest: criticalBugsMasAlta,
-              high: criticalBugsAlta,
-              totalBugs: totalBugs,
-              allPriorities: data.bugsByPriority
-            },
-            sparklineData: getSparklineData('criticalBugs'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ total: criticalBugsTotal }}
-        />
-        )}
-        
+        {isKpiVisible('bugsCriticos') && (() => {
+          // Obtener Highest+High (Critical) y Low+Lowest (Low Priority) desde bugsByPriority
+          const criticalCount = (data.bugsByPriority?.['Highest']?.count || 0) + (data.bugsByPriority?.['High']?.count || 0);
+          const lowPriorityCount = (data.bugsByPriority?.['Low']?.count || 0) + (data.bugsByPriority?.['Lowest']?.count || 0);
+          
+          return (
+            <KPICard
+              title="Findings Detected"
+              value={
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-danger-600">{totalBugs}</div>
+                    <div className="text-xs text-gray-500 font-normal mt-0.5">Total</div>
+                  </div>
+                  <div className="h-12 w-px bg-gray-200"></div>
+                  <div className="flex gap-3 text-sm">
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-danger-600">{criticalCount}</div>
+                      <div className="text-xs text-gray-500 font-normal">Critical</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-blue-600">{lowPriorityCount}</div>
+                      <div className="text-xs text-gray-500 font-normal">Low Priority</div>
+                    </div>
+                  </div>
+                </div>
+              }
+              icon={<Bug className="w-6 h-6 text-danger-600" />}
+              trend={criticalBugsTrend}
+              status={totalBugs <= 50 ? "success" : "danger"}
+              subtitle={
+                <div className="flex items-center gap-2">
+                  <span>Breakdown by priority level</span>
+                </div>
+              }
+              formula={`Total = ${criticalCount} Critical (Highest+High) + ${lowPriorityCount} Low (Low+Lowest)`}
+              tooltip={
+                <div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                  <div className="text-xs text-gray-600 mb-2">Total number of findings (bugs) detected, classified by priority: Critical (Highest+High) and Low Priority (Low+Lowest).</div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                  <div className="text-xs text-gray-600">Provides a complete overview of all issues and their severity levels, helping prioritize resolution efforts.</div>
+                </div>
+              }
+              onClick={() => setDetailModal({
+                type: 'criticalBugs',
+                title: 'Analysis of Findings Detected',
+                data: {
+                  total: totalBugs,
+                  critical: criticalCount,
+                  medium: data.bugsByPriority?.['Medium']?.count || 0,
+                  lowPriority: lowPriorityCount,
+                  totalBugs: totalBugs,
+                  allPriorities: data.bugsByPriority,
+                  trendData: data.bugsByMonth,
+                  trendDataByPriority: data.bugsByMonthByPriority
+                },
+                sparklineData: getSparklineData('criticalBugs'),
+                sprints: filteredSprintData
+              })}
+              detailData={{ total: totalBugs, critical: criticalCount }}
+            />
+          );
+        })()}
         {/* 2. CRITICAL TRACKING: Critical Findings Status */}
-        {isKpiVisible('criticosPendientes') && (
-          <KPICard
-          title="Critical Findings Status"
-          value={`${criticalBugsPending}`}
-          icon={<AlertTriangle className="w-6 h-6 text-warning-600" />}
-          trend={criticalBugsTrend}
-          status={criticalBugsPending <= 10 ? "success" : "danger"}
-          subtitle={`${criticalBugsTotal - criticalBugsPending} resolved of ${criticalBugsTotal} critical findings`}
-          formula={`Pending = ${criticalBugsPending} | Resolved = ${criticalBugsTotal - criticalBugsPending}`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Status of critical findings: pending vs resolved.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Helps prioritize resource allocation and reduce blockages affecting delivery.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'criticalBugsStatus',
-            title: 'Critical Findings Status',
-            data: {
-              total: criticalBugsTotal,
-              pending: criticalBugsPending,
-              resolved: criticalBugsTotal - criticalBugsPending,
-              allPriorities: data.bugsByPriority,
-              masAlta: criticalBugsMasAlta,
-              alta: criticalBugsAlta
-            },
-            sparklineData: getSparklineData('criticalBugsPending'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ pending: criticalBugsPending }}
-        />
-        )}
+        {isKpiVisible('criticosPendientes') && (() => {
+          // Calcular totales desde bugsByPriority (datos actualizados de la BD)
+          const allBugsByPriority = Object.values(data.bugsByPriority || {});
+          const totalPending = allBugsByPriority.reduce((sum, item) => sum + (item.pending || 0), 0);
+          const totalResolved = allBugsByPriority.reduce((sum, item) => sum + (item.resolved || 0), 0);
+          const totalCanceled = allBugsByPriority.reduce((sum, item) => sum + (item.canceled || 0), 0);
+          const totalFindings = totalPending + totalResolved + totalCanceled;
+          const resolutionRate = totalFindings > 0 ? Math.round((totalResolved / totalFindings) * 100) : 0;
+          
+          return (
+            <KPICard
+              title="Findings Status"
+              value={
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-gray-900">{totalFindings}</div>
+                    <div className="text-xs text-gray-500 font-normal mt-0.5">Total</div>
+                  </div>
+                  <div className="h-12 w-px bg-gray-200"></div>
+                  <div className="flex gap-3 text-sm">
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-warning-600">{totalPending}</div>
+                      <div className="text-xs text-gray-500 font-normal">Pending</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-success-600">{totalResolved}</div>
+                      <div className="text-xs text-gray-500 font-normal">Resolved</div>
+                    </div>
+                    {totalCanceled > 0 && (
+                      <div className="text-center">
+                        <div className="text-xl font-semibold text-gray-500">{totalCanceled}</div>
+                        <div className="text-xs text-gray-500 font-normal">Canceled</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              }
+              icon={<AlertTriangle className="w-6 h-6 text-warning-600" />}
+              trend={resolutionRate >= 80 ? 5 : resolutionRate >= 60 ? 0 : -5}
+              status={resolutionRate >= 80 ? "success" : resolutionRate >= 60 ? "warning" : "danger"}
+              subtitle={
+                <div className="flex items-center gap-2">
+                  <span>{resolutionRate}% resolution rate</span>
+                  <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${resolutionRate >= 80 ? 'bg-success-500' : resolutionRate >= 60 ? 'bg-warning-500' : 'bg-danger-500'}`}
+                      style={{ width: `${resolutionRate}%` }}
+                    ></div>
+                  </div>
+                </div>
+              }
+              formula={`Resolution = ${totalResolved} / ${totalFindings} × 100 = ${resolutionRate}%`}
+              tooltip={
+                <div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                  <div className="text-xs text-gray-600 mb-2">Status of all findings (tipo_incidencia = &apos;Bug&apos;): pending vs resolved, grouped by priority level.</div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">Status categories</div>
+                  <div className="text-xs text-gray-600 mb-2">
+                    • Pending: To Do, In Development, In Testing, Ready for Testing<br/>
+                    • Resolved: Done, Testing Completed, Testing Complete, Approved for Release, Reviewed<br/>
+                    • Canceled: Canceled status
+                  </div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                  <div className="text-xs text-gray-600">Helps prioritize resource allocation and track progress on resolving findings across all priority levels.</div>
+                </div>
+              }
+              onClick={() => {
+                console.log('[Findings Status] data.bugsByMonthByPriority:', data.bugsByMonthByPriority);
+                setDetailModal({
+                  type: 'criticalBugsStatus',
+                  title: 'Findings Status',
+                  data: {
+                    total: totalFindings,
+                    pending: totalPending,
+                    resolved: totalResolved,
+                    canceled: totalCanceled,
+                    allPriorities: data.bugsByPriority,
+                    trendDataByPriority: data.bugsByMonthByPriority || {},
+                    masAlta: criticalBugsMasAlta,
+                    alta: criticalBugsAlta
+                  },
+                  sparklineData: getSparklineData('criticalBugsPending'),
+                  sprints: filteredSprintData
+                })
+              }}
+              detailData={{ pending: totalPending, resolved: totalResolved, total: totalFindings }}
+            />
+          );
+        })()}
         
         {/* 3. VELOCITY: Average Resolution Time */}
         {isKpiVisible('tiempoSolucion') && (
-          <KPICard
-          title="Average Resolution Time"
-          value={`${cycleTimeData.avg} days`}
-          icon={<Clock className="w-6 h-6 text-executive-600" />}
-          trend={cycleTimeData.avg <= 7 ? 10 : -10}
-          status={cycleTimeData.avg <= 7 ? "success" : cycleTimeData.avg <= 10 ? "warning" : "danger"}
-          subtitle={`Critical: ${cycleTimeData.byPriority.critical}d | High: ${cycleTimeData.byPriority.high}d`}
-          formula={`Based on efficiency: ${resolutionEfficiency}%`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average time (in days) from detection to resolution of a finding.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Measures team response capacity; lower values indicate greater operational agility.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'cycleTime',
-            title: 'Detailed Resolution Time Analysis',
-            data: cycleTimeData,
-            sparklineData: getSparklineData('cycleTime'),
-            sprints: filteredSprintData
-          })}
-          detailData={cycleTimeData}
-        />
+          <UnderConstructionCard
+            title="Average Resolution Time"
+            value={
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600">{cycleTimeData.avg}</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">days avg</div>
+                </div>
+                <div className="h-12 w-px bg-gray-200"></div>
+                <div className="flex gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-orange-600">{cycleTimeData.byPriority.critical}</div>
+                    <div className="text-xs text-gray-500 font-normal">Critical</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-yellow-600">{cycleTimeData.byPriority.high}</div>
+                    <div className="text-xs text-gray-500 font-normal">High</div>
+                  </div>
+                </div>
+              </div>
+            }
+            icon={<Clock className="w-6 h-6 text-executive-600" />}
+            subtitle="Time from detection to resolution"
+            help={(
+              <div>
+                <div className="font-semibold">What it measures:</div>
+                <div className="text-xs">Average time (in days) from detection to resolution of a finding.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Measures team response capacity; lower values indicate greater operational agility.</div>
+              </div>
+            )}
+            onClick={() => setDetailModal({
+              type: 'cycleTime',
+              title: 'Detailed Resolution Time Analysis',
+              data: cycleTimeData,
+              sparklineData: getSparklineData('cycleTime'),
+              sprints: filteredSprintData
+            })}
+          />
         )}
         
-        {/* 4. EFICIENCIA: Eficiencia de Resolución */}
-        {isKpiVisible('resolutionEfficiency') && (
-          <KPICard
-          title="Resolution Efficiency"
-          value={`${resolutionEfficiency}%`}
-          icon={<CheckCircle className="w-6 h-6 text-success-600" />}
-          trend={resolutionTrend}
-          status={resolutionEfficiency >= 70 ? "success" : "warning"}
-          subtitle={`${bugsClosed} resolved of ${totalBugs} total (${totalBugs - bugsClosed} open)`}
-          formula={`Efficiency = ${bugsClosed} / ${totalBugs} × 100`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Percentage of findings resolved relative to total reported.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Evaluates the team&apos;s effectiveness in closing incidents and maintaining product stability.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'resolutionEfficiency',
-            title: 'Resolution Efficiency Analysis',
-            data: {
-              efficiency: resolutionEfficiency,
-              total: totalBugs,
-              resolved: bugsClosed,
-              pending: totalBugs - bugsClosed
-            },
-            sparklineData: getSparklineData('resolutionEfficiency'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ efficiency: resolutionEfficiency }}
-        />
-        )}
+        {/* 4. EFICIENCIA: Eficiencia de Resolución - OCULTO */}
+        {/* Sección ocultada para resolución */}
       </div>
 
       {/* Comparación Sprint-over-Sprint */}
@@ -1345,44 +1864,75 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 
       {/* Second row of additional metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Ficha 7: Cobertura de Automatización - UNDER CONSTRUCTION */}
-        {/* Moved: Tasa de Regresión */}
+        {/* Ficha 7: Tasa de Regresión - UNDER CONSTRUCTION */}
         {isKpiVisible('regressionRate') && (
-          <KPICard
-          title="Regression Rate"
-          value={"2.4%"}
-          icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
-          trend={-3}
-          status={"success"}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Percentage of findings reopened after closure.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Indicates correction quality; high rates suggest issues in resolution or insufficient testing.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'regressionRate',
-            title: 'Regression Rate Analysis',
-            data: {
-              regressionRate: 2.4,
-              reopened: Math.round(bugsClosed * 0.024),
-              closed: bugsClosed,
-              trend: getSparklineData('regressionRate')
-            },
-            sparklineData: getSparklineData('regressionRate'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ regressionRate: 2.4 }}
-        />
+          <UnderConstructionCard
+            title="Regression Rate"
+            value={
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-orange-600">2.4%</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">regression</div>
+                </div>
+                <div className="h-12 w-px bg-gray-200"></div>
+                <div className="flex gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-warning-600">{Math.round(bugsClosed * 0.024)}</div>
+                    <div className="text-xs text-gray-500 font-normal">Reopened</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-success-600">{bugsClosed}</div>
+                    <div className="text-xs text-gray-500 font-normal">Closed</div>
+                  </div>
+                </div>
+              </div>
+            }
+            icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
+            subtitle="Findings reopened after closure"
+            help={(
+              <div>
+                <div className="font-semibold">What it measures:</div>
+                <div className="text-xs">Percentage of findings reopened after closure.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Indicates correction quality; high rates suggest issues in resolution or insufficient testing.</div>
+              </div>
+            )}
+          />
         )}
         {isKpiVisible('automatizacion') && (
           <UnderConstructionCard
           title="Automation Coverage"
-          value={`${automationData.coverage}%`}
+          value={
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">{automationData.coverage}%</div>
+                <div className="text-xs text-gray-500 font-normal mt-0.5">coverage</div>
+              </div>
+              <div className="h-12 w-px bg-gray-200"></div>
+              <div className="flex gap-3 text-sm">
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-success-600">{automationData.automated}</div>
+                  <div className="text-xs text-gray-500 font-normal">Automated</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-gray-600">{automationData.manual}</div>
+                  <div className="text-xs text-gray-500 font-normal">Manual</div>
+                </div>
+              </div>
+            </div>
+          }
           icon={<Settings className="w-6 h-6 text-purple-600" />}
-          subtitle={`${automationData.automated} automated | ${automationData.manual} manual`}
+          subtitle={
+            <div className="flex items-center gap-2">
+              <span>Test automation progress</span>
+              <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full bg-purple-500"
+                  style={{ width: `${automationData.coverage}%` }}
+                ></div>
+              </div>
+            </div>
+          }
           onClick={() => setDetailModal({
             type: 'automationCoverage',
             title: 'Automation Coverage Analysis',
@@ -1401,32 +1951,57 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
           />
         )}
         
-        {kpis.bugLeakageRate !== undefined && (
-          <UnderConstructionCard
+        {((kpis && kpis.bugLeakageRate !== undefined) || totalBugs > 0) && (
+          <KPICard
             title="Leak Rate"
-            value={`${kpis.bugLeakageRate}%`}
+            value={
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-red-600">{derivedLeakageRate}%</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">leak rate</div>
+                </div>
+                <div className="h-12 w-px bg-gray-200"></div>
+                <div className="flex gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-red-600">{totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0}</div>
+                    <div className="text-xs text-gray-500 font-normal">Production</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-gray-600">{totalBugs}</div>
+                    <div className="text-xs text-gray-500 font-normal">Total</div>
+                  </div>
+                </div>
+              </div>
+            }
             icon={<TrendingUp className="w-6 h-6 text-red-600" />}
-            subtitle="Findings in production"
+            status="warning"
+            subtitle={
+              <div className="flex items-center gap-2">
+                <span>Findings that reached production</span>
+              </div>
+            }
+            formula={`Leak Rate = ${totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0} / ${totalBugs} × 100 = ${derivedLeakageRate}%`}
+            tooltip={
+              <div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of defects detected in production versus total.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                <div className="text-xs text-gray-600">Indicates impact on real users and helps prioritize urgent fixes.</div>
+              </div>
+            }
             onClick={() => setDetailModal({
               type: 'bugLeakageRate',
               title: 'Leak Rate Analysis',
               data: {
-                leakageRate: kpis.bugLeakageRate,
-                productionBugs: data.summary?.totalBugs ? Math.round((kpis.bugLeakageRate / 100) * data.summary.totalBugs) : 0,
-                totalBugs: data.summary?.totalBugs || 0,
+                leakageRate: derivedLeakageRate,
+                productionBugs: totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0,
+                totalBugs: totalBugs || 0,
                 trend: getSparklineData('bugLeakageRate')
               },
               sparklineData: getSparklineData('bugLeakageRate'),
               sprints: filteredSprintData
             })}
-            help={(
-              <div>
-                <div className="font-semibold">What it measures:</div>
-                <div className="text-xs">Percentage of defects detected in production versus total.</div>
-                <div className="font-semibold mt-2">Why it matters:</div>
-                <div className="text-xs">Indicates impact on real users and helps prioritize urgent fixes.</div>
-              </div>
-            )}
+            detailData={{ leakageRate: derivedLeakageRate }}
           />
         )}
       </div>
@@ -1473,7 +2048,7 @@ function OverviewTab({ data, recommendations, config, setDetailModal, detailModa
 }
 
 // Mantén las otras funciones de tabs exactamente como las tienes...
-function QualityTab({ data, config, setDetailModal, detailModal }) {
+function QualityTab({ data, filteredData, sprintList, selectedSprints, handleFilterToggle, showFilters, config, setDetailModal, detailModal }) {
   const visible = config?.visibleKpis?.quality;
   return (
     <div className="space-y-8">
@@ -1481,7 +2056,13 @@ function QualityTab({ data, config, setDetailModal, detailModal }) {
       <QualityMetrics 
         data={{ ...data.kpis, ...data.qualityMetrics, summary: data.summary }} 
         visibleKeys={visible} 
-        sprintData={data.sprintData} 
+        // pass sprintData already filtered by global filters
+        sprintData={filteredData?.sprintData || data.sprintData}
+        // pass global filter controls and lists so QualityMetrics uses them
+        sprintListProp={sprintList}
+        selectedSprintsProp={selectedSprints}
+        onSprintToggleProp={(v) => handleFilterToggle('sprint', v)}
+        showFiltersProp={showFilters}
         onOpenDetail={setDetailModal}
       />
       
@@ -1566,11 +2147,48 @@ function QualityTab({ data, config, setDetailModal, detailModal }) {
   );
 }
 
-function TeamsTab({ data, setDetailModal, detailModal }) {
+function TeamsTab({ data, filteredData, setDetailModal, detailModal, config }) {
+  // Determine source of bugs and developer summary
+  const bugs = (filteredData && Array.isArray(filteredData.bugs)) ? filteredData.bugs : (data && Array.isArray(data.bugs) ? data.bugs : []);
+  // Only consider items whose issue type is 'Bug' for developer and pending counts
+  const filteredBugs = bugs.filter(b => {
+    const it = (b.tipo_incidencia || b.issueType || b.type || '').toString().toLowerCase();
+    return it === 'bug';
+  });
+
+  // If processed developerData exists, prefer it; otherwise derive from bugs
+  let developerData = (data && data.developerData && Array.isArray(data.developerData) && data.developerData.length > 0)
+    ? data.developerData
+    : null;
+
+  if (!developerData) {
+    const byDev = {};
+    // iterate only over bug-type issues
+    filteredBugs.forEach(b => {
+      const name = (b.developer || b.developer_name || b.reported || b.owner || 'Sin asignar').toString().trim() || 'Sin asignar';
+      if (!byDev[name]) byDev[name] = { name, totalBugs: 0, pending: 0, resolved: 0 };
+      byDev[name].totalBugs += 1;
+      const status = (b.status || b.estado || '').toString().toLowerCase();
+      const resolvedKeywords = ['resolved', 'closed', 'resuelto', 'cerrado'];
+      if (resolvedKeywords.some(k => status.includes(k))) {
+        byDev[name].resolved += 1;
+      } else {
+        byDev[name].pending += 1;
+      }
+    });
+
+    const maxThreshold = (config && config.thresholds && config.thresholds.maxBugsDeveloper) ? config.thresholds.maxBugsDeveloper : 15;
+    developerData = Object.values(byDev).map(d => {
+      const workload = d.pending > maxThreshold ? 'Alto' : (d.pending > Math.round(maxThreshold / 2) ? 'Medio' : 'Bajo');
+      const efficiency = d.totalBugs > 0 ? Math.round((d.resolved / d.totalBugs) * 100) : 0;
+      return { ...d, workload, efficiency };
+    }).sort((a, b) => (b.pending || 0) - (a.pending || 0));
+  }
+
   return (
     <div className="space-y-8">
-      <DeveloperAnalysis data={data.developerData} />
-      
+      <DeveloperAnalysis data={developerData} />
+
       {/* Productivity Analysis */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="executive-card">
@@ -1578,7 +2196,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
             Workload Distribution
           </h3>
           <div className="space-y-3">
-            {(data.developerData || []).map((dev, index) => (
+            {(developerData || []).map((dev, index) => (
               <div key={index} className="flex items-center">
                 <span className="w-32 text-sm font-medium text-gray-600 truncate">
                   {dev.name}
@@ -1590,7 +2208,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
                         dev.workload === 'Alto' || dev.pending > 15 ? 'bg-red-500' :
                         dev.workload === 'Medio' || dev.pending > 10 ? 'bg-yellow-500' : 'bg-green-500'
                       }`}
-                      style={{ width: `${Math.min((dev.pending / 20) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((dev.pending / Math.max(1, (config?.thresholds?.maxBugsDeveloper || 15))) * 100, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -1607,7 +2225,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
             Eficiencia por Desarrollador
           </h3>
           <div className="space-y-3">
-            {(data.developerData || []).map((dev, index) => {
+            {(developerData || []).map((dev, index) => {
               const totalBugs = dev.totalBugs || (dev.resolved + dev.pending) || dev.assigned || 0;
               const resolved = dev.resolved || 0;
               const efficiency = totalBugs > 0 ? Math.round((resolved / totalBugs) * 100) : 0;
@@ -1638,121 +2256,7 @@ function TeamsTab({ data, setDetailModal, detailModal }) {
   );
 }
 
-function TrendsTab({ data, setDetailModal, detailModal }) {
-  const sprintData = data.sprintData || data.trends?.bugsPerSprint || [];
-  
-  return (
-    <div className="space-y-8">
-      {/* Sprint Trends */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Evolución de Bugs por Sprint
-          </h3>
-          <div className="space-y-4">
-            {sprintData.map((sprint, index) => (
-              <div key={sprint.sprint || index} className="flex items-center">
-                <span className="w-16 text-sm font-medium text-gray-600">
-                  S{sprint.sprint || index + 1}:
-                </span>
-                <div className="flex-1 mx-4">
-                  <div className="bg-gray-200 rounded-full h-4 relative">
-                    <div
-                      className={`h-4 rounded-full ${
-                        sprint.bugs > 30 ? 'bg-red-500' :
-                        sprint.bugs > 20 ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min((sprint.bugs / 50) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <span className="w-16 text-sm font-medium text-gray-900">
-                  {sprint.bugs} bugs
-                </span>
-                {sprint.change !== 0 && (
-                  <span className={`w-16 text-xs ml-2 ${
-                    sprint.change > 0 ? 'text-red-600' : 'text-green-600'
-                  }`}>
-                    {sprint.change > 0 ? '+' : ''}{sprint.change}%
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          {sprintData.length > 1 && (
-            <div className="mt-6 p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center">
-                <TrendingDown className="w-5 h-5 text-green-600 mr-2" />
-                <p className="text-sm text-green-800 font-medium">
-                  Trend: {data.kpis?.sprintTrend > 0 ? 'UPWARD' : 'DOWNWARD'} 
-                  ({data.kpis?.sprintTrend || 0}%)
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Tasa de Resolución por Sprint
-          </h3>
-          <div className="space-y-4">
-            {sprintData.map((sprint, index) => {
-              const total = (sprint.bugsResolved || 0) + (sprint.bugsPending || 0);
-              const resolved = sprint.bugsResolved || 0;
-              const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
-              
-              return (
-                <div key={sprint.sprint || index} className="flex items-center">
-                  <span className="w-16 text-sm font-medium text-gray-600">
-                    S{sprint.sprint || index + 1}:
-                  </span>
-                  <div className="flex-1 mx-4">
-                    <div className="bg-gray-200 rounded-full h-4">
-                      <div
-                        className="bg-executive-500 h-4 rounded-full"
-                        style={{ width: `${rate}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="w-16 text-sm font-medium text-gray-900">
-                    {rate}%
-                  </span>
-                  <span className="w-20 text-xs text-gray-500 ml-2">
-                    {resolved}/{total}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      
-      {/* Categories Analysis */}
-      {data.bugsByCategory && (
-        <div className="executive-card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Distribution by Categories
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Object.entries(data.bugsByCategory).map(([category, categoryData]) => (
-              <div key={category} className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-executive-600 mb-1">
-                  {categoryData.count || 0}
-                </div>
-                <div className="text-xs text-gray-600 mb-1">{category}</div>
-                <div className="text-xs font-medium text-gray-900">
-                  {categoryData.percentage || 0}%
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+
 
 function RecommendationsTab({ data, setDetailModal, detailModal }) {
   // Use both existing and new recommendations

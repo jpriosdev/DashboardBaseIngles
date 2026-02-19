@@ -1,3 +1,17 @@
+#!/usr/bin/env node
+// check-team-analysis moved to temp-validation
+import fs from 'fs'
+import path from 'path'
+
+console.log('This is a moved diagnostic script (check-team-analysis).')
+try {
+  const dataPath = path.resolve(new URL(import.meta.url).pathname, '../../public/data/qa-data.json')
+  const raw = fs.readFileSync(dataPath, 'utf8')
+  const data = JSON.parse(raw)
+  console.log('Sprints:', (data.sprintData || []).length)
+} catch (e) {
+  console.error('Unable to inspect data file:', e.message)
+}
 /**
  * Script: Verificar Análisis de Equipo
  * Consulta la información agregada de desarrolladores desde bugs_detail

@@ -15,11 +15,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Import DAL después de definir __dirname
 async function main() {
   try {
-    const DAL = (await import('../lib/database/dal.js')).default;
+    const dalModule = await import('../../lib/database/dal.js');
+    const DAL = dalModule.default || dalModule;
     
-    const JSON_OUTPUT_PATH = path.join(__dirname, '..', 'public', 'data', 'qa-data.json');
+    const JSON_OUTPUT_PATH = path.join(__dirname, '..', '..', 'public', 'data', 'qa-data.json');
     const DATA_DIR = path.dirname(JSON_OUTPUT_PATH);
-    const DB_PATH = path.join(__dirname, '..', 'public', 'data', 'qa-dashboard.db');
+    const DB_PATH = path.join(__dirname, '..', '..', 'public', 'data', 'qa-dashboard.db');
 
     console.log(`📁 Workspace: ${process.cwd()}`);
     console.log(`📁 Output: ${JSON_OUTPUT_PATH}`);
@@ -51,13 +52,15 @@ async function main() {
     console.log(`✅ Datos obtenidos: ${qaData.sprintData.length} sprints`);
 
     // Agregar metadata
+    const metadata = {
+      version: '1.0',
+      source: 'sqlite',
+      generatedAt: new Date().toISOString(),
+      sprintsCount: qaData.sprintData ? qaData.sprintData.length : 0,
+    };
+    
     const outputData = {
-      metadata: {
-        version: '1.0',
-        source: 'sqlite',
-        generatedAt: new Date().toISOString(),
-        sprintsCount: qaData.sprintData.length,
-      },
+      metadata: metadata,
       ...qaData,
     };
 
@@ -66,7 +69,7 @@ async function main() {
     const sizeKB = (fs.statSync(JSON_OUTPUT_PATH).size / 1024).toFixed(2);
     console.log(`✅ JSON generado exitosamente: ${path.relative(process.cwd(), JSON_OUTPUT_PATH)}`);
     console.log(`   Tamaño: ${sizeKB} KB`);
-    console.log(`   Sprints: ${outputData.metadata.sprintsCount}`);
+    console.log(`   Sprints: ${metadata.sprintsCount}`);
 
     process.exit(0);
   } catch (error) {
