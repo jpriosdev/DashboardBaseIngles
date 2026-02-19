@@ -974,6 +974,10 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   selectedStatus, selectedPriorities, selectedDevelopers, selectedCategories,
   showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle
 }) {
+  // DEBUG: log incoming data
+  console.log('[OverviewTab] data properties:', Object.keys(data || {}).slice(0, 15));
+  console.log('[OverviewTab] bugsByMonthByPriority:', data?.bugsByMonthByPriority ? 'EXISTS' : 'MISSING');
+  
   const { kpis, summary } = data;
   // Use filtered sprint data computed at parent level
   const filteredSprintData = filteredData?.sprintData || data.sprintData || [];
@@ -1134,9 +1138,21 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     criticalBugsAlta = 0;
   }
   
-  const avgTestCasesPerSprint = filteredSprintData && filteredSprintData.length > 0
-    ? Math.round(totalTestCases / filteredSprintData.length)
-    : kpis.avgTestCasesPerSprint || 0;
+  // Calculate average test cases per MONTH (not per sprint)
+  const calculateTestCasesPerMonth = () => {
+    const testCasesByMonth = data.testCasesByMonth || {};
+    if (!testCasesByMonth || Object.keys(testCasesByMonth).length === 0) {
+      return kpis.avgTestCasesPerSprint || 0;
+    }
+    
+    const plannedPerMonth = Object.values(testCasesByMonth).map(m => m.planned || 0);
+    if (plannedPerMonth.length === 0) return 0;
+    
+    const totalPlanned = plannedPerMonth.reduce((a, b) => a + b, 0);
+    return Math.round(totalPlanned / plannedPerMonth.length);
+  };
+  
+  const avgTestCasesPerSprint = calculateTestCasesPerMonth();
   
   const resolutionEfficiency = totalBugs > 0 
     ? Math.round((bugsClosed / totalBugs) * 100) 
@@ -1146,11 +1162,39 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     ? Math.round((criticalBugsPending / totalBugs) * 100) 
     : kpis.criticalBugsRatio || 0;
 
-  // Derived execution rate based on staged/filtered sprint data when available
-  const totalPlannedTests = (filteredSprintData && filteredSprintData.length > 0)
-    ? filteredSprintData.reduce((acc, s) => acc + (s.testCasesPlanned || s.testCasesTotal || s.testCases || 0), 0)
-    : (data.summary?.testCasesTotal || 0);
-  const derivedExecutionRate = totalPlannedTests > 0 ? Math.round((totalTestCases / totalPlannedTests) * 100) : (kpis.testExecutionRate || 0);
+  // Calculate Execution Rate by MONTH (based on bugs completed / total bugs)
+  const calculateExecutionRatePerMonth = () => {
+    const executionRateByMonth = data.executionRateByMonth || {};
+    if (!executionRateByMonth || Object.keys(executionRateByMonth).length === 0) {
+      return { avg: 0, completed: 0, total: 0, months: 0 };
+    }
+
+    // Calculate average execution rate across all months
+    const rates = [];
+    let totalCompleted = 0;
+    let totalBugs = 0;
+
+    Object.values(executionRateByMonth).forEach(month => {
+      const completed = month.completed || 0;
+      const total = month.total || 0;
+      totalCompleted += completed;
+      totalBugs += total;
+      if (total > 0) {
+        rates.push(Math.round((completed / total) * 100));
+      }
+    });
+
+    const avgRate = rates.length > 0 ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+
+    return {
+      avg: avgRate,
+      completed: totalCompleted,
+      total: totalBugs,
+      months: Object.keys(executionRateByMonth).length
+    };
+  };
+
+  const executionRateData = calculateExecutionRatePerMonth();
 
   // Derived leakage rate: prefer kpis value, fallback to 0
   const derivedLeakageRate = (kpis && kpis.bugLeakageRate !== undefined) ? kpis.bugLeakageRate : 0;
@@ -1184,9 +1228,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     return planned > 0 ? Math.round((executed / planned) * 100) : 0;
   });
 
-  // Series para gráficas: executed vs planned por sprint (usadas en modal)
-  const executedSeries = (filteredSprintData || []).map(s => s.testCases || s.testCasesExecuted || 0);
-  const plannedSeries = (filteredSprintData || []).map(s => s.testCasesPlanned || s.testPlanned || 0);
+  // Series para gráficas: executed vs planned por MES (no por sprint, para series de tiempo en modal)
+  const testCasesByMonth = data.testCasesByMonth || {};
+  const monthLabels = Object.keys(testCasesByMonth).sort();
+  const executedSeries = monthLabels.map(month => testCasesByMonth[month]?.executed || 0);
+  const plannedSeries = monthLabels.map(month => testCasesByMonth[month]?.planned || 0);
 
   // 1. Cycle Time: Tiempo promedio de resolución de bugs
   const calculateCycleTime = () => {
@@ -1233,14 +1279,16 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     // Calcular Cycle Time por prioridad basado en eficiencia de resolución
     let priorityCycleTime = {};
     if (data.bugsByPriority) {
-      const masAltaTotal = data.bugsByPriority['Más alta']?.count || 0;
-      const masAltaResolved = data.bugsByPriority['Más alta']?.resolved || 0;
-      const altaTotal = data.bugsByPriority['Alta']?.count || 0;
-      const altaResolved = data.bugsByPriority['Alta']?.resolved || 0;
-      const mediaTotal = data.bugsByPriority['Media']?.count || 0;
-      const mediaResolved = data.bugsByPriority['Media']?.resolved || 0;
-      const bajaTotal = data.bugsByPriority['Baja']?.count || 0;
-      const bajaResolved = data.bugsByPriority['Baja']?.resolved || 0;
+      const masAltaTotal = data.bugsByPriority['Highest']?.count || 0;
+      const masAltaResolved = data.bugsByPriority['Highest']?.resolved || 0;
+      const altaTotal = data.bugsByPriority['High']?.count || 0;
+      const altaResolved = data.bugsByPriority['High']?.resolved || 0;
+      const mediaTotal = data.bugsByPriority['Medium']?.count || 0;
+      const mediaResolved = data.bugsByPriority['Medium']?.resolved || 0;
+      const bajaTotal = data.bugsByPriority['Low']?.count || 0;
+      const bajaResolved = data.bugsByPriority['Low']?.resolved || 0;
+      const trivialTotal = data.bugsByPriority['Lowest']?.count || 0;
+      const trivialResolved = data.bugsByPriority['Lowest']?.resolved || 0;
       
       // Calcular cycle time por prioridad: (bugs pendientes / bugs resueltos) × promedio de días
       // Para "Más alta" debería ser más rápido (menos días)
@@ -1259,6 +1307,10 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       priorityCycleTime.low = bajaResolved > 0 
         ? Math.round(((bajaTotal - bajaResolved) / bajaResolved * 21) * 10) / 10  // 21 días para baja
         : Math.round(avgCycleTime * 1.5);
+      
+      priorityCycleTime.trivial = trivialResolved > 0
+        ? Math.round(((trivialTotal - trivialResolved) / trivialResolved * 28) * 10) / 10  // 28 días para trivial
+        : Math.round(avgCycleTime * 2);
     } else {
       // Fallback si no hay datos
       priorityCycleTime = {
@@ -1312,26 +1364,31 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   const automationData = calculateAutomationCoverage();
   
   // 2. Defect Density: Densidad de defectos por sprint (datos reales)
-  const calculateDefectDensityPerSprint = () => {
-    if (!filteredSprintData || filteredSprintData.length === 0) return { avg: 0, total: 0, max: 0, min: 0 };
+  const calculateDefectDensityPerMonth = () => {
+    const bugsByMonth = data.bugsByMonth || {};
+    if (!bugsByMonth || Object.keys(bugsByMonth).length === 0) {
+      return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
+    }
     
-    // Usar datos reales de bugs por sprint (excluye Sugerencias)
-    const bugsPerSprint = filteredSprintData.map(s => s.bugs || 0);
-    const totalBugsInSprints = bugsPerSprint.reduce((acc, bugs) => acc + bugs, 0);
-    const avgBugsPerSprint = totalBugsInSprints / filteredSprintData.length;
-    const maxBugs = Math.max(...bugsPerSprint);
-    const minBugs = Math.min(...bugsPerSprint);
+    // Usar datos de bugs por mes
+    const bugsPerMonth = Object.values(bugsByMonth).map(m => m.count || 0);
+    if (bugsPerMonth.length === 0) return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
+    
+    const totalBugs = bugsPerMonth.reduce((acc, bugs) => acc + bugs, 0);
+    const avgBugsPerMonth = totalBugs / bugsPerMonth.length;
+    const maxBugs = Math.max(...bugsPerMonth);
+    const minBugs = Math.min(...bugsPerMonth);
     
     return {
-      avg: Math.round(avgBugsPerSprint * 10) / 10, // Redondear a 1 decimal
-      total: totalBugsInSprints,
+      avg: Math.round(avgBugsPerMonth * 10) / 10, // Redondear a 1 decimal
+      total: totalBugs,
       max: maxBugs,
       min: minBugs,
-      sprints: filteredSprintData.length
+      months: bugsPerMonth.length
     };
   };
   
-  const defectDensityData = calculateDefectDensityPerSprint();
+  const defectDensityData = calculateDefectDensityPerMonth();
 
   // Calcular datos de sparkline para cada métrica
   const getSparklineData = (metric) => {
@@ -1433,18 +1490,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         {/* 1. COBERTURA: Media de Casos */}
         {isKpiVisible('cobertura') && (
           <KPICard
-          title="Average Test Cases Executed per Sprint"
+          title="Test Cases designed"
           value={
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600">{avgTestCasesPerSprint}</div>
-                <div className="text-xs text-gray-500 font-normal mt-0.5">avg/sprint</div>
-              </div>
-              <div className="h-12 w-px bg-gray-200"></div>
-              <div className="text-center">
-                <div className="text-xl font-semibold text-gray-700">{totalTestCases}</div>
-                <div className="text-xs text-gray-500 font-normal">Total Executed</div>
-              </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600">{totalTestCases}</div>
+              <div className="text-xs text-gray-500 font-normal mt-0.5">Total Designed</div>
             </div>
           }
           icon={<Activity className="w-6 h-6 text-blue-600" />}
@@ -1452,7 +1502,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           status={avgTestCasesPerSprint >= 170 ? "success" : "warning"}
           subtitle={
             <div className="flex items-center gap-2">
-              <span>{filteredSprintData?.length || 0} sprints analyzed</span>
+              <span>{monthLabels?.length || 0} months analyzed</span>
               <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div 
                   className={`h-full rounded-full ${avgTestCasesPerSprint >= 170 ? 'bg-success-500' : 'bg-warning-500'}`}
@@ -1461,25 +1511,28 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               </div>
             </div>
           }
-          formula={`Average = ${totalTestCases} / ${filteredSprintData?.length || 1} = ${avgTestCasesPerSprint}`}
+          formula={`Average = ${totalTestCases} / ${monthLabels?.length || 1} = ${avgTestCasesPerSprint}`}
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average number of test cases executed per sprint.</div>
+              <div className="text-xs text-gray-600 mb-2">Average number of test cases designed per month (calculated from month-year data).</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Measures the productivity of the test team and helps dimension planning and coverage per sprint.</div>
+              <div className="text-xs text-gray-600">Measures the test planning and design capacity of the QA team on a monthly basis and helps identify trends in test case creation and specification.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'testCases',
-            title: 'Analysis of Executed Test Cases',
+            title: 'Analysis of Test Cases designed by Month',
             data: {
               avg: avgTestCasesPerSprint,
               total: totalTestCases,
-              sprints: filteredSprintData?.length || 0
+              months: monthLabels?.length || 0,
+              plannedSeries: plannedSeries,
+              executedSeries: executedSeries
             },
-            sparklineData: getSparklineData('testCases'),
-            sprints: filteredSprintData
+            sparklineData: plannedSeries,
+            sprints: monthLabels.map(month => ({ sprint: month })),
+            monthLabels: monthLabels
           })}
           detailData={{ avg: avgTestCasesPerSprint, total: totalTestCases }}
         />
@@ -1488,12 +1541,12 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         {/* 2. PRODUCT QUALITY: Finding Density */}
         {isKpiVisible('densidad') && (
           <KPICard
-          title="Finding Density per Sprint"
+          title="Finding Density per Month"
           value={
             <div className="flex items-center gap-3">
               <div className="text-center">
                 <div className="text-3xl font-bold text-orange-600">{defectDensityData.avg}</div>
-                <div className="text-xs text-gray-500 font-normal mt-0.5">findings/sprint</div>
+                <div className="text-xs text-gray-500 font-normal mt-0.5">findings/month</div>
               </div>
               <div className="h-12 w-px bg-gray-200"></div>
               <div className="flex gap-3 text-sm">
@@ -1513,24 +1566,25 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           status={defectDensityData.avg <= 20 ? "success" : defectDensityData.avg <= 30 ? "warning" : "danger"}
           subtitle={
             <div className="flex items-center gap-2">
-              <span>{defectDensityData.total} findings in {defectDensityData.sprints} sprints</span>
+              <span>{defectDensityData.total} findings in {defectDensityData.months} months</span>
             </div>
           }
-          formula={`Average = ${defectDensityData.total} / ${defectDensityData.sprints} = ${defectDensityData.avg}`}
+          formula={`Average = ${defectDensityData.total} / ${defectDensityData.months} = ${defectDensityData.avg}`}
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average findings detected per sprint. Target: ≤20 findings/sprint.</div>
+              <div className="text-xs text-gray-600 mb-2">Average findings detected per month. Target: ≤20 findings/month.</div>
               <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Indicates product quality; high values suggest reviewing development, testing or requirements.</div>
+              <div className="text-xs text-gray-600">Indicates product quality over time; trends help identify improvements in development and testing processes.</div>
             </div>
           }
           onClick={() => setDetailModal({
             type: 'defectDensity',
-            title: 'Analysis of Finding Density per Sprint',
+            title: 'Analysis of Finding Density per Month',
             data: defectDensityData,
-            sparklineData: getSparklineData('defectDensity'),
-            sprints: filteredSprintData
+            sparklineData: Object.keys(data.bugsByMonth || {}).sort().map(month => (data.bugsByMonth[month]?.count || 0)),
+            sprints: monthLabels.map(month => ({ sprint: month })),
+            monthLabels: monthLabels
           })}
           detailData={defectDensityData}
         />
@@ -1543,60 +1597,60 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             value={
               <div className="flex items-center gap-3">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600">{derivedExecutionRate || 0}%</div>
-                  <div className="text-xs text-gray-500 font-normal mt-0.5">execution</div>
+                  <div className="text-3xl font-bold text-blue-600">{executionRateData.avg || 0}%</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">avg execution</div>
                 </div>
                 <div className="h-12 w-px bg-gray-200"></div>
                 <div className="flex gap-3 text-sm">
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-success-600">{totalTestCases}</div>
-                    <div className="text-xs text-gray-500 font-normal">Executed</div>
+                    <div className="text-xl font-semibold text-success-600">{executionRateData.completed}</div>
+                    <div className="text-xs text-gray-500 font-normal">Completed</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-gray-600">{totalPlannedTests}</div>
-                    <div className="text-xs text-gray-500 font-normal">Planned</div>
+                    <div className="text-xl font-semibold text-gray-600">{executionRateData.total}</div>
+                    <div className="text-xs text-gray-500 font-normal">Total Bugs</div>
                   </div>
                 </div>
               </div>
             }
             icon={<Activity className="w-6 h-6 text-blue-600" />}
             trend={executionTrend}
-            status={derivedExecutionRate >= 95 ? 'success' : derivedExecutionRate >= 80 ? 'warning' : 'danger'}
+            status={executionRateData.avg >= 95 ? 'success' : executionRateData.avg >= 80 ? 'warning' : 'danger'}
             subtitle={
               <div className="flex items-center gap-2">
-                <span>Coverage progress</span>
+                <span>{executionRateData.months} months analyzed</span>
                 <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div 
-                    className={`h-full rounded-full ${derivedExecutionRate >= 95 ? 'bg-success-500' : derivedExecutionRate >= 80 ? 'bg-warning-500' : 'bg-danger-500'}`}
-                    style={{ width: `${derivedExecutionRate}%` }}
+                    className={`h-full rounded-full ${executionRateData.avg >= 95 ? 'bg-success-500' : executionRateData.avg >= 80 ? 'bg-warning-500' : 'bg-danger-500'}`}
+                    style={{ width: `${executionRateData.avg}%` }}
                   ></div>
                 </div>
               </div>
             }
-            formula={`Execution = ${totalTestCases} / ${totalPlannedTests} × 100 = ${derivedExecutionRate}%`}
+            formula={`Execution Rate = ${executionRateData.completed} / ${executionRateData.total} × 100 = ${executionRateData.avg}%`}
             tooltip={(
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                <div className="text-xs text-gray-600 mb-2">Percentage of test cases executed relative to planned test cases.</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of bugs completed (Ready For QA, Ready For Release, Released, Closed) out of total bugs tracked.</div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-                <div className="text-xs text-gray-600">Shows how much of the planned testing was actually executed; helps detect slippage.</div>
+                <div className="text-xs text-gray-600">Shows the progress in closing bugs; higher rates indicate better bug resolution velocity and quality control.</div>
               </div>
             )}
             onClick={() => setDetailModal({
               type: 'testExecutionRate',
-              title: 'Analysis of Execution Rate',
+              title: 'Analysis of Execution Rate (Monthly Trend)',
               data: {
-                executionRate: derivedExecutionRate,
-                executed: totalTestCases,
-                planned: totalPlannedTests,
-                trend: getSparklineData('executionRate'),
-                executedSeries: executedSeries,
-                plannedSeries: plannedSeries
+                executionRate: executionRateData.avg,
+                completed: executionRateData.completed,
+                total: executionRateData.total,
+                months: executionRateData.months,
+                executionRateByMonth: data.executionRateByMonth || {}
               },
-              sparklineData: getSparklineData('executionRate'),
-              sprints: filteredSprintData
+              sparklineData: monthLabels.map(month => (data.executionRateByMonth?.[month]?.rate || 0)),
+              sprints: monthLabels.map(month => ({ sprint: month })),
+              monthLabels: monthLabels
             })}
-            detailData={{ executed: totalTestCases, planned: totalPlannedTests }}
+            detailData={{ completed: executionRateData.completed, total: executionRateData.total }}
           />
         )}
       </div>
@@ -1604,9 +1658,9 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       {/* Main and tracking metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {isKpiVisible('bugsCriticos') && (() => {
-          // Obtener Major y Trivial desde bugsByPriority
-          const majorCount = (data.bugsByPriority?.['Major']?.count || 0);
-          const trivialCount = (data.bugsByPriority?.['Trivial']?.count || 0);
+          // Obtener Highest+High (Critical) y Low+Lowest (Low Priority) desde bugsByPriority
+          const criticalCount = (data.bugsByPriority?.['Highest']?.count || 0) + (data.bugsByPriority?.['High']?.count || 0);
+          const lowPriorityCount = (data.bugsByPriority?.['Low']?.count || 0) + (data.bugsByPriority?.['Lowest']?.count || 0);
           
           return (
             <KPICard
@@ -1620,12 +1674,12 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   <div className="h-12 w-px bg-gray-200"></div>
                   <div className="flex gap-3 text-sm">
                     <div className="text-center">
-                      <div className="text-xl font-semibold text-danger-600">{majorCount}</div>
-                      <div className="text-xs text-gray-500 font-normal">Major</div>
+                      <div className="text-xl font-semibold text-danger-600">{criticalCount}</div>
+                      <div className="text-xs text-gray-500 font-normal">Critical</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-xl font-semibold text-blue-600">{trivialCount}</div>
-                      <div className="text-xs text-gray-500 font-normal">Trivial</div>
+                      <div className="text-xl font-semibold text-blue-600">{lowPriorityCount}</div>
+                      <div className="text-xs text-gray-500 font-normal">Low Priority</div>
                     </div>
                   </div>
                 </div>
@@ -1638,30 +1692,32 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   <span>Breakdown by priority level</span>
                 </div>
               }
-              formula={`Total = ${majorCount} Major + ${trivialCount} Trivial`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Total number of findings regardless of priority level.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Provides a complete overview of all issues that need to be tracked and resolved.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'criticalBugs',
-            title: 'Analysis of Findings Detected',
-            data: {
-              total: totalBugs,
-              highest: criticalBugsMasAlta,
-              high: criticalBugsAlta,
-              trivial: trivialBugs,
-              totalBugs: totalBugs,
-              allPriorities: data.bugsByPriority
-            },
-            sparklineData: getSparklineData('criticalBugs'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ total: criticalBugsTotal }}
+              formula={`Total = ${criticalCount} Critical (Highest+High) + ${lowPriorityCount} Low (Low+Lowest)`}
+              tooltip={
+                <div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                  <div className="text-xs text-gray-600 mb-2">Total number of findings (bugs) detected, classified by priority: Critical (Highest+High) and Low Priority (Low+Lowest).</div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                  <div className="text-xs text-gray-600">Provides a complete overview of all issues and their severity levels, helping prioritize resolution efforts.</div>
+                </div>
+              }
+              onClick={() => setDetailModal({
+                type: 'criticalBugs',
+                title: 'Analysis of Findings Detected',
+                data: {
+                  total: totalBugs,
+                  critical: criticalCount,
+                  medium: data.bugsByPriority?.['Medium']?.count || 0,
+                  lowPriority: lowPriorityCount,
+                  totalBugs: totalBugs,
+                  allPriorities: data.bugsByPriority,
+                  trendData: data.bugsByMonth,
+                  trendDataByPriority: data.bugsByMonthByPriority
+                },
+                sparklineData: getSparklineData('criticalBugs'),
+                sprints: filteredSprintData
+              })}
+              detailData={{ total: totalBugs, critical: criticalCount }}
             />
           );
         })()}
@@ -1733,6 +1789,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                 </div>
               }
               onClick={() => {
+                console.log('[Findings Status] data.bugsByMonthByPriority:', data.bugsByMonthByPriority);
                 setDetailModal({
                   type: 'criticalBugsStatus',
                   title: 'Findings Status',
@@ -1742,6 +1799,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                     resolved: totalResolved,
                     canceled: totalCanceled,
                     allPriorities: data.bugsByPriority,
+                    trendDataByPriority: data.bugsByMonthByPriority || {},
                     masAlta: criticalBugsMasAlta,
                     alta: criticalBugsAlta
                   },
@@ -1797,67 +1855,8 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           />
         )}
         
-        {/* 4. EFICIENCIA: Eficiencia de Resolución */}
-        {isKpiVisible('resolutionEfficiency') && (
-          <KPICard
-          title="Resolution Efficiency"
-          value={
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-success-600">{resolutionEfficiency}%</div>
-                <div className="text-xs text-gray-500 font-normal mt-0.5">efficiency</div>
-              </div>
-              <div className="h-12 w-px bg-gray-200"></div>
-              <div className="flex gap-3 text-sm">
-                <div className="text-center">
-                  <div className="text-xl font-semibold text-success-600">{bugsClosed}</div>
-                  <div className="text-xs text-gray-500 font-normal">Resolved</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl font-semibold text-warning-600">{totalBugs - bugsClosed}</div>
-                  <div className="text-xs text-gray-500 font-normal">Open</div>
-                </div>
-              </div>
-            </div>
-          }
-          icon={<CheckCircle className="w-6 h-6 text-success-600" />}
-          trend={resolutionTrend}
-          status={resolutionEfficiency >= 70 ? "success" : "warning"}
-          subtitle={
-            <div className="flex items-center gap-2">
-              <span>of {totalBugs} total findings</span>
-              <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full rounded-full ${resolutionEfficiency >= 70 ? 'bg-success-500' : 'bg-warning-500'}`}
-                  style={{ width: `${resolutionEfficiency}%` }}
-                ></div>
-              </div>
-            </div>
-          }
-          formula={`Efficiency = ${bugsClosed} / ${totalBugs} × 100 = ${resolutionEfficiency}%`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Percentage of findings resolved relative to total reported.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Evaluates the team&apos;s effectiveness in closing incidents and maintaining product stability.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'resolutionEfficiency',
-            title: 'Resolution Efficiency Analysis',
-            data: {
-              efficiency: resolutionEfficiency,
-              total: totalBugs,
-              resolved: bugsClosed,
-              pending: totalBugs - bugsClosed
-            },
-            sparklineData: getSparklineData('resolutionEfficiency'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ efficiency: resolutionEfficiency }}
-        />
-        )}
+        {/* 4. EFICIENCIA: Eficiencia de Resolución - OCULTO */}
+        {/* Sección ocultada para resolución */}
       </div>
 
       {/* Comparación Sprint-over-Sprint */}
@@ -1865,67 +1864,41 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
 
       {/* Second row of additional metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Ficha 7: Cobertura de Automatización - UNDER CONSTRUCTION */}
-        {/* Moved: Tasa de Regresión */}
-        {isKpiVisible('regressionRate') && (() => {
-          const regressionRate = 2.4;
-          const reopenedBugs = Math.round(bugsClosed * 0.024);
-          
-          return (
-            <KPICard
-              title="Regression Rate"
-              value={
-                <div className="flex items-center gap-3">
+        {/* Ficha 7: Tasa de Regresión - UNDER CONSTRUCTION */}
+        {isKpiVisible('regressionRate') && (
+          <UnderConstructionCard
+            title="Regression Rate"
+            value={
+              <div className="flex items-center gap-3">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-orange-600">2.4%</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">regression</div>
+                </div>
+                <div className="h-12 w-px bg-gray-200"></div>
+                <div className="flex gap-3 text-sm">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-orange-600">{regressionRate}%</div>
-                    <div className="text-xs text-gray-500 font-normal mt-0.5">regression</div>
+                    <div className="text-xl font-semibold text-warning-600">{Math.round(bugsClosed * 0.024)}</div>
+                    <div className="text-xs text-gray-500 font-normal">Reopened</div>
                   </div>
-                  <div className="h-12 w-px bg-gray-200"></div>
-                  <div className="flex gap-3 text-sm">
-                    <div className="text-center">
-                      <div className="text-xl font-semibold text-warning-600">{reopenedBugs}</div>
-                      <div className="text-xs text-gray-500 font-normal">Reopened</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-semibold text-success-600">{bugsClosed}</div>
-                      <div className="text-xs text-gray-500 font-normal">Closed</div>
-                    </div>
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-success-600">{bugsClosed}</div>
+                    <div className="text-xs text-gray-500 font-normal">Closed</div>
                   </div>
                 </div>
-              }
-              icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
-              trend={-3}
-              status={"success"}
-              subtitle={
-                <div className="flex items-center gap-2">
-                  <span>Findings reopened after closure</span>
-                </div>
-              }
-              formula={`Regression = ${reopenedBugs} / ${bugsClosed} × 100 = ${regressionRate}%`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Percentage of findings reopened after closure.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Indicates correction quality; high rates suggest issues in resolution or insufficient testing.</div>
-            </div>
-          }
-          onClick={() => setDetailModal({
-            type: 'regressionRate',
-            title: 'Regression Rate Analysis',
-            data: {
-              regressionRate: 2.4,
-              reopened: Math.round(bugsClosed * 0.024),
-              closed: bugsClosed,
-              trend: getSparklineData('regressionRate')
-            },
-            sparklineData: getSparklineData('regressionRate'),
-            sprints: filteredSprintData
-          })}
-          detailData={{ regressionRate: 2.4 }}
-            />
-          );
-        })()}
+              </div>
+            }
+            icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
+            subtitle="Findings reopened after closure"
+            help={(
+              <div>
+                <div className="font-semibold">What it measures:</div>
+                <div className="text-xs">Percentage of findings reopened after closure.</div>
+                <div className="font-semibold mt-2">Why it matters:</div>
+                <div className="text-xs">Indicates correction quality; high rates suggest issues in resolution or insufficient testing.</div>
+              </div>
+            )}
+          />
+        )}
         {isKpiVisible('automatizacion') && (
           <UnderConstructionCard
           title="Automation Coverage"
@@ -1979,7 +1952,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         )}
         
         {((kpis && kpis.bugLeakageRate !== undefined) || totalBugs > 0) && (
-          <UnderConstructionCard
+          <KPICard
             title="Leak Rate"
             value={
               <div className="flex items-center gap-3">
@@ -2001,9 +1974,19 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               </div>
             }
             icon={<TrendingUp className="w-6 h-6 text-red-600" />}
+            status="warning"
             subtitle={
               <div className="flex items-center gap-2">
                 <span>Findings that reached production</span>
+              </div>
+            }
+            formula={`Leak Rate = ${totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0} / ${totalBugs} × 100 = ${derivedLeakageRate}%`}
+            tooltip={
+              <div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of defects detected in production versus total.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                <div className="text-xs text-gray-600">Indicates impact on real users and helps prioritize urgent fixes.</div>
               </div>
             }
             onClick={() => setDetailModal({
@@ -2018,14 +2001,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               sparklineData: getSparklineData('bugLeakageRate'),
               sprints: filteredSprintData
             })}
-            help={(
-              <div>
-                <div className="font-semibold">What it measures:</div>
-                <div className="text-xs">Percentage of defects detected in production versus total.</div>
-                <div className="font-semibold mt-2">Why it matters:</div>
-                <div className="text-xs">Indicates impact on real users and helps prioritize urgent fixes.</div>
-              </div>
-            )}
+            detailData={{ leakageRate: derivedLeakageRate }}
           />
         )}
       </div>

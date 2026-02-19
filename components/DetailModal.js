@@ -54,18 +54,18 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       );
     }
-    // If there are few sprints, show warning
+    // If there are few months, show warning
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Select more sprints in the filter.
+            <strong>Note:</strong> {label} requires multiple months to show trend. More data needed.
           </p>
         </div>
       );
     }
     
-    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
+    const labels = sprints.map(s => s.sprint || s.name || 'Month');
     
     // Construir datasets locales a partir del prop `chartData`
     const datasetsLocal = Array.isArray(chartData) ? [{ label, data: chartData, color }] : (chartData && Array.isArray(chartData.datasets) ? chartData.datasets : [{ label, data: chartData || [], color }]);
@@ -169,7 +169,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           display: true,
           title: {
             display: true,
-            text: 'Sprints',
+            text: 'Months',
             font: {
               size: 11,
               weight: 'bold'
@@ -222,18 +222,18 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   const TrendChartWithTargets = ({ datasets, label, sprints, yAxisLabel = 'Días', targets = {} }) => {
     if (!datasets || datasets.length === 0) return null;
     
-    // Si hay pocos sprints, mostrar advertencia
+    // Si hay pocos meses, mostrar advertencia
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Available sprints: {sprints?.length || 0}
+            <strong>Note:</strong> {label} requires multiple months to show trend. Available months: {sprints?.length || 0}
           </p>
         </div>
       );
     }
     
-    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
+    const labels = sprints.map(s => s.sprint || s.name || 'Month');
     
     const validDatasets = datasets
       .filter(dataset => dataset.data && dataset.data.length > 0)
@@ -333,7 +333,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           display: true,
           title: {
             display: true,
-            text: 'Sprints',
+            text: 'Months',
             font: {
               size: 11,
               weight: 'bold'
@@ -366,12 +366,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   const TrendChartMultiple = ({ datasets, label, sprints, yAxisLabel = 'Valor', isPercentage = false }) => {
     if (!datasets || datasets.length === 0) return null;
     
-    // Si hay pocos sprints, mostrar advertencia
+    // Si hay pocos meses, mostrar advertencia
     if (!sprints || sprints.length < 2) {
       return (
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
           <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> {label} requires multiple sprints to show trend. Available sprints: {sprints?.length || 0}
+            <strong>Note:</strong> {label} requires multiple months to show trend. Available months: {sprints?.length || 0}
           </p>
         </div>
       );
@@ -457,7 +457,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           display: true,
           title: {
             display: true,
-            text: 'Sprints',
+            text: 'Months',
             font: {
               size: 12,
               weight: 'bold'
@@ -513,9 +513,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   };
 
   // Specialized chart: Executed vs Planned with percent tooltip
-  const ExecutionComparisonChart = ({ executed = [], planned = [], sprints = [] }) => {
+  const ExecutionComparisonChart = ({ executed = [], planned = [], sprints = [], monthLabels = null }) => {
     if (!sprints || sprints.length === 0) return null;
-    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
+    // Use monthLabels if provided (for month-based data), otherwise use sprint names
+    const labels = monthLabels && monthLabels.length > 0 
+      ? monthLabels 
+      : sprints.map(s => s.sprint || s.name || 'Sprint');
 
     const chartConfig = {
       labels,
@@ -566,7 +569,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         }
       },
       scales: {
-        x: { display: true, title: { display: true, text: 'Sprints' } },
+        x: { display: true, title: { display: true, text: monthLabels ? 'Month-Year' : 'Months' } },
         y: {
           display: true,
           title: { display: true, text: 'Cases' },
@@ -684,7 +687,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartWithTargets 
             datasets={datasets} 
-            label="Evolution of Resolution Time by Sprint" 
+            label="Evolution of Resolution Time by Month" 
             sprints={sprints} 
             yAxisLabel="Days"
             targets={targets}
@@ -811,7 +814,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Gráfico de tendencia */}
       {data.trend && data.trend.length > 0 && (
         <div>
-          <h4 className="font-semibold text-gray-800 mb-3">Automation Coverage Evolution by Sprint</h4>
+          <h4 className="font-semibold text-gray-800 mb-3">Automation Coverage Evolution by Month</h4>
           <TrendChartMultiple 
             datasets={[{ 
               label: 'Automation Coverage', 
@@ -916,9 +919,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Resumen general */}
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
         <h3 className="text-2xl font-bold text-orange-600 mb-2">
-          {data.avg} bugs/sprint
+          {data.avg} bugs/month
         </h3>
-        <p className="text-sm text-gray-600">Average bugs detected per sprint</p>
+        <p className="text-sm text-gray-600">Average bugs detected per month</p>
       </div>
 
       {/* Key metrics */}
@@ -926,17 +929,17 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Total Bugs</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
-          <div className="text-xs text-gray-500 mt-1">En {data.sprints} sprints</div>
+          <div className="text-xs text-gray-500 mt-1">En {data.months} months</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Maximum</div>
           <div className="text-2xl font-bold text-danger-600">{data.max}</div>
-          <div className="text-xs text-gray-500 mt-1">Worst sprint</div>
+          <div className="text-xs text-gray-500 mt-1">Worst month</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
           <div className="text-sm text-gray-600 mb-1">Minimum</div>
           <div className="text-2xl font-bold text-success-600">{data.min}</div>
-          <div className="text-xs text-gray-500 mt-1">Best sprint</div>
+          <div className="text-xs text-gray-500 mt-1">Best month</div>
         </div>
       </div>
 
@@ -949,7 +952,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
               <CheckCircle className="w-5 h-5 text-success-600 mt-0.5 mr-3 flex-shrink-0" />
               <div>
                 <div className="font-medium text-success-900">Exceptional Quality</div>
-                <div className="text-sm text-success-700">Low defect density per sprint. Development process is robust and quality practices are effective.</div>
+                <div className="text-sm text-success-700">Low defect density per month. Development process is robust and quality practices are effective.</div>
               </div>
             </div>
           )}
@@ -1003,28 +1006,28 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="p-3 bg-success-50 rounded-lg">
             <div className="text-xs text-success-700 font-medium mb-1">Excellent</div>
             <div className="text-sm font-bold text-success-600">≤ 15</div>
-            <div className="text-xs text-success-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-success-600 mt-1">bugs/month</div>
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <div className="text-xs text-blue-700 font-medium mb-1">Good</div>
             <div className="text-sm font-bold text-blue-600">16 - 25</div>
-            <div className="text-xs text-blue-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-blue-600 mt-1">bugs/month</div>
           </div>
           <div className="p-3 bg-warning-50 rounded-lg">
             <div className="text-xs text-warning-700 font-medium mb-1">Needs Improvement</div>
             <div className="text-sm font-bold text-warning-600">26 - 35</div>
-            <div className="text-xs text-warning-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-warning-600 mt-1">bugs/month</div>
           </div>
           <div className="p-3 bg-danger-50 rounded-lg">
             <div className="text-xs text-danger-700 font-medium mb-1">Critical</div>
             <div className="text-sm font-bold text-danger-600">&gt; 35</div>
-            <div className="text-xs text-danger-600 mt-1">bugs/sprint</div>
+            <div className="text-xs text-danger-600 mt-1">bugs/month</div>
           </div>
         </div>
       </div>
       
       {/* Gráfico de tendencia */}
-      <TrendChart data={sparklineData} label="Bug Evolution by Sprint" color="#f97316" sprints={sprints} yAxisLabel="Bugs" />
+      <TrendChart data={sparklineData} label="Bug Evolution by Month" color="#f97316" sprints={sprints} yAxisLabel="Bugs" />
 
       {/* Recommended actions */}
       <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -1063,19 +1066,19 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     <div className="space-y-6">
       <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
         <h3 className="text-2xl font-bold text-blue-600 mb-2">
-          {data.avg} test cases/sprint
+          {data.avg} test cases/month
         </h3>
-        <p className="text-sm text-gray-600">Average test cases executed per sprint</p>
+        <p className="text-sm text-gray-600">Average test cases designed per month</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-600 mb-1">Total Executed</div>
+            <div className="text-sm text-gray-600 mb-1">Total Designed</div>
           <div className="text-2xl font-bold text-gray-900">{data.total}</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-600 mb-1">Sprints Analyzed</div>
-          <div className="text-2xl font-bold text-gray-900">{data.sprints}</div>
+            <div className="text-sm text-gray-600 mb-1">Months Analyzed</div>
+          <div className="text-2xl font-bold text-gray-900">{data.months}</div>
         </div>
       </div>
 
@@ -1110,8 +1113,21 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
       
-      {/* Trend chart */}
-      <TrendChart data={sparklineData} label="Evolution of Executed Test Cases by Sprint" color="#60a5fa" sprints={sprints} yAxisLabel="Cases" />
+      {/* Trend chart - Designed Test Cases */}
+      <TrendChart data={sparklineData} label="Evolution of Test Cases Designed by Month" color="#60a5fa" sprints={sprints} yAxisLabel="Cases" />
+
+      {/* Planned vs Executed Comparison Chart */}
+      {data.plannedSeries && data.executedSeries && sprints && sprints.length > 0 && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <h4 className="font-semibold text-gray-800 mb-3">Test Cases by Month - Planned vs Executed</h4>
+          <ExecutionComparisonChart
+            planned={data.plannedSeries}
+            executed={data.executedSeries}
+            sprints={sprints}
+            monthLabels={modal.monthLabels}
+          />
+        </div>
+      )}
 
       {/* Recommendations (test cases) */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -1337,7 +1353,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <TrendChart
             data={sparklineData}
-            label="Regression Rate by Sprint"
+            label="Regression Rate by Month"
             color="#f97316"
             sprints={sprints}
             yAxisLabel="%"
@@ -1366,36 +1382,34 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <h3 className="text-2xl font-bold text-blue-600 mb-2">
           {data.executionRate}%
         </h3>
-        <p className="text-sm text-gray-600">Test case execution rate</p>
+        <p className="text-sm text-gray-600">Average Bug Completion Rate (Monthly)</p>
       </div>
 
-      {/* Métricas de detalles */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Métricas de detalles - Monthly Summary */}
+      <div className="grid grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-600">Executed</span>
-              <CheckCircle className="w-4 h-4 text-success-500" />
-            </div>
-          <div className="flex items-baseline">
-            <span className="text-2xl font-bold text-gray-900">{data.executed || 0}</span>
-          </div>
+          <div className="text-sm text-gray-600 mb-1">Total Completed</div>
+          <div className="text-2xl font-bold text-gray-900">{data.completed || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">across {data.months} months</div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-600">Planned</span>
-            <Target className="w-4 h-4 text-blue-500" />
-          </div>
-          <div className="flex items-baseline">
-            <span className="text-2xl font-bold text-gray-900">{data.planned || 0}</span>
-          </div>
+          <div className="text-sm text-gray-600 mb-1">Total Bugs</div>
+          <div className="text-2xl font-bold text-gray-900">{data.total || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">across {data.months} months</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+          <div className="text-sm text-gray-600 mb-1">Avg Rate</div>
+          <div className="text-2xl font-bold text-blue-600">{data.executionRate}%</div>
+          <div className="text-xs text-gray-500 mt-1">per month</div>
         </div>
       </div>
 
       {/* Barra de progreso */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Execution Coverage</span>
+          <span className="text-sm font-medium text-gray-700">Average Bug Completion Coverage</span>
           <span className="text-sm font-bold text-blue-600">{data.executionRate}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -1404,6 +1418,20 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             style={{ width: `${Math.min(data.executionRate, 100)}%` }}
           ></div>
         </div>
+        <p className="text-xs text-gray-600 mt-2">
+          Monthly average: {data.completed} completed / {data.total} total = {data.executionRate}%
+        </p>
+      </div>
+
+      {/* Monthly Trend Analysis */}
+      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+        <h4 className="font-semibold text-purple-900 mb-2 flex items-center">
+          <Activity className="w-4 h-4 mr-2" />
+          Monthly Trend
+        </h4>
+        <p className="text-sm text-purple-800 mb-3">
+          Bug completion rate tracked by month-year. Each point represents the % of bugs completed (Ready For QA, Ready For Release, Released, Closed) for that month.
+        </p>
       </div>
 
       {/* Interpretation */}
@@ -1415,45 +1443,34 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="text-sm text-blue-800 space-y-1">
           {data.executionRate >= 95 && (
             <>
-              <p>✓ <strong>Excellent:</strong> Above 95% coverage is the ideal target.</p>
-              <p>Almost all planned test cases are being executed.</p>
+              <p>✓ <strong>Excellent:</strong> Above 95% completion rate is the ideal target.</p>
+              <p>Almost all bugs are being resolved or completed each month.</p>
             </>
           )}
           {data.executionRate >= 80 && data.executionRate < 95 && (
             <>
               <p>⚠️ <strong>Acceptable:</strong> Between 80-95% requires improvement.</p>
-              <p>Investigate why not all planned test cases were executed.</p>
+              <p>Investigate why some bugs are not being completed. Plan additional resources.</p>
             </>
           )}
           {data.executionRate < 80 && (
             <>
               <p>🔴 <strong>Critical:</strong> Less than 80% is insufficient.</p>
-              <p>Too many test cases are being skipped. Requires immediate action.</p>
+              <p>Too many bugs remain uncompleted each month. Requires immediate action.</p>
             </>
           )}
         </div>
       </div>
 
-      {/* Trend chart */}
-      {/* Combined chart: Planned vs Executed (single chart, y-axis max 50) */}
-      {data.plannedSeries && data.executedSeries && sprints && sprints.length > 0 && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <ExecutionComparisonChart
-            planned={data.plannedSeries}
-            executed={data.executedSeries}
-            sprints={sprints}
-          />
-        </div>
-      )}
-
       {/* Recommendations by severity */}
       <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-        <h4 className="font-semibold text-red-900 mb-3">Recommended Actions by Severity</h4>
+        <h4 className="font-semibold text-red-900 mb-3">Recommended Actions</h4>
         <ul className="space-y-2 text-sm text-blue-800">
-          <li>📊 Maintaining coverage ≥95% is critical for complete validation</li>
-          <li>🔍 Analyze why test cases are skipped (resources, time, blocking defects)</li>
-          <li>⏱️ If there are changes, document the impact on test scope</li>
-          <li>✓ Implement automation to increase coverage</li>
+          <li>📊 Track monthly trends to identify seasonal variations in bug completion</li>
+          <li>🔍 Analyze months with low completion rates (below 80%) to find bottlenecks</li>
+          <li>⏱️ Maintain minimum 95% bug completion rate to ensure quality velocity</li>
+          <li>✓ Use monthly data to forecast resource needs and plan testing capacity</li>
+          <li>📈 Compare month-over-month changes to evaluate process improvements</li>
         </ul>
       </div>
     </div>
@@ -1638,7 +1655,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Gráfico de tendencia de Hallazgos Críticos - Todas las severidades */}
       {sprints && sprints.length > 0 && (
         <div className="bg-white p-2 rounded-lg border border-gray-200">
-          <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">Critical Findings by Sprint</h5>
+          <h5 className="text-xs font-semibold text-gray-700 mb-2 px-2">Critical Findings by Month</h5>
           <div className="h-40">
           {(() => {
             // Generar datos por severidad desde los sprints
@@ -1888,277 +1905,364 @@ export default function DetailModal({ modal, onClose, recommendations }) {
   );
 
   const renderCriticalBugsDetail = (data) => {
-    // Calcular Major y Trivial directamente desde allPriorities
+    // Obtener conteos por prioridad desde allPriorities
     const priorities = data.allPriorities || {};
     
-    const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    // Critical: Highest + High
+    const criticalCount = (priorities['Highest']?.count || 0) + (priorities['High']?.count || 0);
     
-    const getMajorCount = () => {
-      return Object.keys(priorities).reduce((acc, key) => {
-        const lk = normalize(key);
-        if (lk.includes('major') || lk.includes('masalta') || lk.includes('mas') || lk.includes('highest') || lk.includes('mayor') || lk.includes('critical')) {
-          const val = priorities[key];
-          return acc + (typeof val === 'number' ? val : (val?.count || val?.total || 0));
-        }
-        return acc;
-      }, 0);
-    };
-
-    const getTrivialCount = () => {
-      return Object.keys(priorities).reduce((acc, key) => {
-        const lk = normalize(key);
-        if (lk.includes('trivial') || lk.includes('lowest') || lk.includes('masbaja')) {
-          const val = priorities[key];
-          return acc + (typeof val === 'number' ? val : (val?.count || val?.total || 0));
-        }
-        return acc;
-      }, 0);
-    };
-
-    const majorCount = getMajorCount();
-    const trivialCount = getTrivialCount();
+    // Medium: Medium
+    const mediumCount = priorities['Medium']?.count || 0;
+    
+    // Low Priority: Low + Lowest
+    const lowPriorityCount = (priorities['Low']?.count || 0) + (priorities['Lowest']?.count || 0);
 
     return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-2xl font-bold text-danger-600 mb-2">
-          {data.total} Findings Detected
-        </h3>
-        <p className="text-sm text-gray-600">Distribution of findings by priority level (Major and Trivial)</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Major Priority</div>
-          <div className="text-2xl font-bold text-danger-600">{majorCount}</div>
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-2xl font-bold text-danger-600 mb-2">
+            {data.total} Findings Detected
+          </h3>
+          <p className="text-sm text-gray-600">Distribution of findings by priority level (Critical, Medium, Low Priority)</p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <div className="text-sm text-gray-600 mb-1">Trivial Priority</div>
-          <div className="text-2xl font-bold text-gray-600">{trivialCount}</div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Critical</div>
+            <div className="text-2xl font-bold text-danger-600">{criticalCount}</div>
+            <div className="text-xs text-gray-500">Highest + High</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Medium</div>
+            <div className="text-2xl font-bold text-warning-600">{mediumCount}</div>
+            <div className="text-xs text-gray-500">Medium priority</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Low Priority</div>
+            <div className="text-2xl font-bold text-gray-600">{lowPriorityCount}</div>
+            <div className="text-xs text-gray-500">Low + Lowest</div>
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-4">Priority Distribution (Major vs Trivial)</h4>
-        <div className="space-y-6">
-          {(() => {
-            const total = majorCount + trivialCount || 1;
-            const majorPct = Math.round((majorCount / total) * 100);
-            const trivialPct = Math.round((trivialCount / total) * 100);
+        <div className="bg-white p-6 rounded-lg border border-gray-200 mt-6">
+          <h4 className="font-semibold text-gray-800 mb-4">Priority Distribution</h4>
+          <div className="space-y-6">
+            {(() => {
+              const total = criticalCount + mediumCount + lowPriorityCount || 1;
+              const criticalPct = Math.round((criticalCount / total) * 100);
+              const mediumPct = Math.round((mediumCount / total) * 100);
+              const lowPriorityPct = Math.round((lowPriorityCount / total) * 100);
 
-            return (
-              <>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                      <span className="text-sm font-medium text-gray-700">Major</span>
+              return (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+                        <span className="text-sm font-medium text-gray-700">Critical (Highest + High)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-danger-600">{criticalCount}</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{criticalPct}%</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-danger-600">{majorCount}</span>
-                      <span className="text-xs text-gray-500 w-10 text-right">{majorPct}%</span>
+                    <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div 
+                        className="bg-danger-600 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                        style={{ width: `${criticalPct}%` }}
+                      >
+                        {criticalPct > 15 && <span className="text-xs font-bold text-white">{criticalPct}%</span>}
+                      </div>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
-                    <div 
-                      className="bg-danger-600 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                      style={{ width: `${majorPct}%` }}
-                    >
-                      {majorPct > 15 && <span className="text-xs font-bold text-white">{majorPct}%</span>}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3a3a3d' }}></div>
-                      <span className="text-sm font-medium text-gray-700">Trivial</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+                        <span className="text-sm font-medium text-gray-700">Medium</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-warning-600">{mediumCount}</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{mediumPct}%</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-gray-600">{trivialCount}</span>
-                      <span className="text-xs text-gray-500 w-10 text-right">{trivialPct}%</span>
+                    <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div 
+                        className="bg-warning-600 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                        style={{ width: `${mediumPct}%` }}
+                      >
+                        {mediumPct > 15 && <span className="text-xs font-bold text-white">{mediumPct}%</span>}
+                      </div>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
-                    <div 
-                      className="bg-gray-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
-                      style={{ width: `${trivialPct}%` }}
-                    >
-                      {trivialPct > 15 && <span className="text-xs font-bold text-white">{trivialPct}%</span>}
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+                        <span className="text-sm font-medium text-gray-700">Low Priority (Low + Lowest)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-gray-600">{lowPriorityCount}</span>
+                        <span className="text-xs text-gray-500 w-10 text-right">{lowPriorityPct}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                      <div 
+                        className="bg-gray-500 h-full rounded-full flex items-center justify-end pr-2 transition-all duration-500"
+                        style={{ width: `${lowPriorityPct}%` }}
+                      >
+                        {lowPriorityPct > 15 && <span className="text-xs font-bold text-white">{lowPriorityPct}%</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            );
-          })()}
+                </>
+              );
+            })()}
+          </div>
         </div>
-      </div>
 
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h4 className="font-semibold text-gray-800 mb-4">Trend by Sprint</h4>
-        {(() => {
-          const sprintData = data.sprints || data.sprintData || [];
-          
-          if (sprintData.length === 0) {
-            return <div className="text-sm text-gray-600">No sprint data available</div>;
-          }
+        {/* Interpretation */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-6">
+          <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
+            <Info className="w-4 h-4 mr-2" />
+            Key Metrics
+          </h4>
+          <div className="text-sm text-blue-800 space-y-1">
+            <p><strong>Critical Findings:</strong> {criticalCount} issues requiring immediate attention (Highest + High priority)</p>
+            <p><strong>Medium Findings:</strong> {mediumCount} issues for scheduled resolution</p>
+            <p><strong>Low Priority:</strong> {lowPriorityCount} issues for backlog tracking</p>
+          </div>
+        </div>
 
-          // Procesar datos de sprints - Extraer Major y Trivial de allPriorities por sprint
-          const normalize = (k) => (k || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-
-          const processed = sprintData.slice(-12).map((sprint, idx) => {
-            const sprintName = sprint.sprint || `Sprint ${idx}`;
-            
-            // Intentar obtener datos por sprint
-            let major = 0, trivial = 0;
-            
-            // Si el sprint tiene bugsByPriority, usar eso
-            if (sprint.bugsByPriority) {
-              Object.keys(sprint.bugsByPriority).forEach(key => {
-                const lk = normalize(key);
-                const val = sprint.bugsByPriority[key];
-                const count = (typeof val === 'number') ? val : (val?.count || val?.total || 0);
-                if (lk.includes('major') || lk.includes('masalta') || lk.includes('mas') || lk.includes('highest') || lk.includes('mayor') || lk.includes('critical')) {
-                  major += count;
-                } else if (lk.includes('trivial') || lk.includes('lowest') || lk.includes('masbaja')) {
-                  trivial += count;
-                }
-              });
-            }
-            
-            // Fallback: usar campos directo o 'bugs' como major
-            if (major === 0) major = sprint.majorFindings || sprint.critical || sprint.bugs || 0;
-            if (trivial === 0) trivial = sprint.trivialFindings || 0;
-            
-            return { 
-              name: sprintName.substring(0, 15), 
-              major: Number(major) || 0, 
-              trivial: Number(trivial) || 0,
-              fullName: sprintName
-            };
-          });
-
-          const maxValue = Math.max(...processed.flatMap(p => [p.major, p.trivial])) || 10;
-          const chartHeight = 200;
-          const chartWidth = Math.max(400, processed.length * 40);
-          const padding = 30;
-
-          return (
-            <div className="overflow-x-auto">
-              <svg width={chartWidth} height={chartHeight + 60} xmlns="http://www.w3.org/2000/svg" className="w-full">
-                {/* Grid lines */}
-                {[0, 25, 50, 75, 100].map((pct) => {
-                  const y = padding + ((100 - pct) / 100) * chartHeight;
+        {/* Trend Chart by Priority */}
+        {data.trendDataByPriority && Object.keys(data.trendDataByPriority).length > 0 && (
+          <div className="bg-white p-6 rounded-lg border border-gray-200 mt-8">
+            <h4 className="font-semibold text-gray-800 mb-6">Findings Detected Trend by Priority (Last 12 Months)</h4>
+            <div className="h-80 relative">
+              <svg viewBox="0 0 800 300" className="w-full h-full">
+                {(() => {
+                  const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => {
+                    const aDate = new Date(a[0].replace('-', ' 1, 20'));
+                    const bDate = new Date(b[0].replace('-', ' 1, 20'));
+                    return aDate - bDate;
+                  });
+                  
+                  if (monthEntries.length === 0) return null;
+                  
+                  const padding = 40;
+                  const chartWidth = 800 - padding * 2;
+                  const chartHeight = 300 - padding * 2;
+                  
+                  // Obtener max value de todos los datos
+                  const allValues = [];
+                  monthEntries.forEach(([_, monthData]) => {
+                    allValues.push(Number(monthData.critical) || 0);
+                    allValues.push(Number(monthData.medium) || 0);
+                    allValues.push(Number(monthData.lowPriority) || 0);
+                  });
+                  const maxValue = Math.max(...allValues, 1);
+                  
+                  // Calcular puntos para cada serie
+                  const criticalPoints = monthEntries.map(([month, v], idx) => {
+                    const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((Number(v.critical) || 0) / maxValue) * chartHeight;
+                    return { x, y, value: Number(v.critical) || 0, month, total: v.total };
+                  });
+                  
+                  const mediumPoints = monthEntries.map(([month, v], idx) => {
+                    const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((Number(v.medium) || 0) / maxValue) * chartHeight;
+                    return { x, y, value: Number(v.medium) || 0, month, total: v.total };
+                  });
+                  
+                  const lowPriorityPoints = monthEntries.map(([month, v], idx) => {
+                    const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((Number(v.lowPriority) || 0) / maxValue) * chartHeight;
+                    return { x, y, value: Number(v.lowPriority) || 0, month, total: v.total };
+                  });
+                  
                   return (
-                    <g key={`grid-${pct}`}>
-                      <line x1={padding} y1={y} x2={chartWidth - 20} y2={y} stroke="#e5e7eb" strokeWidth="1" />
-                      <text x={10} y={y + 4} fontSize="11" fill="#9ca3af" textAnchor="end">{(pct / 100 * maxValue).toFixed(0)}</text>
-                    </g>
+                    <>
+                      {/* Grid lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                        const y = padding + chartHeight * (1 - pct);
+                        return (
+                          <line key={`grid-${i}`} x1={padding} y1={y} x2={800 - padding} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                        );
+                      })}
+                      
+                      {/* Y-axis labels */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                        const y = padding + chartHeight * (1 - pct);
+                        const value = Math.round(maxValue * pct);
+                        return (
+                          <text key={`y-label-${i}`} x={padding - 10} y={y + 5} fontSize="12" fill="#6b7280" textAnchor="end">
+                            {value}
+                          </text>
+                        );
+                      })}
+                      
+                      {/* Critical Line */}
+                      <polyline
+                        points={criticalPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#dc2626"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      
+                      {/* Medium Line */}
+                      <polyline
+                        points={mediumPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      
+                      {/* Low Priority Line */}
+                      <polyline
+                        points={lowPriorityPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                        fill="none"
+                        stroke="#6b7280"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      
+                      {/* Critical Points with tooltips */}
+                      {criticalPoints.map((p, idx) => (
+                        <g key={`critical-${idx}`}>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="5" 
+                            fill="#dc2626"
+                            opacity="0"
+                            className="cursor-pointer hover:opacity-100"
+                            style={{transition: 'opacity 0.2s'}}
+                          >
+                            <title>{`${p.month}\nCritical: ${p.value}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                          </circle>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="3" 
+                            fill="#dc2626"
+                            className="hover:r-5"
+                          />
+                        </g>
+                      ))}
+                      
+                      {/* Medium Points with tooltips */}
+                      {mediumPoints.map((p, idx) => (
+                        <g key={`medium-${idx}`}>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="5" 
+                            fill="#f59e0b"
+                            opacity="0"
+                            className="cursor-pointer hover:opacity-100"
+                          >
+                            <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                          </circle>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="3" 
+                            fill="#f59e0b"
+                          />
+                        </g>
+                      ))}
+                      
+                      {/* Low Priority Points with tooltips */}
+                      {lowPriorityPoints.map((p, idx) => (
+                        <g key={`low-${idx}`}>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="5" 
+                            fill="#6b7280"
+                            opacity="0"
+                            className="cursor-pointer hover:opacity-100"
+                          >
+                            <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
+                          </circle>
+                          <circle 
+                            cx={p.x} 
+                            cy={p.y} 
+                            r="3" 
+                            fill="#6b7280"
+                          />
+                        </g>
+                      ))}
+                      
+                      {/* X-axis labels */}
+                      {monthEntries.map(([month, _], idx) => (
+                        monthEntries.length <= 12 || idx % Math.ceil(monthEntries.length / 6) === 0 ? (
+                          <text
+                            key={`x-label-${idx}`}
+                            x={padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth}
+                            y={padding + chartHeight + 20}
+                            fontSize="11"
+                            fill="#6b7280"
+                            textAnchor="middle"
+                          >
+                            {month}
+                          </text>
+                        ) : null
+                      ))}
+                      
+                      {/* X-axis */}
+                      <line x1={padding} y1={padding + chartHeight} x2={800 - padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                      {/* Y-axis */}
+                      <line x1={padding} y1={padding} x2={padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                    </>
                   );
-                })}
-
-                {/* Major line */}
-                <polyline
-                  points={processed.map((p, idx) => {
-                    const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
-                    const y = padding + chartHeight - (p.major / maxValue) * chartHeight;
-                    return `${x},${y}`;
-                  }).join(' ')}
-                  fill="none"
-                  stroke="#dc2626"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Trivial line */}
-                <polyline
-                  points={processed.map((p, idx) => {
-                    const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
-                    const y = padding + chartHeight - (p.trivial / maxValue) * chartHeight;
-                    return `${x},${y}`;
-                  }).join(' ')}
-                  fill="none"
-                  stroke="#3a3a3d"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Data points for Major */}
-                {processed.map((p, idx) => {
-                  const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
-                  const y = padding + chartHeight - (p.major / maxValue) * chartHeight;
-                  return (
-                    <circle key={`major-${idx}`} cx={x} cy={y} r="4" fill="#dc2626" />
-                  );
-                })}
-
-                {/* Data points for Trivial */}
-                {processed.map((p, idx) => {
-                  const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
-                  const y = padding + chartHeight - (p.trivial / maxValue) * chartHeight;
-                  return (
-                    <circle key={`trivial-${idx}`} cx={x} cy={y} r="4" fill="#3a3a3d" />
-                  );
-                })}
-
-                {/* X-axis labels */}
-                {processed.map((p, idx) => {
-                  const x = padding + (idx / Math.max(1, processed.length - 1)) * (chartWidth - padding - 20);
-                  return (
-                    <text 
-                      key={`label-${idx}`}
-                      x={x} 
-                      y={chartHeight + padding + 15} 
-                      fontSize="10" 
-                      fill="#6b7280" 
-                      textAnchor="middle"
-                      title={p.fullName}
-                    >
-                      {p.name}
-                    </text>
-                  );
-                })}
-
-                {/* Y-axis */}
-                <line x1={padding} y1={padding} x2={padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
-                <line x1={padding} y1={padding + chartHeight} x2={chartWidth - 20} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                })()}
               </svg>
-
-              {/* Legend */}
-              <div className="flex gap-6 mt-4 justify-center text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                  <span className="text-gray-700">Major</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#3a3a3d' }}></div>
-                  <span className="text-gray-700">Trivial</span>
-                </div>
+            </div>
+            
+            {/* Legend */}
+            <div className="flex gap-6 mt-4 justify-center text-sm flex-wrap">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+                <span className="text-gray-700">Critical (Highest + High)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+                <span className="text-gray-700">Medium</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+                <span className="text-gray-700">Low Priority (Low + Lowest)</span>
               </div>
             </div>
-          );
-        })()}
+            
+            <p className="text-xs text-gray-600 mt-2">
+              💡 Hover over each point to see detailed breakdown for that month
+            </p>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+          <h4 className="font-semibold text-amber-900 mb-3">Recommended Actions</h4>
+          <ul className="space-y-2 text-sm text-amber-800">
+            <li>🎯 <strong>Critical Focus:</strong> Address {criticalCount} critical findings immediately to prevent production issues</li>
+            <li>📅 <strong>Medium Resolution:</strong> Schedule resolution of {mediumCount} medium priority items within sprint</li>
+            <li>📚 <strong>Backlog Management:</strong> Maintain {lowPriorityCount} low priority findings in product backlog for future cycles</li>
+            <li>📊 <strong>Tracking:</strong> Monitor critical findings daily; review medium and low priorities weekly</li>
+          </ul>
+        </div>
       </div>
-    </div>
     );
   };
-
-  const renderRecommendations = () => (
-    <div className="bg-danger-50 p-4 rounded-lg border border-danger-200">
-      <h4 className="font-semibold text-danger-900 mb-2 flex items-center">
-        <AlertCircle className="w-5 h-5 mr-2" />
-        Urgent Actions
-      </h4>
-      <ul className="space-y-2 text-sm text-danger-800">
-        {RecommendationEngine.getRecommendations('criticalBugs', data, recommendations).map((rec, idx) => (
-          <li key={idx} dangerouslySetInnerHTML={{ __html: `${rec.icon} ${rec.text.includes(':') ? `<strong>${rec.text.split(':')[0]}:</strong>${rec.text.split(':').slice(1).join(':')}` : rec.text}` }} />
-        ))}
-      </ul>
-    </div>
-  );
 
   const renderCriticalBugsStatusDetail = (data) => {
     const priorities = data.allPriorities || {};
@@ -2318,8 +2422,221 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
 
+      {/* Trend Chart: Resolution Status Over Time */}
+      {data.trendDataByPriority && Object.keys(data.trendDataByPriority).length > 0 && (
+        <div className="bg-white p-6 rounded-lg border border-gray-200 mt-8">
+          <h4 className="font-semibold text-gray-800 mb-6">Findings Resolution Trend by Priority (Last 12 Months)</h4>
+          <div className="h-80 relative">
+            <svg viewBox="0 0 800 300" className="w-full h-full">
+              {(() => {
+                const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => {
+                  const aDate = new Date(a[0].replace('-', ' 1, 20'));
+                  const bDate = new Date(b[0].replace('-', ' 1, 20'));
+                  return aDate - bDate;
+                });
+                
+                console.log('[DetailModal] monthEntries:', monthEntries.length, monthEntries.slice(0, 2));
+                
+                if (monthEntries.length === 0) return null;
+                
+                const padding = 40;
+                const chartWidth = 800 - padding * 2;
+                const chartHeight = 300 - padding * 2;
+                
+                // Obtener max value de todos los datos
+                const allValues = [];
+                monthEntries.forEach(([_, monthData]) => {
+                  console.log('[DetailModal] monthData sample:', monthData);
+                  allValues.push(Number(monthData.critical) || 0);
+                  allValues.push(Number(monthData.medium) || 0);
+                  allValues.push(Number(monthData.lowPriority) || 0);
+                });
+                const maxValue = Math.max(...allValues, 1);
+                console.log('[DetailModal] allValues sample:', allValues.slice(0, 6), 'maxValue:', maxValue);
+                
+                // Calcular puntos para cada serie
+                const criticalPoints = monthEntries.map(([month, v], idx) => {
+                  const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                  const y = padding + chartHeight - ((Number(v.critical) || 0) / maxValue) * chartHeight;
+                  return { x, y, value: Number(v.critical) || 0, month, total: v.total };
+                });
+                
+                const mediumPoints = monthEntries.map(([month, v], idx) => {
+                  const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                  const y = padding + chartHeight - ((Number(v.medium) || 0) / maxValue) * chartHeight;
+                  return { x, y, value: Number(v.medium) || 0, month, total: v.total };
+                });
+                
+                const lowPriorityPoints = monthEntries.map(([month, v], idx) => {
+                  const x = padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth;
+                  const y = padding + chartHeight - ((Number(v.lowPriority) || 0) / maxValue) * chartHeight;
+                  return { x, y, value: Number(v.lowPriority) || 0, month, total: v.total };
+                });
+                
+                return (
+                  <>
+                    {/* Grid lines */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                      const y = padding + chartHeight * (1 - pct);
+                      return (
+                        <line key={`grid-${i}`} x1={padding} y1={y} x2={800 - padding} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                      );
+                    })}
+                    
+                    {/* Y-axis labels */}
+                    {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                      const y = padding + chartHeight * (1 - pct);
+                      const value = Math.round(maxValue * pct);
+                      return (
+                        <text key={`y-label-${i}`} x={padding - 10} y={y + 5} fontSize="12" fill="#6b7280" textAnchor="end">
+                          {value}
+                        </text>
+                      );
+                    })}
+                    
+                    {/* Critical Line */}
+                    <polyline
+                      points={criticalPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    
+                    {/* Medium Line */}
+                    <polyline
+                      points={mediumPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    
+                    {/* Low Priority Line */}
+                    <polyline
+                      points={lowPriorityPoints.map(p => `${p.x},${p.y}`).join(' ')}
+                      fill="none"
+                      stroke="#6b7280"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    
+                    {/* Critical Points with tooltips */}
+                    {criticalPoints.map((p, idx) => (
+                      <g key={`critical-${idx}`}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="5" 
+                          fill="#dc2626"
+                          opacity="0"
+                        >
+                          <title>{`${p.month}\nCritical: ${p.value}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                        </circle>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="3" 
+                          fill="#dc2626"
+                        />
+                      </g>
+                    ))}
+                    
+                    {/* Medium Points with tooltips */}
+                    {mediumPoints.map((p, idx) => (
+                      <g key={`medium-${idx}`}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="5" 
+                          fill="#f59e0b"
+                          opacity="0"
+                        >
+                          <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                        </circle>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="3" 
+                          fill="#f59e0b"
+                        />
+                      </g>
+                    ))}
+                    
+                    {/* Low Priority Points with tooltips */}
+                    {lowPriorityPoints.map((p, idx) => (
+                      <g key={`low-${idx}`}>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="5" 
+                          fill="#6b7280"
+                          opacity="0"
+                        >
+                          <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
+                        </circle>
+                        <circle 
+                          cx={p.x} 
+                          cy={p.y} 
+                          r="3" 
+                          fill="#6b7280"
+                        />
+                      </g>
+                    ))}
+                    
+                    {/* X-axis labels */}
+                    {monthEntries.map(([month, _], idx) => (
+                      monthEntries.length <= 12 || idx % Math.ceil(monthEntries.length / 6) === 0 ? (
+                        <text
+                          key={`x-label-${idx}`}
+                          x={padding + (idx / Math.max(1, monthEntries.length - 1)) * chartWidth}
+                          y={padding + chartHeight + 20}
+                          fontSize="11"
+                          fill="#6b7280"
+                          textAnchor="middle"
+                        >
+                          {month}
+                        </text>
+                      ) : null
+                    ))}
+                    
+                    {/* X-axis */}
+                    <line x1={padding} y1={padding + chartHeight} x2={800 - padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                    {/* Y-axis */}
+                    <line x1={padding} y1={padding} x2={padding} y2={padding + chartHeight} stroke="#d1d5db" strokeWidth="2" />
+                  </>
+                );
+              })()}
+            </svg>
+          </div>
+          
+          {/* Legend */}
+          <div className="flex gap-6 mt-4 justify-center text-sm flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
+              <span className="text-gray-700">Critical (Highest + High)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
+              <span className="text-gray-700">Medium</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
+              <span className="text-gray-700">Low Priority (Low + Lowest)</span>
+            </div>
+          </div>
+          
+          <p className="text-xs text-gray-600 mt-2">
+            💡 Hover over each point to see detailed breakdown for that month
+          </p>
+        </div>
+      )}
+
       {/* Gráficos circulares de Pendientes y Resueltos por criticidad */}
-      <div>
+      <div className="mt-8">
         <h4 className="font-semibold text-gray-800 mb-4">Distribution by Priority Level</h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Sección de Pendientes */}
@@ -2427,7 +2744,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         return (
           <TrendChartMultiple 
             datasets={datasets} 
-            label="Evolution of Pending Critical Findings by Sprint" 
+            label="Evolution of Pending Critical Findings by Month" 
             sprints={sprints} 
             yAxisLabel="Pending Critical Findings" 
           />

@@ -16,6 +16,7 @@ export default async function handler(req, res) {
       const sprintSample = Array.isArray(qaData.sprintData) ? qaData.sprintData.slice(0, 8) : qaData.sprintData;
       console.log('\n[qa-data] source=%s real=%s sprints=%d', qaData._dataSource || 'unknown', !!qaData._isRealData, qaData.sprintData?.length || 0);
       console.log('[qa-data] sprintData sample:', JSON.stringify(sprintSample, null, 2));
+      console.log('[qa-data] bugsByMonthByPriority keys:', Object.keys(qaData.bugsByMonthByPriority || {}).length);
     } catch (e) {
       console.warn('Unable to stringify sprintData for debug logging', e && e.message);
     }

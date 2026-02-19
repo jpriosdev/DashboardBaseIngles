@@ -178,7 +178,9 @@ SELECT
   prioridad,
   COUNT(*) as count,
   -- Pending: estados en flujo de trabajo (To Do, In Development, In Testing, Ready for Testing)
-  SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,
+  SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design') THEN 1 ELSE 0 END) as pending,
+  -- Canceled: tareas canceladas
+  SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled,
   -- Resolved: estados completados (Done, Testing Completed, Testing Complete, Approved for Release, Reviewed)
   SUM(CASE WHEN estado IN ('Closed', 'Ready For Release','Released') THEN 1 ELSE 0 END) as resolved
 FROM bugs_detail
@@ -252,10 +254,9 @@ ORDER BY total_bugs DESC;
 -- Vista: Estadísticas de resolución y producción (bugs en ambiente prod)
 CREATE VIEW IF NOT EXISTS vw_bug_resolution_stats AS
 SELECT
-  SUM(CASE WHEN estado NOT IN ('To Do', 'In Development', 'Ready for Testing', 'Canceled') THEN 1 ELSE 0 END) as bugs_closed,
-  SUM(CASE WHEN UPPER(ambiente) LIKE '%PROD%' OR UPPER(ambiente) LIKE '%PRODUCTION%' THEN 1 ELSE 0 END) as production_bugs
-FROM bugs_detail
-WHERE tipo_incidencia = 'Bug';
+  SUM(CASE WHEN tipo_incidencia = 'Bug' AND estado NOT IN ('To Do', 'In Development', 'Ready for Testing', 'Canceled') THEN 1 ELSE 0 END) as bugs_closed,
+  SUM(CASE WHEN tipo_incidencia = 'Production Support Defect' THEN 1 ELSE 0 END) as production_bugs
+FROM bugs_detail;
 
 -- Vista: Estadísticas simples de casos de prueba (soporte)
 CREATE VIEW IF NOT EXISTS vw_testcase_stats AS
