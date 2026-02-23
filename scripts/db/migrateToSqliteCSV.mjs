@@ -104,7 +104,7 @@ async function migrateData() {
         row['Tag0'] || '',
         row['Tag1'] || '',
         row['Tag2'] || '',
-        row['Eatpa de la prueba'] || '',
+        row['Etapa de la prueba'] || '',
         row['Ambiente'] || '',
         row['Reportado'] || '',
         row['Fecha Reporte'] || '',

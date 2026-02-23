@@ -16,10 +16,10 @@ async function main() {
   db.all(`
     SELECT 
       COUNT(*) as total_bugs,
-      SUM(CASE WHEN estado IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) as bugs_closed,
-      SUM(CASE WHEN estado NOT IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) as bugs_pending
+      SUM(CASE WHEN estado IN ('Pass','Fail') THEN 1 ELSE 0 END) as bugs_closed,
+      SUM(CASE WHEN estado NOT IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) as bugs_pending
     FROM bugs_detail
-    WHERE tipo_incidencia = 'Bug'
+    WHERE tipo_incidencia = 'Test Case' and Estado = 'Fail'
   `, (err, rows) => {
     if (err) {
       console.error('❌ Error:', err);
@@ -45,11 +45,11 @@ async function main() {
       SELECT 
         sprint,
         COUNT(*) as total,
-        SUM(CASE WHEN estado IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) as closed,
-        SUM(CASE WHEN estado NOT IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) as pending,
-        ROUND((SUM(CASE WHEN estado IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2) as efficiency_pct
+        SUM(CASE WHEN estado IN ('Pass','Fail') THEN 1 ELSE 0 END) as closed,
+        SUM(CASE WHEN estado NOT IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) as pending,
+        ROUND((SUM(CASE WHEN estado IN ('Pass','Fail') THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2) as efficiency_pct
       FROM bugs_detail
-      WHERE tipo_incidencia = 'Bug'
+      WHERE tipo_incidencia = 'Test Case' and Estado = 'Fail'
       GROUP BY sprint
       ORDER BY sprint
     `, (err, rows2) => {
@@ -69,11 +69,11 @@ async function main() {
         SELECT 
           prioridad,
           COUNT(*) as total,
-          SUM(CASE WHEN estado IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) as closed,
-          SUM(CASE WHEN estado NOT IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) as pending,
-          ROUND((SUM(CASE WHEN estado IN ('Closed', 'Ready For Release', 'Released') THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2) as efficiency_pct
+          SUM(CASE WHEN estado IN ('Pass','Fail') THEN 1 ELSE 0 END) as closed,
+          SUM(CASE WHEN estado NOT IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) as pending,
+          ROUND((SUM(CASE WHEN estado IN ('Pass','Fail') THEN 1 ELSE 0 END) * 100.0 / COUNT(*)), 2) as efficiency_pct
         FROM bugs_detail
-        WHERE tipo_incidencia = 'Bug'
+        WHERE tipo_incidencia = 'Test Case'
         GROUP BY prioridad
         ORDER BY prioridad
       `, (err, rows3) => {
@@ -95,7 +95,7 @@ async function main() {
             COUNT(*) as count,
             ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM bugs_detail WHERE tipo_incidencia = 'Bug')), 2) as percentage
           FROM bugs_detail
-          WHERE tipo_incidencia = 'Bug'
+          WHERE tipo_incidencia = ''
           GROUP BY estado
           ORDER BY count DESC
         `, (err, rows4) => {

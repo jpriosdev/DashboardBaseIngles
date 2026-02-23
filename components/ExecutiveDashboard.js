@@ -1063,8 +1063,6 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   
 
   // Recalcular KPIs basados en los sprints seleccionados y tipo de prueba
-  const totalTestCases = filteredSprintData?.reduce((acc, s) => acc + (s.testCases || s.testCasesExecuted || 0), 0) || 0;
-  
   // If any filters are active (sprint, type or any other filter), treat as filtered mode
   const hasFiltersActive = (
     !selectedSprints.includes('All') ||
@@ -1073,6 +1071,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     (typeof selectedPriorities !== 'undefined' && selectedPriorities[0] !== 'All') ||
     (typeof selectedFixVersions !== 'undefined' && selectedFixVersions[0] !== 'All')
   );
+
+  // Para totalTestCases: si hay filtros activos, usar sprints filtrados. Si no, usar el total global
+  const totalTestCases = hasFiltersActive
+    ? (filteredSprintData?.reduce((acc, s) => acc + (s.testCases || s.testCasesExecuted || 0), 0) || 0)
+    : (summary?.testCasesTotal || summary?.testCasesExecuted || 0);
 
   // Para totalBugs: si hay filtros activos, usar sprints filtrados. Si no, usar el total global (238)
   const totalBugs = hasFiltersActive

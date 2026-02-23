@@ -115,6 +115,10 @@ CREATE INDEX IF NOT EXISTS idx_bugs_estado ON bugs_detail(estado);
 CREATE INDEX IF NOT EXISTS idx_bugs_modulo ON bugs_detail(modulo);
 CREATE INDEX IF NOT EXISTS idx_bugs_asignado ON bugs_detail(asignado_a);
 CREATE INDEX IF NOT EXISTS idx_bugs_categoria ON bugs_detail(categoria);
+-- Índices para casos de prueba (Test Cases)
+CREATE INDEX IF NOT EXISTS idx_bugs_clave_incidencia ON bugs_detail(clave_incidencia);
+CREATE INDEX IF NOT EXISTS idx_bugs_id_incidencia ON bugs_detail(id_incidencia);
+CREATE INDEX IF NOT EXISTS idx_bugs_tipo_incidencia ON bugs_detail(tipo_incidencia);
 
 -- Índices en sprints_versions
 CREATE INDEX IF NOT EXISTS idx_sprints_version ON sprints_versions(version);
@@ -128,7 +132,116 @@ CREATE INDEX IF NOT EXISTS idx_dev_total ON developers_summary(total_bugs);
 -- VISTAS ÚTILES PARA QUERIES COMUNES (Agregaciones dinámicas)
 -- ============================================================================
 
--- Vista: Resumen general de bugs (SOLO Bugs = Findings)
+-- ============================================================================
+-- VISTAS PARA CASOS DE PRUEBA (Test Cases)
+-- La lógica: clave_incidencia es el caso, id_incidencia es la ejecución
+-- Se usa la ÚLTIMA ejecución (por fecha en sprint) como resultado del caso
+-- ============================================================================
+
+-- Vista: Última ejecución de cada caso de prueba (válida para SQLite)
+CREATE VIEW IF NOT EXISTS vw_testcase_latest_execution AS
+SELECT 
+  bd.clave_incidencia,
+  bd.id_incidencia,
+  bd.resumen,
+  bd.prioridad,
+  bd.estado,
+  bd.sprint,
+  bd.asignado_a,
+  bd.atributo,
+  bd.nivel_prueba,
+  bd.ambiente,
+  bd.fecha_reporte
+FROM bugs_detail bd
+WHERE bd.tipo_incidencia = 'Test Case'
+  AND bd.clave_incidencia IS NOT NULL 
+  AND bd.clave_incidencia != ''
+  AND bd.id_incidencia = (
+    SELECT bd2.id_incidencia 
+    FROM bugs_detail bd2 
+    WHERE bd2.clave_incidencia = bd.clave_incidencia
+      AND bd2.tipo_incidencia = 'Test Case'
+    ORDER BY CAST(SUBSTR(bd2.sprint, -10) AS TEXT) DESC
+    LIMIT 1
+  );
+
+-- Vista: Casos de prueba única (agrupados, solo última ejecución)
+CREATE VIEW IF NOT EXISTS vw_testcases_summary AS
+SELECT 
+  te.clave_incidencia as test_case_id,
+  te.resumen,
+  te.prioridad,
+  te.estado as latest_execution_state,
+  CASE 
+    WHEN te.estado IN ('Pass', 'Fail') THEN 'Executed'
+    WHEN te.estado IN ('Not Executed', 'In Progress', 'Blocked') THEN 'Pending'
+    ELSE 'Unknown'
+  END as latest_execution_status,
+  te.sprint,
+  te.asignado_a,
+  te.atributo,
+  te.nivel_prueba,
+  te.ambiente,
+  (SELECT COUNT(*) FROM bugs_detail bd WHERE bd.clave_incidencia = te.clave_incidencia AND bd.tipo_incidencia = 'Test Case') as total_executions,
+  (SELECT SUM(CASE WHEN estado IN ('Pass', 'Fail') THEN 1 ELSE 0 END) FROM bugs_detail bd WHERE bd.clave_incidencia = te.clave_incidencia AND bd.tipo_incidencia = 'Test Case') as total_closed_executions,
+  (SELECT SUM(CASE WHEN estado IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) FROM bugs_detail bd WHERE bd.clave_incidencia = te.clave_incidencia AND bd.tipo_incidencia = 'Test Case') as total_pending_executions
+FROM vw_testcase_latest_execution te;
+
+-- Vista: Resumen de ejecuciones de test cases por estado actual
+CREATE VIEW IF NOT EXISTS vw_testcases_execution_summary AS
+SELECT 
+  COUNT(*) as total_test_cases,
+  SUM(CASE WHEN latest_execution_status = 'Executed' THEN 1 ELSE 0 END) as executed_testcases,
+  SUM(CASE WHEN latest_execution_status = 'Pending' THEN 1 ELSE 0 END) as pending_testcases,
+  SUM(CASE WHEN latest_execution_state IN ('Pass', 'Fail') THEN 1 ELSE 0 END) as closed_by_latest_exec,
+  SUM(CASE WHEN latest_execution_state IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) as pending_by_latest_exec,
+  ROUND((SUM(CASE WHEN latest_execution_state IN ('Pass', 'Fail') THEN 1 ELSE 0 END) * 100.0 / 
+         NULLIF(COUNT(*), 0)), 2) as execution_efficiency_pct
+FROM vw_testcases_summary;
+
+-- Vista: Test cases por sprint (basado en última ejecución)
+CREATE VIEW IF NOT EXISTS vw_testcases_by_sprint AS
+SELECT 
+  tc.sprint,
+  COUNT(*) as total_testcases,
+  SUM(CASE WHEN tc.latest_execution_state IN ('Pass', 'Fail') THEN 1 ELSE 0 END) as executed,
+  SUM(CASE WHEN tc.latest_execution_state IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) as pending,
+  ROUND((SUM(CASE WHEN tc.latest_execution_state IN ('Pass', 'Fail') THEN 1 ELSE 0 END) * 100.0 / 
+         NULLIF(COUNT(*), 0)), 2) as execution_efficiency_pct
+FROM vw_testcases_summary tc
+GROUP BY tc.sprint
+ORDER BY tc.sprint;
+
+-- Vista: Test cases por prioridad (basado en última ejecución)
+CREATE VIEW IF NOT EXISTS vw_testcases_by_priority AS
+SELECT 
+  tc.prioridad,
+  COUNT(*) as total_testcases,
+  SUM(CASE WHEN tc.latest_execution_state IN ('Pass', 'Fail') THEN 1 ELSE 0 END) as executed,
+  SUM(CASE WHEN tc.latest_execution_state IN ('Not Executed', 'In Progress', 'Blocked') THEN 1 ELSE 0 END) as pending,
+  SUM(CASE WHEN tc.latest_execution_state = 'Pass' THEN 1 ELSE 0 END) as passed,
+  SUM(CASE WHEN tc.latest_execution_state = 'Fail' THEN 1 ELSE 0 END) as failed,
+  ROUND((SUM(CASE WHEN tc.latest_execution_state IN ('Pass', 'Fail') THEN 1 ELSE 0 END) * 100.0 / 
+         NULLIF(COUNT(*), 0)), 2) as execution_efficiency_pct
+FROM vw_testcases_summary tc
+WHERE tc.prioridad IS NOT NULL
+GROUP BY tc.prioridad
+ORDER BY tc.prioridad;
+
+-- Vista: Test cases por estado en última ejecución
+CREATE VIEW IF NOT EXISTS vw_testcases_by_state AS
+SELECT 
+  tc.latest_execution_state as execution_state,
+  COUNT(*) as count,
+  ROUND((COUNT(*) * 100.0 / 
+         (SELECT COUNT(*) FROM vw_testcases_summary)), 2) as percentage
+FROM vw_testcases_summary tc
+GROUP BY tc.latest_execution_state
+ORDER BY count DESC;
+
+-- ============================================================================
+-- VISTAS ORIGINALES (se mantienen para bugs si es necesario)
+-- ============================================================================
 CREATE VIEW IF NOT EXISTS vw_bugs_summary AS
 SELECT 
   COUNT(*) as total_bugs,

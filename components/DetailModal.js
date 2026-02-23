@@ -1116,19 +1116,6 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Trend chart - Designed Test Cases */}
       <TrendChart data={sparklineData} label="Evolution of Test Cases Designed by Month" color="#60a5fa" sprints={sprints} yAxisLabel="Cases" />
 
-      {/* Planned vs Executed Comparison Chart */}
-      {data.plannedSeries && data.executedSeries && sprints && sprints.length > 0 && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <h4 className="font-semibold text-gray-800 mb-3">Test Cases by Month - Planned vs Executed</h4>
-          <ExecutionComparisonChart
-            planned={data.plannedSeries}
-            executed={data.executedSeries}
-            sprints={sprints}
-            monthLabels={modal.monthLabels}
-          />
-        </div>
-      )}
-
       {/* Recommendations (test cases) */}
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
         <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
