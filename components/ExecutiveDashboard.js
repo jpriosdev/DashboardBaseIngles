@@ -18,6 +18,14 @@ import KPICard from './KPICard';
 import UnderConstructionCard from './UnderConstructionCard';
 import SprintTrendChart from './SprintTrendChart';
 import ModuleAnalysis from './ModuleAnalysis';
+
+// Convierte "MM-YYYY" → YYYYMM numérico para ordenamiento cronológico correcto cross-year
+// Ej: "01-2026" → 202601, "12-2025" → 202512
+const parseMonthKey = (k) => {
+  const p = (k || '').split('-');
+  return p.length === 2 ? parseInt(p[1], 10) * 100 + parseInt(p[0], 10) : 0;
+};
+const sortMonthKeys = (a, b) => parseMonthKey(a) - parseMonthKey(b);
 import DeveloperAnalysis from './DeveloperAnalysis';
 import TeamAnalysis from './TeamAnalysis';
 import dynamic from 'next/dynamic';
@@ -1167,7 +1175,15 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
 
   // Series para gráficas: executed vs planned por MES (no por sprint, para series de tiempo en modal)
   const testCasesByMonth = data.testCasesByMonth || {};
-  const monthLabels = Object.keys(testCasesByMonth).sort();
+  const bugsByMonthObj = data.bugsByMonth || {};
+  
+  // Usar meses de ambas fuentes (priorizar bugs si están disponibles)
+  const allMonthsSet = new Set([
+    ...Object.keys(bugsByMonthObj),
+    ...Object.keys(testCasesByMonth)
+  ]);
+  const monthLabels = Array.from(allMonthsSet).sort(sortMonthKeys);
+  
   const executedSeries = monthLabels.map(month => testCasesByMonth[month]?.executed || 0);
   const plannedSeries = monthLabels.map(month => testCasesByMonth[month]?.planned || 0);
 
@@ -1569,16 +1585,24 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               <div className="text-xs text-gray-600">Indicates product quality over time; trends help identify improvements in development and testing processes.</div>
             </div>
           }
-          onClick={() => setDetailModal({
-            type: 'defectDensity',
-            title: 'Analysis of Finding Density per Month',
-            data: defectDensityData,
-            sparklineData: Object.keys(data.bugsByMonth || {}).sort().map(month => (data.bugsByMonth[month]?.count || 0)),
-            sprints: monthLabels.map(month => ({ sprint: month })),
-            monthLabels: monthLabels,
-            bugsByPriority: data.bugsByPriority || {},
-            bugsByModule: data.bugsByModule || []
-          })}
+          onClick={() => {
+            // sparklineData y sprints DEBEN usar la misma lista base (monthLabels)
+            // para que cada punto del gráfico corresponda a su etiqueta en el eje X.
+            // Si un mes existe en testCasesByMonth pero no en bugsByMonth → 0 bugs ese mes.
+            const densitySparkline = monthLabels.map(month => (data.bugsByMonth?.[month]?.count || 0));
+            setDetailModal({
+              type: 'defectDensity',
+              title: 'Analysis of Finding Density per Month',
+              // Los stats (avg/total/max/min) vienen de defectDensityData para ser
+              // idénticos al KPI que se muestra en el dashboard.
+              data: defectDensityData,
+              sparklineData: densitySparkline,
+              sprints: monthLabels.map(month => ({ sprint: month })),
+              monthLabels: monthLabels,
+              bugsByPriority: data.bugsByPriority || {},
+              bugsByModule: data.bugsByModule || []
+            });
+          }}
           detailData={defectDensityData}
         />
         )}

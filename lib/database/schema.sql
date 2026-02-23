@@ -253,8 +253,8 @@ WHERE tipo_incidencia = 'Bug';
 -- Vista: Bugs por sprint (desde datos de detalle) (SOLO Bugs = Findings)
 CREATE VIEW IF NOT EXISTS vw_bugs_by_sprint AS
 SELECT 
-  CAST(SUBSTR(sprint, -2) AS INTEGER) as sprint_num,
-  sprint,
+  1 as sprint_num,
+  SUBSTR('0' || SUBSTR(fecha_reporte, INSTR(fecha_reporte, '/') + 1, INSTR(SUBSTR(fecha_reporte, INSTR(fecha_reporte, '/') + 1), '/') - 1), -2) || '-' || SUBSTR(fecha_reporte, -4) as sprint,
   COUNT(*) as total,
   SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical,
     SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design' ) THEN 1 ELSE 0 END) as pending,

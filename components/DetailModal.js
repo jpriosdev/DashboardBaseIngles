@@ -35,6 +35,74 @@ ChartJS.register(
   ArcElement
 );
 
+/**
+ * Convierte formato "MM-YYYY" a "Month Year" 
+ * Maneja múltiples formatos:
+ * - "01-2025" -> "January 2025"
+ * - "1-2025" -> "January 2025"  
+ * - "January 2025" -> "January 2025" (ya formateado)
+ * - cualquier otro -> retorna como está
+ */
+function formatMonthYear(monthYearStr) {
+  if (!monthYearStr) return '';
+  if (typeof monthYearStr !== 'string') return String(monthYearStr);
+  
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  
+  // Si ya contiene un nombre de mes completo, devolver como está
+  if (monthNames.some(m => monthYearStr.includes(m))) {
+    return monthYearStr;
+  }
+  
+  // Intentar formato "MM-YYYY" o "M-YYYY"
+  const parts = monthYearStr.split('-');
+  if (parts.length === 2) {
+    const month = parts[0].trim();
+    const year = parts[1].trim();
+    const monthNum = parseInt(month, 10);
+    
+    if (!isNaN(monthNum) && monthNum >= 1 && monthNum <= 12 && /^\d{4}$/.test(year)) {
+      return `${monthNames[monthNum - 1]} ${year}`;
+    }
+  }
+  
+  // Si no se puede parsear, retornar como está
+  return monthYearStr;
+}
+
+/**
+ * Versión abreviada para ejes X con poco espacio: "Jan 25" en lugar de "January 2025"
+ */
+/**
+ * Convierte clave "MM-YYYY" a número YYYYMM para ordenamiento cronológico correcto.
+ * Ejemplo: "01-2025" → 202501, "12-2025" → 202512, "01-2026" → 202601
+ */
+function parseMonthKey(key) {
+  const parts = (key || '').split('-');
+  if (parts.length === 2 && /^\d{1,2}$/.test(parts[0]) && /^\d{4}$/.test(parts[1])) {
+    return parseInt(parts[1], 10) * 100 + parseInt(parts[0], 10);
+  }
+  return 0;
+}
+
+function formatMonthYearShort(monthYearStr) {
+  if (!monthYearStr) return '';
+  const fullName = formatMonthYear(monthYearStr);
+  // Si ya está en formato largo "January 2025" → "Jan 25"
+  const monthShortNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthFullNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  for (let i = 0; i < monthFullNames.length; i++) {
+    if (fullName.startsWith(monthFullNames[i] + ' ')) {
+      const year = fullName.slice(monthFullNames[i].length + 1);
+      return `${monthShortNames[i]} ${year.slice(2)}`; // "Jan 25"
+    }
+  }
+  return fullName;
+}
+
 export default function DetailModal({ modal, onClose, recommendations }) {
   if (!modal) return null;
 
@@ -65,7 +133,10 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       );
     }
     
-    const labels = sprints.map(s => s.sprint || s.name || 'Month');
+    const labels = sprints.map(s => {
+      const formatted = formatMonthYear(s.sprint || s.name || '');
+      return formatted && formatted !== 'undefined' ? formatted : 'N/A';
+    });
     
     // Construir datasets locales a partir del prop `chartData`
     const datasetsLocal = Array.isArray(chartData) ? [{ label, data: chartData, color }] : (chartData && Array.isArray(chartData.datasets) ? chartData.datasets : [{ label, data: chartData || [], color }]);
@@ -232,9 +303,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       );
     }
-    
-    const labels = sprints.map(s => s.sprint || s.name || 'Month');
-    
+
+    const labels = sprints.map(s => {
+      const formatted = formatMonthYear(s.sprint || s.name || '');
+      return formatted && formatted !== 'undefined' ? formatted : 'N/A';
+    });
+
     const validDatasets = datasets
       .filter(dataset => dataset.data && dataset.data.length > 0)
       .map((dataset) => {
@@ -380,7 +454,10 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     const validDatasets = datasets.filter(d => d && d.data && d.data.length > 0);
     if (validDatasets.length === 0) return null;
     
-    const labels = sprints.map(s => s.sprint || s.name || 'Sprint');
+    const labels = sprints.map(s => {
+      const formatted = formatMonthYear(s.sprint || s.name || '');
+      return formatted && formatted !== 'undefined' ? formatted : 'N/A';
+    });
     
     const chartConfig = {
       labels: labels,
@@ -517,8 +594,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     if (!sprints || sprints.length === 0) return null;
     // Use monthLabels if provided (for month-based data), otherwise use sprint names
     const labels = monthLabels && monthLabels.length > 0 
-      ? monthLabels 
-      : sprints.map(s => s.sprint || s.name || 'Sprint');
+      ? monthLabels.map(m => {
+          const formatted = formatMonthYear(m);
+          return formatted && formatted !== 'undefined' ? formatted : (m || 'N/A');
+        })
+      : sprints.map(s => {
+          const formatted = formatMonthYear(s.sprint || s.name || '');
+          return formatted && formatted !== 'undefined' ? formatted : 'N/A';
+        });
 
     const chartConfig = {
       labels,
@@ -2184,11 +2267,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="h-80 relative">
               <svg viewBox="0 0 800 300" className="w-full h-full">
                 {(() => {
-                  const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => {
-                    const aDate = new Date(a[0].replace('-', ' 1, 20'));
-                    const bDate = new Date(b[0].replace('-', ' 1, 20'));
-                    return aDate - bDate;
-                  });
+                  const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => parseMonthKey(a[0]) - parseMonthKey(b[0]));
                   
                   if (monthEntries.length === 0) return null;
                   
@@ -2354,7 +2433,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                             fill="#6b7280"
                             textAnchor="middle"
                           >
-                            {month}
+                            {(() => {
+                              const formatted = monthEntries.length > 6
+                                ? formatMonthYearShort(month)
+                                : formatMonthYear(month);
+                              return formatted && formatted !== 'undefined' ? formatted : 'Month';
+                            })()}
                           </text>
                         ) : null
                       ))}
@@ -2570,11 +2654,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="h-80 relative">
             <svg viewBox="0 0 800 300" className="w-full h-full">
               {(() => {
-                const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => {
-                  const aDate = new Date(a[0].replace('-', ' 1, 20'));
-                  const bDate = new Date(b[0].replace('-', ' 1, 20'));
-                  return aDate - bDate;
-                });
+                const monthEntries = Object.entries(data.trendDataByPriority).sort((a, b) => parseMonthKey(a[0]) - parseMonthKey(b[0]));
                 
                 console.log('[DetailModal] monthEntries:', monthEntries.length, monthEntries.slice(0, 2));
                 
@@ -2739,7 +2819,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                           fill="#6b7280"
                           textAnchor="middle"
                         >
-                          {month}
+                          {(() => {
+                            const formatted = monthEntries.length > 6
+                              ? formatMonthYearShort(month)
+                              : formatMonthYear(month);
+                            return formatted && formatted !== 'undefined' ? formatted : 'Month';
+                          })()}
                         </text>
                       ) : null
                     ))}
