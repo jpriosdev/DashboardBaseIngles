@@ -1165,35 +1165,29 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     ? Math.round((criticalBugsPending / totalBugs) * 100) 
     : kpis.criticalBugsRatio || 0;
 
-  // Calculate Execution Rate by MONTH (based on bugs completed / total bugs)
+  // Series para gráficas: executed vs planned por MES (no por sprint, para series de tiempo en modal)
+  const testCasesByMonth = data.testCasesByMonth || {};
+  const monthLabels = Object.keys(testCasesByMonth).sort();
+  const executedSeries = monthLabels.map(month => testCasesByMonth[month]?.executed || 0);
+  const plannedSeries = monthLabels.map(month => testCasesByMonth[month]?.planned || 0);
+
+  // Calculate Execution Rate by MONTH (based on test cases with executions / total designed)
   const calculateExecutionRatePerMonth = () => {
-    const executionRateByMonth = data.executionRateByMonth || {};
-    if (!executionRateByMonth || Object.keys(executionRateByMonth).length === 0) {
+    // Usar datos de test cases en lugar de bugs
+    const totalDesigned = summary?.testCasesTotal || 0;
+    const totalWithExecutions = summary?.testCasesWithExecutions || 0;
+    
+    if (totalDesigned === 0) {
       return { avg: 0, completed: 0, total: 0, months: 0 };
     }
 
-    // Calculate average execution rate across all months
-    const rates = [];
-    let totalCompleted = 0;
-    let totalBugs = 0;
-
-    Object.values(executionRateByMonth).forEach(month => {
-      const completed = month.completed || 0;
-      const total = month.total || 0;
-      totalCompleted += completed;
-      totalBugs += total;
-      if (total > 0) {
-        rates.push(Math.round((completed / total) * 100));
-      }
-    });
-
-    const avgRate = rates.length > 0 ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : 0;
+    const executionRate = Math.round((totalWithExecutions / totalDesigned) * 100);
 
     return {
-      avg: avgRate,
-      completed: totalCompleted,
-      total: totalBugs,
-      months: Object.keys(executionRateByMonth).length
+      avg: executionRate,
+      completed: totalWithExecutions,
+      total: totalDesigned,
+      months: monthLabels?.length || 0
     };
   };
 
@@ -1230,12 +1224,6 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     const executed = (s.testCases || s.testCasesExecuted || 0) || 0;
     return planned > 0 ? Math.round((executed / planned) * 100) : 0;
   });
-
-  // Series para gráficas: executed vs planned por MES (no por sprint, para series de tiempo en modal)
-  const testCasesByMonth = data.testCasesByMonth || {};
-  const monthLabels = Object.keys(testCasesByMonth).sort();
-  const executedSeries = monthLabels.map(month => testCasesByMonth[month]?.executed || 0);
-  const plannedSeries = monthLabels.map(month => testCasesByMonth[month]?.planned || 0);
 
   // 1. Cycle Time: Tiempo promedio de resolución de bugs
   const calculateCycleTime = () => {
@@ -1634,9 +1622,9 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             tooltip={(
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                <div className="text-xs text-gray-600 mb-2">Percentage of bugs completed (Ready For QA, Ready For Release, Released, Closed) out of total bugs tracked.</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of test cases that have at least one execution out of total test cases designed.</div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-                <div className="text-xs text-gray-600">Shows the progress in closing bugs; higher rates indicate better bug resolution velocity and quality control.</div>
+                <div className="text-xs text-gray-600">Shows test coverage and execution progress; higher rates indicate more test cases are being executed.</div>
               </div>
             )}
             onClick={() => setDetailModal({
