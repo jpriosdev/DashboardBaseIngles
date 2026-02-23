@@ -59,9 +59,21 @@ async function main() {
       sprintsCount: qaData.sprintData ? qaData.sprintData.length : 0,
     };
     
+    // Expandir summary fields al nivel root para compatibilidad con frontend
     const outputData = {
       metadata: metadata,
-      ...qaData,
+      ...qaData.summary,  // Expandir totalBugs, totalSprints, etc. al root
+      bugsByPriority: qaData.bugsByPriority,
+      bugsByModule: qaData.bugsByModule,
+      bugsByCategory: qaData.bugsByCategory,
+      developerData: qaData.developerData,
+      sprintData: qaData.sprintData,
+      testCasesByMonth: qaData.testCasesByMonth,
+      bugsByDate: qaData.bugsByDate,
+      bugsByMonth: qaData.bugsByMonth,
+      bugsByMonthByPriority: qaData.bugsByMonthByPriority,
+      executionRateByMonth: qaData.executionRateByMonth,
+      summary: qaData.summary // También mantener summary para referencia
     };
 
     // Guardar JSON

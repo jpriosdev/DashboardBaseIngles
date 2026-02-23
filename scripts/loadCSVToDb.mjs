@@ -12,6 +12,20 @@ const CSV_PATH = path.resolve(__dirname, '../data/MockDataV0.csv');
 console.log(`📂 CSV: ${CSV_PATH}`);
 console.log(`💾 DB: ${DB_PATH}`);
 
+/**
+ * Normalizar prioridades del CSV a valores estándar
+ * CSV tiene: Happy Path, High, Low, Normal
+ * Normalizar a: High, Medium, Low (alineado con lo que espera la UI)
+ */
+const normalizePriority = (csvValue) => {
+  if (!csvValue) return 'Medium';
+  const val = csvValue.trim().toLowerCase();
+  if (val === 'happy path' || val === 'high') return 'High';
+  if (val === 'normal') return 'Medium';
+  if (val === 'low') return 'Low';
+  return 'Medium'; // fallback
+};
+
 if (!fs.existsSync(CSV_PATH) || !fs.existsSync(DB_PATH)) {
   console.error('❌ CSV o BD no encontrado');
   process.exit(1);
@@ -34,8 +48,14 @@ const db = new (sqlite3.verbose().Database)(DB_PATH, (err) => {
     process.exit(1);
   }
 
-  db.run('DELETE FROM bugs_detail', (err) => {
-    if (err) console.warn(`⚠️ Error limpiando: ${err.message}`);
+  db.serialize(() => {
+    // Limpiar tabla
+    db.run('DELETE FROM bugs_detail', (err) => {
+      if (err) console.warn(`⚠️ Error limpiando: ${err.message}`);
+    });
+
+    // Iniciar transacción para inserciones rápidas
+    db.run('BEGIN TRANSACTION');
 
     const stmt = db.prepare(`
       INSERT INTO bugs_detail (
@@ -44,6 +64,9 @@ const db = new (sqlite3.verbose().Database)(DB_PATH, (err) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
+    let insertedCount = 0;
+    let errorCount = 0;
+
     records.forEach((row, idx) => {
       try {
         stmt.run([
@@ -51,35 +74,62 @@ const db = new (sqlite3.verbose().Database)(DB_PATH, (err) => {
           row['Clave de incidencia'] || '',
           row['ID de la incidencia'] || idx,
           row['Resumen'] || '',
-          row['Prioridad'] || 'Medium',
+          normalizePriority(row['Prioridad']),
           row['Estado'] || 'To Do',
           row['Sprint de ejecución'] || '',
           row['Modulo'] || '',
           row['Categoría'] || '',
           row['Desarrollador'] || '',
           row['Fecha Reporte'] || '',
-        ]);
+        ], function(err) {
+          if (err) {
+            if (idx < 3) console.warn(`⚠️ Fila ${idx}: ${err.message}`);
+            errorCount++;
+          } else {
+            insertedCount++;
+          }
+        });
       } catch (e) {
         if (idx < 3) console.warn(`⚠️ Fila ${idx}: ${e.message}`);
+        errorCount++;
       }
     });
 
-    stmt.finalize(() => {
-      db.all('SELECT COUNT(*) as total, tipo_incidencia FROM bugs_detail GROUP BY tipo_incidencia', (err, rows) => {
+    // Finalizar prepared statement y commit
+    stmt.finalize((err) => {
+      if (err) console.error(`❌ Error finalizando statement: ${err.message}`);
+      
+      db.run('COMMIT', (err) => {
         if (err) {
-          console.error(`❌ Error: ${err.message}`);
+          console.error(`❌ Error committing: ${err.message}`);
           db.close(() => process.exit(1));
           return;
         }
 
-        console.log(`\n📊 Distribución por tipo:`);
-        rows.forEach(row => console.log(`   ${row.tipo_incidencia}: ${row.total}`));
+        console.log(`\n📊 Inserción completada:`);
+        console.log(`   Intentados: ${records.length}`);
+        console.log(`   Insertados: ${insertedCount}`);
+        console.log(`   Errores: ${errorCount}`);
 
-        db.get('SELECT COUNT(*) as total FROM bugs_detail WHERE tipo_incidencia = "Bug"', (err, result) => {
-          console.log(`\n✅ Registros BUGS: ${result?.total || 0}`);
-          db.close(() => {
-            console.log('✅ Base de datos actualizada\n');
-            process.exit(0);
+        db.all('SELECT COUNT(*) as total, tipo_incidencia FROM bugs_detail GROUP BY tipo_incidencia ORDER BY tipo_incidencia', (err, rows) => {
+          if (err) {
+            console.error(`❌ Error: ${err.message}`);
+            db.close(() => process.exit(1));
+            return;
+          }
+
+          console.log(`\n📊 Distribución por tipo en BD:`);
+          rows.forEach(row => console.log(`   ${row.tipo_incidencia || '(NULL)'}: ${row.total}`));
+
+          db.get('SELECT COUNT(*) as total FROM bugs_detail', (err, result) => {
+            console.log(`\n✅ Total registros en BD: ${result?.total || 0}`);
+            db.get('SELECT COUNT(*) as total FROM bugs_detail WHERE estado = ?', ['Fail'], (err, resultFail) => {
+              console.log(`✅ Registros con estado=Fail: ${resultFail?.total || 0}`);
+              db.close(() => {
+                console.log('✅ Base de datos actualizada\n');
+                process.exit(0);
+              });
+            });
           });
         });
       });

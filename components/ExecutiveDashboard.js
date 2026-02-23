@@ -1286,44 +1286,31 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
     // Calcular Cycle Time por prioridad basado en eficiencia de resolución
     let priorityCycleTime = {};
     if (data.bugsByPriority) {
-      const masAltaTotal = data.bugsByPriority['Highest']?.count || 0;
-      const masAltaResolved = data.bugsByPriority['Highest']?.resolved || 0;
-      const altaTotal = data.bugsByPriority['High']?.count || 0;
-      const altaResolved = data.bugsByPriority['High']?.resolved || 0;
+      // Con normalización: solo tenemos High, Medium, Low
+      const highTotal = data.bugsByPriority['High']?.count || 0;
+      const highResolved = data.bugsByPriority['High']?.resolved || 0;
       const mediaTotal = data.bugsByPriority['Medium']?.count || 0;
       const mediaResolved = data.bugsByPriority['Medium']?.resolved || 0;
       const bajaTotal = data.bugsByPriority['Low']?.count || 0;
       const bajaResolved = data.bugsByPriority['Low']?.resolved || 0;
-      const trivialTotal = data.bugsByPriority['Lowest']?.count || 0;
-      const trivialResolved = data.bugsByPriority['Lowest']?.resolved || 0;
       
       // Calcular cycle time por prioridad: (bugs pendientes / bugs resueltos) × promedio de días
-      // Para "Más alta" debería ser más rápido (menos días)
-      priorityCycleTime.critical = masAltaResolved > 0 
-        ? Math.round(((masAltaTotal - masAltaResolved) / masAltaResolved * 5) * 10) / 10  // 5 días max para críticos
+      priorityCycleTime.high = highResolved > 0 
+        ? Math.round(((highTotal - highResolved) / highResolved * 5) * 10) / 10  // 5 días max para High priority
         : Math.round(avgCycleTime * 0.5);
       
-      priorityCycleTime.high = altaResolved > 0 
-        ? Math.round(((altaTotal - altaResolved) / altaResolved * 8) * 10) / 10  // 8 días para alta
+      priorityCycleTime.medium = mediaResolved > 0 
+        ? Math.round(((mediaTotal - mediaResolved) / mediaResolved * 8) * 10) / 10  // 8 días para Medium priority
         : Math.round(avgCycleTime * 0.8);
       
-      priorityCycleTime.medium = mediaResolved > 0 
-        ? Math.round(((mediaTotal - mediaResolved) / mediaResolved * 14) * 10) / 10  // 14 días para media
-        : avgCycleTime;
-      
       priorityCycleTime.low = bajaResolved > 0 
-        ? Math.round(((bajaTotal - bajaResolved) / bajaResolved * 21) * 10) / 10  // 21 días para baja
+        ? Math.round(((bajaTotal - bajaResolved) / bajaResolved * 21) * 10) / 10  // 21 días para Low priority
         : Math.round(avgCycleTime * 1.5);
-      
-      priorityCycleTime.trivial = trivialResolved > 0
-        ? Math.round(((trivialTotal - trivialResolved) / trivialResolved * 28) * 10) / 10  // 28 días para trivial
-        : Math.round(avgCycleTime * 2);
     } else {
       // Fallback si no hay datos
       priorityCycleTime = {
-        critical: Math.round(avgCycleTime * 0.5),
-        high: Math.round(avgCycleTime * 0.8),
-        medium: avgCycleTime,
+        high: Math.round(avgCycleTime * 0.5),
+        medium: Math.round(avgCycleTime * 0.8),
         low: Math.round(avgCycleTime * 1.5)
       };
     }
@@ -1621,11 +1608,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                 <div className="flex gap-3 text-sm">
                   <div className="text-center">
                     <div className="text-xl font-semibold text-success-600">{executionRateData.completed}</div>
-                    <div className="text-xs text-gray-500 font-normal">Completed</div>
+                    <div className="text-xs text-gray-500 font-normal">at least one execution</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-semibold text-gray-600">{executionRateData.total}</div>
-                    <div className="text-xs text-gray-500 font-normal">Total Bugs</div>
+                    <div className="text-xs text-gray-500 font-normal">Total Designed</div>
                   </div>
                 </div>
               </div>
@@ -1675,9 +1662,12 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       {/* Main and tracking metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {isKpiVisible('bugsCriticos') && (() => {
-          // Obtener Highest+High (Critical) y Low+Lowest (Low Priority) desde bugsByPriority
-          const criticalCount = (data.bugsByPriority?.['Highest']?.count || 0) + (data.bugsByPriority?.['High']?.count || 0);
-          const lowPriorityCount = (data.bugsByPriority?.['Low']?.count || 0) + (data.bugsByPriority?.['Lowest']?.count || 0);
+          // Obtener High (Critical) y Low (Low Priority) desde bugsByPriority
+          // High = Critical/Highest severity (top priority)
+          // Medium = Standard priority
+          // Low = Low priority (backlog)
+          const criticalCount = data.bugsByPriority?.['High']?.count || 0;
+          const lowPriorityCount = data.bugsByPriority?.['Low']?.count || 0;
           
           return (
             <KPICard
@@ -1692,7 +1682,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   <div className="flex gap-3 text-sm">
                     <div className="text-center">
                       <div className="text-xl font-semibold text-danger-600">{criticalCount}</div>
-                      <div className="text-xs text-gray-500 font-normal">Critical</div>
+                      <div className="text-xs text-gray-500 font-normal">High Priority</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xl font-semibold text-blue-600">{lowPriorityCount}</div>
@@ -1709,11 +1699,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   <span>Breakdown by priority level</span>
                 </div>
               }
-              formula={`Total = ${criticalCount} Critical (Highest+High) + ${lowPriorityCount} Low (Low+Lowest)`}
+              formula={`Total = ${criticalCount} High + ${data.bugsByPriority?.['Medium']?.count || 0} Medium + ${lowPriorityCount} Low`}
               tooltip={
                 <div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                  <div className="text-xs text-gray-600 mb-2">Total number of findings (bugs) detected, classified by priority: Critical (Highest+High) and Low Priority (Low+Lowest).</div>
+                  <div className="text-xs text-gray-600 mb-2">Total number of findings (bugs) detected, classified by priority level: High (critical), Medium, and Low priority.</div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
                   <div className="text-xs text-gray-600">Provides a complete overview of all issues and their severity levels, helping prioritize resolution efforts.</div>
                 </div>

@@ -692,10 +692,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="grid grid-cols-2 gap-4">
           {Object.entries(data.byPriority || {}).map(([priority, days]) => {
             const priorityConfig = {
-              critical: { label: 'Critical', color: 'bg-danger-500', target: 3 },
-              high: { label: 'High', color: 'bg-warning-500', target: 5 },
-              medium: { label: 'Medium', color: 'bg-blue-500', target: 7 },
-              low: { label: 'Low', color: 'bg-gray-500', target: 10 }
+              high: { label: 'High Priority', color: 'bg-danger-500', target: 5 },
+              medium: { label: 'Normal', color: 'bg-warning-500', target: 8 },
+              low: { label: 'Low Priority', color: 'bg-gray-500', target: 21 }
             };
             const config = priorityConfig[priority];
             if (!config) return null;
@@ -735,12 +734,6 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           return Math.max(2, Math.min(5, Math.round(3 + complexity - resolutionRate * 2)));
         });
         
-        const highData = sprints.map(sprint => {
-          const resolutionRate = sprint.bugsResolved / (sprint.bugs || 1);
-          const complexity = sprint.bugs / (sprint.velocity || 1);
-          return Math.max(4, Math.min(8, Math.round(5 + complexity - resolutionRate * 1.5)));
-        });
-        
         const mediumData = sprints.map(sprint => {
           const resolutionRate = sprint.bugsResolved / (sprint.bugs || 1);
           const complexity = sprint.bugs / (sprint.velocity || 1);
@@ -754,16 +747,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         });
         
         const datasets = [
-          { label: 'Critical', data: criticalData, color: '#dc2626' },
-          { label: 'High', data: highData, color: '#f97316' },
-          { label: 'Medium', data: mediumData, color: '#3b82f6' },
-          { label: 'Low', data: lowData, color: '#9ca3af' }
+          { label: 'High Priority', data: criticalData, color: '#dc2626' },
+          { label: 'Normal', data: mediumData, color: '#f59e0b' },
+          { label: 'Low Priority', data: lowData, color: '#9ca3af' }
         ];
         
         const targets = {
-          'Critical': 3,
-          'High': 5,
-          'Medium': 7,
+          'High Priority': 5,
+          'Normal': 8,
           'Low': 10
         };
         
@@ -1155,15 +1146,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="space-y-2">
             {Object.entries(modal.bugsByPriority)
               .sort((a, b) => {
-                const priorityOrder = { 'Highest': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'Lowest': 4 };
+                const priorityOrder = { 'High': 0, 'Medium': 1, 'Low': 2 };
                 return (priorityOrder[a[0]] ?? 99) - (priorityOrder[b[0]] ?? 99);
               })
               .map(([priority, details]) => {
                 const count = details?.count || 0;
                 const percentage = data.total > 0 ? ((count / data.total) * 100).toFixed(1) : 0;
-                const statusColor = priority.toLowerCase().includes('highest') || priority.toLowerCase().includes('high') 
+                const statusColor = priority === 'High'
                   ? 'bg-danger-50 border-danger-200' 
-                  : priority.toLowerCase().includes('medium') 
+                  : priority === 'Medium'
                   ? 'bg-warning-50 border-warning-200'
                   : 'bg-blue-50 border-blue-200';
                 
@@ -1174,9 +1165,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                       <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
                         <div
                           className={`h-2 ${
-                            priority.toLowerCase().includes('highest') ? 'bg-danger-600' :
-                            priority.toLowerCase().includes('high') ? 'bg-danger-500' :
-                            priority.toLowerCase().includes('medium') ? 'bg-warning-500' :
+                            priority === 'High' ? 'bg-danger-600' :
+                            priority === 'Medium' ? 'bg-warning-500' :
                             'bg-blue-500'
                           }`}
                           style={{ width: `${percentage}%` }}
@@ -1705,9 +1695,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
       {/* Resumen general */}
       <div className="bg-red-50 p-6 rounded-lg border border-red-200">
         <h3 className="text-2xl font-bold text-red-600 mb-2">
-          {data.critical || 0} Critical Findings
+          {data.critical || 0} High Priority Findings
         </h3>
-        <p className="text-sm text-gray-600">Distribution of criticality by severity</p>
+        <p className="text-sm text-gray-600">Distribution of findings by severity level</p>
       </div>
 
       {/* Matriz de desglose por prioridad */}
@@ -2132,14 +2122,14 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     // Obtener conteos por prioridad desde allPriorities
     const priorities = data.allPriorities || {};
     
-    // Critical: Highest + High
-    const criticalCount = (priorities['Highest']?.count || 0) + (priorities['High']?.count || 0);
+    // High Priority (Critical)
+    const criticalCount = priorities['High']?.count || 0;
     
-    // Medium: Medium
+    // Medium: Standard priority
     const mediumCount = priorities['Medium']?.count || 0;
     
-    // Low Priority: Low + Lowest
-    const lowPriorityCount = (priorities['Low']?.count || 0) + (priorities['Lowest']?.count || 0);
+    // Low Priority
+    const lowPriorityCount = priorities['Low']?.count || 0;
 
     return (
       <div className="space-y-6">
@@ -2154,12 +2144,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-sm text-gray-600 mb-1">Critical</div>
             <div className="text-2xl font-bold text-danger-600">{criticalCount}</div>
-            <div className="text-xs text-gray-500">Highest + High</div>
+            <div className="text-xs text-gray-500">Happy path + High</div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-sm text-gray-600 mb-1">Medium</div>
             <div className="text-2xl font-bold text-warning-600">{mediumCount}</div>
-            <div className="text-xs text-gray-500">Medium priority</div>
+            <div className="text-xs text-gray-500">Norma priority</div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-sm text-gray-600 mb-1">Low Priority</div>
@@ -2183,7 +2173,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                        <span className="text-sm font-medium text-gray-700">Critical (Highest + High)</span>
+                        <span className="text-sm font-medium text-gray-700">Critical (Happy path + High)</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-danger-600">{criticalCount}</span>
@@ -2204,7 +2194,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
-                        <span className="text-sm font-medium text-gray-700">Medium</span>
+                        <span className="text-sm font-medium text-gray-700">Normal</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-warning-600">{mediumCount}</span>
@@ -2225,7 +2215,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
-                        <span className="text-sm font-medium text-gray-700">Low Priority (Low + Lowest)</span>
+                        <span className="text-sm font-medium text-gray-700">Low Priority</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold text-gray-600">{lowPriorityCount}</span>
@@ -2254,8 +2244,8 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             Key Metrics
           </h4>
           <div className="text-sm text-blue-800 space-y-1">
-            <p><strong>Critical Findings:</strong> {criticalCount} issues requiring immediate attention (Highest + High priority)</p>
-            <p><strong>Medium Findings:</strong> {mediumCount} issues for scheduled resolution</p>
+            <p><strong>Critical Findings:</strong> {criticalCount} issues requiring immediate attention (Happy path + High priority)</p>
+            <p><strong>Normal Findings:</strong> {mediumCount} issues for scheduled resolution</p>
             <p><strong>Low Priority:</strong> {lowPriorityCount} issues for backlog tracking</p>
           </div>
         </div>
@@ -2366,7 +2356,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                             className="cursor-pointer hover:opacity-100"
                             style={{transition: 'opacity 0.2s'}}
                           >
-                            <title>{`${p.month}\nCritical: ${p.value}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                            <title>{`${p.month}\nHigh: ${p.value}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
                           </circle>
                           <circle 
                             cx={p.x} 
@@ -2389,7 +2379,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                             opacity="0"
                             className="cursor-pointer hover:opacity-100"
                           >
-                            <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                            <title>{`${p.month}\nHigh: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
                           </circle>
                           <circle 
                             cx={p.x} 
@@ -2411,7 +2401,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                             opacity="0"
                             className="cursor-pointer hover:opacity-100"
                           >
-                            <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
+                            <title>{`${p.month}\nHigh: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
                           </circle>
                           <circle 
                             cx={p.x} 
@@ -2457,15 +2447,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
             <div className="flex gap-6 mt-4 justify-center text-sm flex-wrap">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-                <span className="text-gray-700">Critical (Highest + High)</span>
+                <span className="text-gray-700">Critical (Happy path + High)</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
-                <span className="text-gray-700">Medium</span>
+                <span className="text-gray-700">Normal</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
-                <span className="text-gray-700">Low Priority (Low + Lowest)</span>
+                <span className="text-gray-700">Low Priority</span>
               </div>
             </div>
             
@@ -2776,7 +2766,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                           fill="#f59e0b"
                           opacity="0"
                         >
-                          <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
+                          <title>{`${p.month}\nHigh Priority: ${monthEntries[idx][1].critical}\nMedium: ${p.value}\nLow: ${monthEntries[idx][1].lowPriority}\nTotal: ${p.total}`}</title>
                         </circle>
                         <circle 
                           cx={p.x} 
@@ -2797,7 +2787,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
                           fill="#6b7280"
                           opacity="0"
                         >
-                          <title>{`${p.month}\nCritical: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
+                          <title>{`${p.month}\nHigh Priority: ${monthEntries[idx][1].critical}\nMedium: ${monthEntries[idx][1].medium}\nLow: ${p.value}\nTotal: ${p.total}`}</title>
                         </circle>
                         <circle 
                           cx={p.x} 
@@ -2843,15 +2833,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="flex gap-6 mt-4 justify-center text-sm flex-wrap">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#dc2626' }}></div>
-              <span className="text-gray-700">Critical (Highest + High)</span>
+              <span className="text-gray-700">Critical (Happy path + High)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#f59e0b' }}></div>
-              <span className="text-gray-700">Medium</span>
+              <span className="text-gray-700">Normal</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#6b7280' }}></div>
-              <span className="text-gray-700">Low Priority (Low + Lowest)</span>
+              <span className="text-gray-700">Low Priority</span>
             </div>
           </div>
           
