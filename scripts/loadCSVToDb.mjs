@@ -40,8 +40,8 @@ const db = new (sqlite3.verbose().Database)(DB_PATH, (err) => {
     const stmt = db.prepare(`
       INSERT INTO bugs_detail (
         tipo_incidencia, clave_incidencia, id_incidencia, resumen, prioridad, 
-        estado, sprint, modulo, categoria, asignado_a
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        estado, sprint, modulo, categoria, asignado_a, fecha_reporte
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     records.forEach((row, idx) => {
@@ -57,6 +57,7 @@ const db = new (sqlite3.verbose().Database)(DB_PATH, (err) => {
           row['Modulo'] || '',
           row['Categoría'] || '',
           row['Desarrollador'] || '',
+          row['Fecha Reporte'] || '',
         ]);
       } catch (e) {
         if (idx < 3) console.warn(`⚠️ Fila ${idx}: ${e.message}`);

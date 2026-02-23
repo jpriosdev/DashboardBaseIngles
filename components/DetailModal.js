@@ -914,7 +914,9 @@ export default function DetailModal({ modal, onClose, recommendations }) {
     </div>
   );
 
-  const renderDefectDensityDetail = (data) => (
+  const renderDefectDensityDetail = (modal) => {
+    const data = modal.data || {};
+    return (
     <div className="space-y-6">
       {/* Resumen general */}
       <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
@@ -1059,8 +1061,100 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           )}
         </ul>
       </div>
+
+      {/* Desglose por PRIORIDAD */}
+      {modal.bugsByPriority && Object.keys(modal.bugsByPriority).length > 0 && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+            <AlertTriangle className="w-4 h-4 mr-2" />
+            Breakdown by Priority
+          </h4>
+          <div className="space-y-2">
+            {Object.entries(modal.bugsByPriority)
+              .sort((a, b) => {
+                const priorityOrder = { 'Highest': 0, 'High': 1, 'Medium': 2, 'Low': 3, 'Lowest': 4 };
+                return (priorityOrder[a[0]] ?? 99) - (priorityOrder[b[0]] ?? 99);
+              })
+              .map(([priority, details]) => {
+                const count = details?.count || 0;
+                const percentage = data.total > 0 ? ((count / data.total) * 100).toFixed(1) : 0;
+                const statusColor = priority.toLowerCase().includes('highest') || priority.toLowerCase().includes('high') 
+                  ? 'bg-danger-50 border-danger-200' 
+                  : priority.toLowerCase().includes('medium') 
+                  ? 'bg-warning-50 border-warning-200'
+                  : 'bg-blue-50 border-blue-200';
+                
+                return (
+                  <div key={priority} className={`flex items-center justify-between p-3 rounded-lg border ${statusColor}`}>
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className="text-sm font-medium text-gray-700 min-w-20">{priority}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-2 ${
+                            priority.toLowerCase().includes('highest') ? 'bg-danger-600' :
+                            priority.toLowerCase().includes('high') ? 'bg-danger-500' :
+                            priority.toLowerCase().includes('medium') ? 'bg-warning-500' :
+                            'bg-blue-500'
+                          }`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="text-right ml-4">
+                      <div className="text-sm font-bold text-gray-900">{count}</div>
+                      <div className="text-xs text-gray-600">{percentage}%</div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* Desglose por MÓDULO */}
+      {modal.bugsByModule && modal.bugsByModule.length > 0 && (
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Breakdown by Module/Feature
+          </h4>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {modal.bugsByModule
+              .slice()
+              .sort((a, b) => (b.count || 0) - (a.count || 0))
+              .slice(0, 10)
+              .map((module, idx) => {
+                const moduleName = module.module || module.name || module[0] || 'Unknown';
+                const count = module.count || 0;
+                const percentage = data.total > 0 ? ((count / data.total) * 100).toFixed(1) : 0;
+                
+                return (
+                  <div key={`${moduleName}-${idx}`} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">{moduleName}</span>
+                      <span className="text-sm font-bold text-gray-900">{count} bugs</span>
+                    </div>
+                    <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-2"
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">{percentage}% of total</div>
+                  </div>
+                );
+              })}
+            {modal.bugsByModule.length > 10 && (
+              <p className="text-xs text-gray-600 text-center pt-2">
+                +{modal.bugsByModule.length - 10} more modules
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
+  };
 
   const renderTestCasesDetail = (data) => (
     <div className="space-y-6">
@@ -2833,7 +2927,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         <div className="p-6">
           {modal.type === 'cycleTime' && renderCycleTimeDetail(modal.data)}
           {(modal.type === 'automationCoverage' || modal.type === 'testAutomation' || modal.type === 'codeCoverage') && renderAutomationCoverageDetail(modal.data)}
-          {modal.type === 'defectDensity' && renderDefectDensityDetail(modal.data)}
+          {modal.type === 'defectDensity' && renderDefectDensityDetail(modal)}
           {modal.type === 'testCases' && renderTestCasesDetail(modal.data)}
           {modal.type === 'resolutionEfficiency' && renderResolutionEfficiencyDetail(modal.data)}
           {modal.type === 'regressionRate' && renderRegressionRateDetail(modal.data)}

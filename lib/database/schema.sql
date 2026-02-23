@@ -297,7 +297,7 @@ SELECT
   -- Resolved: estados completados (Done, Testing Completed, Testing Complete, Approved for Release, Reviewed)
   SUM(CASE WHEN estado IN ('Closed', 'Ready For Release','Released') THEN 1 ELSE 0 END) as resolved
 FROM bugs_detail
-WHERE prioridad IS NOT NULL AND tipo_incidencia = 'Bug'
+WHERE prioridad IS NOT NULL AND estado = 'Fail'
 GROUP BY prioridad;
 
 -- Vista: Bugs por módulo (SOLO Bugs = Findings)
@@ -307,7 +307,7 @@ SELECT
   COUNT(*) as count,
   SUM(CASE WHEN prioridad in ('Highest', 'High') THEN 1 ELSE 0 END) as critical
 FROM bugs_detail
-WHERE tipo_incidencia = 'Bug' AND modulo IS NOT NULL AND modulo != ''
+WHERE estado = 'Fail' AND modulo IS NOT NULL AND modulo != ''
 GROUP BY modulo;
 
 -- Vista: Bugs por categoría (SOLO Bugs = Findings)
@@ -316,7 +316,7 @@ SELECT
   categoria,
   COUNT(*) as count
 FROM bugs_detail
-WHERE tipo_incidencia = 'Bug' AND categoria IS NOT NULL AND categoria != ''
+WHERE estado = 'Fail' AND categoria IS NOT NULL AND categoria != ''
 GROUP BY categoria;
 
 -- Vista: Análisis de desarrolladores (desde bugs_detail)

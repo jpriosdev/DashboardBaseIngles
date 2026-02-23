@@ -1575,7 +1575,9 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             data: defectDensityData,
             sparklineData: Object.keys(data.bugsByMonth || {}).sort().map(month => (data.bugsByMonth[month]?.count || 0)),
             sprints: monthLabels.map(month => ({ sprint: month })),
-            monthLabels: monthLabels
+            monthLabels: monthLabels,
+            bugsByPriority: data.bugsByPriority || {},
+            bugsByModule: data.bugsByModule || []
           })}
           detailData={defectDensityData}
         />
