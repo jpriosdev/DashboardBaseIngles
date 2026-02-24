@@ -290,14 +290,14 @@ CREATE VIEW IF NOT EXISTS vw_bugs_by_priority AS
 SELECT 
   prioridad,
   COUNT(*) as count,
-  -- Pending: estados en flujo de trabajo (To Do, In Development, In Testing, Ready for Testing)
-  SUM(CASE WHEN estado in ('Backlog','Dev Solution Review','Ready for Dev','Refinement','Solution Design') THEN 1 ELSE 0 END) as pending,
-  -- Canceled: tareas canceladas
+  -- Pending: test cases that are Fail or In Progress (estos son los "bugs" pendientes)
+  SUM(CASE WHEN estado IN ('Fail', 'In Progress') THEN 1 ELSE 0 END) as pending,
+  -- Canceled: not applicable in test result data
   SUM(CASE WHEN estado = 'Canceled' THEN 1 ELSE 0 END) as canceled,
-  -- Resolved: estados completados (Done, Testing Completed, Testing Complete, Approved for Release, Reviewed)
-  SUM(CASE WHEN estado IN ('Closed', 'Ready For Release','Released') THEN 1 ELSE 0 END) as resolved
+  -- Resolved: test cases that passed (bugs that were fixed)
+  SUM(CASE WHEN estado = 'Pass' THEN 1 ELSE 0 END) as resolved
 FROM bugs_detail
-WHERE prioridad IS NOT NULL AND estado = 'Fail'
+WHERE prioridad IS NOT NULL
 GROUP BY prioridad;
 
 -- Vista: Bugs por módulo (SOLO Bugs = Findings)
@@ -378,4 +378,39 @@ SELECT
   SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' AND estado IN ('Done','Approved for Release','Reviewed','Testing Complete') THEN 1 ELSE 0 END) as testcases_with_type,
   -- Use the same filtered count as total_records so downstream logic can divide by sprint count
   SUM(CASE WHEN LOWER(COALESCE(resumen,'')) LIKE '%test%' AND tipo_incidencia != 'Bug' AND estado IN ('Done','Approved for Release','Reviewed','Testing Complete') THEN 1 ELSE 0 END) as total_records
+FROM bugs_detail;
+
+-- Vista: Estado de resolución de bugs (análisis histórico)
+-- Analiza cuántos bugs que alguna vez fueron Fail fueron luego ejecutados con Pass
+CREATE VIEW IF NOT EXISTS vw_bug_resolution_status AS
+WITH bug_analysis AS (
+  SELECT 
+    clave_incidencia,
+    prioridad,
+    SUM(CASE WHEN estado = 'Fail' THEN 1 ELSE 0 END) as fail_count,
+    SUM(CASE WHEN estado = 'Pass' THEN 1 ELSE 0 END) as pass_count,
+    SUM(CASE WHEN estado IN ('In Progress', 'Blocked') THEN 1 ELSE 0 END) as pending_count
+  FROM bugs_detail
+  WHERE tipo_incidencia = 'Test Case'
+  GROUP BY clave_incidencia, prioridad
+  HAVING fail_count > 0
+)
+SELECT 
+  prioridad,
+  COUNT(*) as total_bugs_with_fail,
+  SUM(CASE WHEN pass_count > 0 THEN 1 ELSE 0 END) as fixed_and_verified,
+  SUM(CASE WHEN pass_count = 0 AND pending_count = 0 THEN 1 ELSE 0 END) as still_failing,
+  SUM(CASE WHEN pending_count > 0 THEN 1 ELSE 0 END) as in_progress_fix
+FROM bug_analysis
+GROUP BY prioridad;
+
+-- Vista: Resumen de ejecuciones por estado
+CREATE VIEW IF NOT EXISTS vw_execution_summary AS
+SELECT 
+  COUNT(*) as total_executions,
+  SUM(CASE WHEN estado = 'Pass' THEN 1 ELSE 0 END) as passed,
+  SUM(CASE WHEN estado = 'Fail' THEN 1 ELSE 0 END) as failed,
+  SUM(CASE WHEN estado = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+  SUM(CASE WHEN estado = 'Blocked' THEN 1 ELSE 0 END) as blocked,
+  SUM(CASE WHEN estado = 'Not Executed' THEN 1 ELSE 0 END) as not_executed
 FROM bugs_detail;

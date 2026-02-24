@@ -1514,87 +1514,137 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               <div className="text-xs text-gray-600">Measures the test planning and design capacity of the QA team on a monthly basis and helps identify trends in test case creation and specification.</div>
             </div>
           }
-          onClick={() => setDetailModal({
-            type: 'testCases',
-            title: 'Analysis of Test Cases designed by Month',
-            data: {
-              avg: avgTestCasesPerSprint,
-              total: totalTestCases,
-              months: monthLabels?.length || 0,
-              plannedSeries: plannedSeries,
-              executedSeries: executedSeries
-            },
-            sparklineData: plannedSeries,
-            sprints: monthLabels.map(month => ({ sprint: month })),
-            monthLabels: monthLabels
-          })}
+          onClick={() => {
+            const testCasesReused = summary?.testCasesReused || 0;
+            const testCasesUsed = summary?.testCasesUsed || 0;
+            const testCasesNotUsed = summary?.testCasesNotUsed || 0;
+            const testCasesTotal = summary?.testCasesTotal || totalTestCases;
+            const reusedRate = summary?.testCasesReusedRate || 0;
+            const usedRate = summary?.testCasesUsedRate || 0;
+            const notUsedRate = summary?.testCasesNotUsedRate || 0;
+            
+            setDetailModal({
+              type: 'testCases',
+              title: 'Analysis of Test Cases designed by Month',
+              data: {
+                avg: avgTestCasesPerSprint,
+                total: totalTestCases,
+                months: monthLabels?.length || 0,
+                plannedSeries: plannedSeries,
+                executedSeries: executedSeries,
+                testCasesTotal: testCasesTotal,
+                testCasesReused: testCasesReused,      // >= 2 executions
+                testCasesUsed: testCasesUsed,          // = 1 execution
+                testCasesNotUsed: testCasesNotUsed,    // 0 executions
+                reusedRate: reusedRate,
+                usedRate: usedRate,
+                notUsedRate: notUsedRate
+              },
+              sparklineData: plannedSeries,
+              sprints: monthLabels.map(month => ({ sprint: month })),
+              monthLabels: monthLabels
+            })
+          }}
           detailData={{ avg: avgTestCasesPerSprint, total: totalTestCases }}
         />
         )}
         
-        {/* 2. PRODUCT QUALITY: Finding Density */}
-        {isKpiVisible('densidad') && (
-          <KPICard
-          title="Finding Density per Month"
-          value={
-            <div className="flex items-center gap-3">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-600">{defectDensityData.avg}</div>
-                <div className="text-xs text-gray-500 font-normal mt-0.5">findings/month</div>
-              </div>
-              <div className="h-12 w-px bg-gray-200"></div>
-              <div className="flex gap-3 text-sm">
-                <div className="text-center">
-                  <div className="text-xl font-semibold text-gray-700">{defectDensityData.max}</div>
-                  <div className="text-xs text-gray-500 font-normal">Max</div>
+        {/* 2. TEST EXECUTION SUMMARY: Total executions and state breakdown */}
+        {isKpiVisible('testExecution') && (() => {
+          const execSummary = data.executionSummary || {};
+          const total = execSummary.total_executions || 0;
+          const passed = execSummary.passed || 0;
+          const failed = execSummary.failed || 0;
+          const inProgress = execSummary.in_progress || 0;
+          const blocked = execSummary.blocked || 0;
+          const notExecuted = execSummary.not_executed || 0;
+          
+          const successRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+          
+          return (
+            <KPICard
+              title="Test Execution Summary"
+              value={
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-gray-900">{total}</div>
+                    <div className="text-xs text-gray-500 font-normal mt-0.5">Total</div>
+                  </div>
+                  <div className="h-12 w-px bg-gray-200"></div>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-success-600">{passed}</div>
+                      <div className="text-xs text-gray-500 font-normal">Passed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-danger-600">{failed}</div>
+                      <div className="text-xs text-gray-500 font-normal">Failed</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-warning-600">{notExecuted}</div>
+                      <div className="text-xs text-gray-500 font-normal">Not Run</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-xl font-semibold text-gray-700">{defectDensityData.min}</div>
-                  <div className="text-xs text-gray-500 font-normal">Min</div>
+              }
+              icon={<Activity className="w-6 h-6 text-success-600" />}
+              trend={successRate >= 90 ? 5 : successRate >= 80 ? 0 : -5}
+              status={successRate >= 90 ? "success" : successRate >= 80 ? "warning" : "danger"}
+              subtitle={
+                <div className="flex items-center gap-2">
+                  <span>{successRate}% success rate</span>
+                  <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${successRate >= 90 ? 'bg-success-500' : successRate >= 80 ? 'bg-warning-500' : 'bg-danger-500'}`}
+                      style={{ width: `${successRate}%` }}
+                    ></div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          }
-          icon={<Target className="w-6 h-6 text-orange-600" />}
-          trend={defectDensityData.avg <= 20 ? 5 : -5}
-          status={defectDensityData.avg <= 20 ? "success" : defectDensityData.avg <= 30 ? "warning" : "danger"}
-          subtitle={
-            <div className="flex items-center gap-2">
-              <span>{defectDensityData.total} findings in {defectDensityData.months} months</span>
-            </div>
-          }
-          formula={`Average = ${defectDensityData.total} / ${defectDensityData.months} = ${defectDensityData.avg}`}
-          tooltip={
-            <div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-              <div className="text-xs text-gray-600 mb-2">Average findings detected per month. Target: ≤20 findings/month.</div>
-              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-              <div className="text-xs text-gray-600">Indicates product quality over time; trends help identify improvements in development and testing processes.</div>
-            </div>
-          }
-          onClick={() => {
-            // sparklineData y sprints DEBEN usar la misma lista base (monthLabels)
-            // para que cada punto del gráfico corresponda a su etiqueta en el eje X.
-            // Si un mes existe en testCasesByMonth pero no en bugsByMonth → 0 bugs ese mes.
-            const densitySparkline = monthLabels.map(month => (data.bugsByMonth?.[month]?.count || 0));
-            setDetailModal({
-              type: 'defectDensity',
-              title: 'Analysis of Finding Density per Month',
-              // Los stats (avg/total/max/min) vienen de defectDensityData para ser
-              // idénticos al KPI que se muestra en el dashboard.
-              data: defectDensityData,
-              sparklineData: densitySparkline,
-              sprints: monthLabels.map(month => ({ sprint: month })),
-              monthLabels: monthLabels,
-              bugsByPriority: data.bugsByPriority || {},
-              bugsByModule: data.bugsByModule || []
-            });
-          }}
-          detailData={defectDensityData}
-        />
-        )}
+              }
+              formula={`Success = ${passed} / ${total} × 100 = ${successRate}%`}
+              tooltip={
+                <div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                  <div className="text-xs text-gray-600 mb-2">Summary of all test case executions: total test runs and breakdown by execution state (Passed, Failed, In Progress, Blocked, Not Executed).</div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">Execution states</div>
+                  <div className="text-xs text-gray-600 mb-2">
+                    • Passed: Successful test result<br/>
+                    • Failed: Test failed<br/>
+                    • In Progress: Test execution in progress<br/>
+                    • Blocked: Test blocked<br/>
+                    • Not Executed: Test not yet run
+                  </div>
+                  <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                  <div className="text-xs text-gray-600">Provides comprehensive view of test execution status and quality metrics across all test cases.</div>
+                </div>
+              }
+              onClick={() => setDetailModal({
+                type: 'testExecutionSummary',
+                title: 'Test Execution Summary Analysis',
+                data: {
+                  total_executions: total,
+                  passed: passed,
+                  failed: failed,
+                  in_progress: inProgress,
+                  blocked: blocked,
+                  not_executed: notExecuted,
+                  success_rate: successRate,
+                  failure_rate: total > 0 ? Math.round((failed / total) * 100) : 0,
+                  execution_progress: total > 0 ? Math.round(((passed + failed + inProgress) / total) * 100) : 0,
+                  at_risk: inProgress + blocked + notExecuted
+                },
+                sparklineData: monthLabels.map(month => (data.testCasesByMonth?.[month]?.executed || 0)),
+                sprints: monthLabels.map(month => ({ sprint: month })),
+                monthLabels: monthLabels
+              })}
+              detailData={{ passed, failed, total }}
+            />
+          );
+        })()}
         
-        {/* 3. EXECUTION RATE */}
+        
+        
+        {/* 4. EXECUTION RATE */}
         {isKpiVisible('testExecutionRate') && (
           <KPICard
             title="Execution Rate"
@@ -1682,11 +1732,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   <div className="flex gap-3 text-sm">
                     <div className="text-center">
                       <div className="text-xl font-semibold text-danger-600">{criticalCount}</div>
-                      <div className="text-xs text-gray-500 font-normal">High Priority</div>
+                      <div className="text-xs text-gray-500 font-normal">Critical</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xl font-semibold text-blue-600">{lowPriorityCount}</div>
-                      <div className="text-xs text-gray-500 font-normal">Low Priority</div>
+                      <div className="text-xs text-gray-500 font-normal">Low</div>
                     </div>
                   </div>
                 </div>
@@ -1728,96 +1778,67 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             />
           );
         })()}
-        {/* 2. CRITICAL TRACKING: Critical Findings Status */}
-        {isKpiVisible('criticosPendientes') && (() => {
-          // Calcular totales desde bugsByPriority (datos actualizados de la BD)
-          const allBugsByPriority = Object.values(data.bugsByPriority || {});
-          const totalPending = allBugsByPriority.reduce((sum, item) => sum + (item.pending || 0), 0);
-          const totalResolved = allBugsByPriority.reduce((sum, item) => sum + (item.resolved || 0), 0);
-          const totalCanceled = allBugsByPriority.reduce((sum, item) => sum + (item.canceled || 0), 0);
-          const totalFindings = totalPending + totalResolved + totalCanceled;
-          const resolutionRate = totalFindings > 0 ? Math.round((totalResolved / totalFindings) * 100) : 0;
-          
-          return (
-            <KPICard
-              title="Findings Status"
-              value={
-                <div className="flex items-center gap-3">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-gray-900">{totalFindings}</div>
-                    <div className="text-xs text-gray-500 font-normal mt-0.5">Total</div>
-                  </div>
-                  <div className="h-12 w-px bg-gray-200"></div>
-                  <div className="flex gap-3 text-sm">
-                    <div className="text-center">
-                      <div className="text-xl font-semibold text-warning-600">{totalPending}</div>
-                      <div className="text-xs text-gray-500 font-normal">Pending</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-semibold text-success-600">{totalResolved}</div>
-                      <div className="text-xs text-gray-500 font-normal">Resolved</div>
-                    </div>
-                    {totalCanceled > 0 && (
-                      <div className="text-center">
-                        <div className="text-xl font-semibold text-gray-500">{totalCanceled}</div>
-                        <div className="text-xs text-gray-500 font-normal">Canceled</div>
-                      </div>
-                    )}
-                  </div>
+        {/* 2. PRODUCT QUALITY: Finding Density */}
+        {isKpiVisible('densidad') && (
+          <KPICard
+          title="Finding Density per Month"
+          value={
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-orange-600">{defectDensityData.avg}</div>
+                <div className="text-xs text-gray-500 font-normal mt-0.5">findings/month</div>
+              </div>
+              <div className="h-12 w-px bg-gray-200"></div>
+              <div className="flex gap-3 text-sm">
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-gray-700">{defectDensityData.max}</div>
+                  <div className="text-xs text-gray-500 font-normal">Max</div>
                 </div>
-              }
-              icon={<AlertTriangle className="w-6 h-6 text-warning-600" />}
-              trend={resolutionRate >= 80 ? 5 : resolutionRate >= 60 ? 0 : -5}
-              status={resolutionRate >= 80 ? "success" : resolutionRate >= 60 ? "warning" : "danger"}
-              subtitle={
-                <div className="flex items-center gap-2">
-                  <span>{resolutionRate}% resolution rate</span>
-                  <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full ${resolutionRate >= 80 ? 'bg-success-500' : resolutionRate >= 60 ? 'bg-warning-500' : 'bg-danger-500'}`}
-                      style={{ width: `${resolutionRate}%` }}
-                    ></div>
-                  </div>
+                <div className="text-center">
+                  <div className="text-xl font-semibold text-gray-700">{defectDensityData.min}</div>
+                  <div className="text-xs text-gray-500 font-normal">Min</div>
                 </div>
-              }
-              formula={`Resolution = ${totalResolved} / ${totalFindings} × 100 = ${resolutionRate}%`}
-              tooltip={
-                <div>
-                  <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                  <div className="text-xs text-gray-600 mb-2">Status of all findings (tipo_incidencia = &apos;Bug&apos;): pending vs resolved, grouped by priority level.</div>
-                  <div className="font-semibold text-sm text-gray-800 mb-1">Status categories</div>
-                  <div className="text-xs text-gray-600 mb-2">
-                    • Pending: To Do, In Development, In Testing, Ready for Testing<br/>
-                    • Resolved: Done, Testing Completed, Testing Complete, Approved for Release, Reviewed<br/>
-                    • Canceled: Canceled status
-                  </div>
-                  <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-                  <div className="text-xs text-gray-600">Helps prioritize resource allocation and track progress on resolving findings across all priority levels.</div>
-                </div>
-              }
-              onClick={() => {
-                console.log('[Findings Status] data.bugsByMonthByPriority:', data.bugsByMonthByPriority);
-                setDetailModal({
-                  type: 'criticalBugsStatus',
-                  title: 'Findings Status',
-                  data: {
-                    total: totalFindings,
-                    pending: totalPending,
-                    resolved: totalResolved,
-                    canceled: totalCanceled,
-                    allPriorities: data.bugsByPriority,
-                    trendDataByPriority: data.bugsByMonthByPriority || {},
-                    masAlta: criticalBugsMasAlta,
-                    alta: criticalBugsAlta
-                  },
-                  sparklineData: getSparklineData('criticalBugsPending'),
-                  sprints: filteredSprintData
-                })
-              }}
-              detailData={{ pending: totalPending, resolved: totalResolved, total: totalFindings }}
-            />
-          );
-        })()}
+              </div>
+            </div>
+          }
+          icon={<Target className="w-6 h-6 text-orange-600" />}
+          trend={defectDensityData.avg <= 20 ? 5 : -5}
+          status={defectDensityData.avg <= 20 ? "success" : defectDensityData.avg <= 30 ? "warning" : "danger"}
+          subtitle={
+            <div className="flex items-center gap-2">
+              <span>{defectDensityData.total} findings in {defectDensityData.months} months</span>
+            </div>
+          }
+          formula={`Average = ${defectDensityData.total} / ${defectDensityData.months} = ${defectDensityData.avg}`}
+          tooltip={
+            <div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+              <div className="text-xs text-gray-600 mb-2">Average findings detected per month. Target: ≤20 findings/month.</div>
+              <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+              <div className="text-xs text-gray-600">Indicates product quality over time; trends help identify improvements in development and testing processes.</div>
+            </div>
+          }
+          onClick={() => {
+            // sparklineData y sprints DEBEN usar la misma lista base (monthLabels)
+            // para que cada punto del gráfico corresponda a su etiqueta en el eje X.
+            // Si un mes existe en testCasesByMonth pero no en bugsByMonth → 0 bugs ese mes.
+            const densitySparkline = monthLabels.map(month => (data.bugsByMonth?.[month]?.count || 0));
+            setDetailModal({
+              type: 'defectDensity',
+              title: 'Analysis of Finding Density per Month',
+              // Los stats (avg/total/max/min) vienen de defectDensityData para ser
+              // idénticos al KPI que se muestra en el dashboard.
+              data: defectDensityData,
+              sparklineData: densitySparkline,
+              sprints: monthLabels.map(month => ({ sprint: month })),
+              monthLabels: monthLabels,
+              bugsByPriority: data.bugsByPriority || {},
+              bugsByModule: data.bugsByModule || []
+            });
+          }}
+          detailData={defectDensityData}
+        />
+        )}
         
         {/* 3. VELOCITY: Average Resolution Time */}
         {isKpiVisible('tiempoSolucion') && (

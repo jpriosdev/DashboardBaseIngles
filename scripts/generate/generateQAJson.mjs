@@ -51,6 +51,9 @@ async function main() {
 
     console.log(`✅ Datos obtenidos: ${qaData.sprintData.length} sprints`);
 
+    // DEBUG: Log bugsByPriority antes de guardar
+    console.log(`📊 bugsByPriority from qaData:`, JSON.stringify(qaData.bugsByPriority, null, 2).substring(0, 200));
+
     // Agregar metadata
     const metadata = {
       version: '1.0',
@@ -73,6 +76,8 @@ async function main() {
       bugsByMonth: qaData.bugsByMonth,
       bugsByMonthByPriority: qaData.bugsByMonthByPriority,
       executionRateByMonth: qaData.executionRateByMonth,
+      bugResolutionByPriority: qaData.bugResolutionByPriority,
+      executionSummary: qaData.executionSummary,
       summary: qaData.summary // También mantener summary para referencia
     };
 

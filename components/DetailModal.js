@@ -9,7 +9,7 @@ import React from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Info, Target, Activity, Users, AlertTriangle, Bug, Lightbulb } from 'lucide-react';
 import { RecommendationEngine } from '../utils/recommendationEngine';
 import ModuleAnalysis from './ModuleAnalysis';
-import { Line } from 'react-chartjs-2';
+import { Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -1249,6 +1249,90 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         </div>
       </div>
 
+      {/* Test Cases Reuse Summary Section */}
+      <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
+        <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center gap-2">
+          <Activity className="w-5 h-5" />
+          Test Cases Reuse Analysis
+        </h3>
+        
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="bg-white p-3 rounded-lg border border-green-100 shadow-sm">
+            <div className="text-xs text-gray-600 mb-1">Reused (≥2x)</div>
+            <div className="text-2xl font-bold text-green-600">{data.testCasesReused || 0}</div>
+            <div className="text-xs text-gray-500 mt-1">{data.reusedRate || 0}% of total</div>
+          </div>
+          
+          <div className="bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+            <div className="text-xs text-gray-600 mb-1">Used (1x)</div>
+            <div className="text-2xl font-bold text-blue-600">{data.testCasesUsed || 0}</div>
+            <div className="text-xs text-gray-500 mt-1">{data.usedRate || 0}% of total</div>
+          </div>
+          
+          <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+            <div className="text-xs text-gray-600 mb-1">Not Used (0x)</div>
+            <div className="text-2xl font-bold text-red-600">{data.testCasesNotUsed || 0}</div>
+            <div className="text-xs text-gray-500 mt-1">{data.notUsedRate || 0}% of total</div>
+          </div>
+        </div>
+
+        {/* Reuse Rate Visualization */}
+        <div className="bg-white p-4 rounded-lg border border-purple-100">
+          <div className="text-sm font-semibold text-gray-800 mb-2">Test Case Distribution</div>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1">
+              <div className="h-3 bg-gray-200 rounded-full overflow-hidden flex">
+                <div 
+                  className="bg-gradient-to-r from-green-500 to-green-600 h-full transition-all"
+                  style={{ width: `${data.reusedRate || 0}%` }}
+                ></div>
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-full transition-all"
+                  style={{ width: `${data.usedRate || 0}%` }}
+                ></div>
+                <div 
+                  className="bg-gradient-to-r from-red-300 to-red-400 h-full transition-all"
+                  style={{ width: `${data.notUsedRate || 0}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-4 text-xs flex-wrap">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-gray-600">Reused (≥2x): <strong>{data.reusedRate || 0}%</strong></span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <span className="text-gray-600">Used (1x): <strong>{data.usedRate || 0}%</strong></span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+              <span className="text-gray-600">Not Used (0x): <strong>{data.notUsedRate || 0}%</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Reuse Insights */}
+        <div className="mt-4 p-3 bg-purple-100 rounded-lg border border-purple-200">
+          <div className="text-xs text-purple-900 space-y-1">
+            {data.reusedRate >= 40 && (
+              <p><strong>✓ Excellent:</strong> {data.reusedRate || 0}% of cases are reused (≥2 executions).</p>
+            )}
+            {data.reusedRate >= 25 && data.reusedRate < 40 && (
+              <p><strong>✓ Good:</strong> {data.reusedRate || 0}% reuse rate. Keep expanding reusable cases.</p>
+            )}
+            {data.reusedRate >= 15 && data.reusedRate < 25 && (
+              <p><strong>⚠️ Fair:</strong> {data.reusedRate || 0}% reuse rate. Consider increasing case reusability.</p>
+            )}
+            {data.reusedRate < 15 && (
+              <p><strong>🔴 Improvement Needed:</strong> Low reuse rate ({data.reusedRate || 0}%). Most cases are not being reused.</p>
+            )}
+            <p className="text-purple-800 mt-2">💡 <strong>Tip:</strong> Reused cases (executed ≥2 times) maximize ROI by validating fixes across sprints and scenarios.</p>
+          </div>
+        </div>
+      </div>
+
       <div>
           <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">Test Coverage Scale
           <div className="group relative">
@@ -1293,6 +1377,15 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           {RecommendationEngine.getRecommendations('testCases', data, recommendations).map((rec, idx) => (
             <li key={idx} dangerouslySetInnerHTML={{ __html: `${rec.icon} ${rec.text.includes(':') ? `<strong>${rec.text.split(':')[0]}:</strong>${rec.text.split(':').slice(1).join(':')}` : rec.text}` }} />
           ))}
+          {data.reuseRate < 30 && (
+            <li><strong>♻️ Increase Reuse:</strong> Create modular, reusable test cases. Focus on scenarios that can be executed across multiple sprints and features.</li>
+          )}
+          {data.reuseRate >= 30 && data.reuseRate < 40 && (
+            <li><strong>📊 Monitor Reuse Trends:</strong> Continue monitoring and expand the repository of reusable test cases to reach 40%+ reuse rate.</li>
+          )}
+          {data.reuseRate >= 40 && (
+            <li><strong>✓ Maintain Momentum:</strong> Your test case reuse rate is healthy. Keep leveraging existing cases to maximize QA efficiency.</li>
+          )}
         </ul>
       </div>
     </div>
@@ -1524,6 +1617,185 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <li>✓ Automate regression tests for critical findings</li>
           <li>✓ Document root cause of each reopened finding</li>
           <li>✓ Training in root cause analysis (RCA)</li>
+        </ul>
+      </div>
+    </div>
+  );
+
+  const renderTestExecutionSummaryDetail = (data) => (
+    <div className="space-y-6">
+      {/* Resumen general */}
+      <div className="bg-success-50 p-6 rounded-lg border border-success-200">
+        <h3 className="text-2xl font-bold text-success-600 mb-2">
+          {data.success_rate}%
+        </h3>
+        <p className="text-sm text-gray-600">Overall Success Rate</p>
+        <p className="text-xs text-gray-500 mt-2">Percentage of test executions that passed successfully</p>
+      </div>
+
+      {/* Métricas principales - Estado de las ejecuciones */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center">
+          <div className="text-lg font-bold text-success-600">{data.passed}</div>
+          <div className="text-xs text-gray-600 mt-1">Passed</div>
+          <div className="text-xs text-gray-500">{data.total_executions > 0 ? Math.round((data.passed / data.total_executions) * 100) : 0}%</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center">
+          <div className="text-lg font-bold text-danger-600">{data.failed}</div>
+          <div className="text-xs text-gray-600 mt-1">Failed</div>
+          <div className="text-xs text-gray-500">{data.failure_rate}%</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center">
+          <div className="text-lg font-bold text-warning-600">{data.not_executed}</div>
+          <div className="text-xs text-gray-600 mt-1">Not Run</div>
+          <div className="text-xs text-gray-500">{data.total_executions > 0 ? Math.round((data.not_executed / data.total_executions) * 100) : 0}%</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center">
+          <div className="text-lg font-bold text-info-600">{data.in_progress}</div>
+          <div className="text-xs text-gray-600 mt-1">In Progress</div>
+          <div className="text-xs text-gray-500">{data.total_executions > 0 ? Math.round((data.in_progress / data.total_executions) * 100) : 0}%</div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm text-center">
+          <div className="text-lg font-bold text-gray-700">{data.blocked}</div>
+          <div className="text-xs text-gray-600 mt-1">Blocked</div>
+          <div className="text-xs text-gray-500">{data.total_executions > 0 ? Math.round((data.blocked / data.total_executions) * 100) : 0}%</div>
+        </div>
+      </div>
+
+      {/* Total y Progreso */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <div className="text-sm text-gray-600 mb-1">Total Executions</div>
+          <div className="text-3xl font-bold text-blue-600">{data.total_executions}</div>
+          <div className="text-xs text-gray-500 mt-1">test case executions</div>
+        </div>
+
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <div className="text-sm text-gray-600 mb-1">Pending (Not Run, In Progress, Blocked)</div>
+          <div className="text-3xl font-bold text-purple-600">{data.at_risk}</div>
+          <div className="text-xs text-gray-500 mt-1">{data.total_executions > 0 ? Math.round((data.at_risk / data.total_executions) * 100) : 0}% not finalized</div>
+        </div>
+      </div>
+
+      {/* Desglose detallado - Gráfico */}
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+          <BarChart3 className="w-4 h-4 mr-2" />
+          Execution State Breakdown
+        </h4>
+        <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
+          {/* Gráfico Doughnut */}
+          <div style={{ width: '100%', maxWidth: '280px', height: '280px', position: 'relative' }}>
+            {data.total_executions > 0 && (
+              <Doughnut
+                data={{
+                  labels: ['Passed', 'Failed', 'Not Executed', 'In Progress/Blocked'],
+                  datasets: [{
+                    data: [data.passed, data.failed, data.not_executed, data.in_progress + data.blocked],
+                    backgroundColor: [
+                      '#10b981',
+                      '#ef4444',
+                      '#f59e0b',
+                      '#3b82f6'
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    borderRadius: 4
+                  }]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: true,
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        font: { size: 11 },
+                        padding: 10,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                      }
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          const label = context.label || '';
+                          const value = context.parsed || 0;
+                          const percent = data.total_executions > 0 ? Math.round((value / data.total_executions) * 100) : 0;
+                          return `${label}: ${value} (${percent}%)`;
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            )}
+          </div>
+
+          {/* Leyenda detallada */}
+          <div className="space-y-2 w-full md:w-auto">
+            <div className="flex items-center gap-3 p-3 bg-success-50 rounded border border-success-200">
+              <div className="w-4 h-4 bg-success-500 rounded-full"></div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-gray-800">Passed</div>
+                <div className="text-xs text-gray-600">{data.passed} ({data.total_executions > 0 ? Math.round((data.passed / data.total_executions) * 100) : 0}%)</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 bg-danger-50 rounded border border-danger-200">
+              <div className="w-4 h-4 bg-danger-500 rounded-full"></div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-gray-800">Failed</div>
+                <div className="text-xs text-gray-600">{data.failed} ({data.failure_rate}%)</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 bg-warning-50 rounded border border-warning-200">
+              <div className="w-4 h-4 bg-warning-500 rounded-full"></div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-gray-800">Not Executed</div>
+                <div className="text-xs text-gray-600">{data.not_executed} ({data.total_executions > 0 ? Math.round((data.not_executed / data.total_executions) * 100) : 0}%)</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 bg-info-50 rounded border border-info-200">
+              <div className="w-4 h-4 bg-info-500 rounded-full"></div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-gray-800">In Progress/Blocked</div>
+                <div className="text-xs text-gray-600">{data.in_progress + data.blocked} ({data.total_executions > 0 ? Math.round(((data.in_progress + data.blocked) / data.total_executions) * 100) : 0}%)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recomendaciones */}
+      <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+        <h4 className="font-semibold text-purple-900 mb-3 flex items-center">
+          <Lightbulb className="w-4 h-4 mr-2" />
+          Actionable Insights
+        </h4>
+        <ul className="space-y-2 text-sm text-purple-800">
+          <li className="flex gap-2">
+            <span className="text-purple-600 font-bold">→</span>
+            <span>{data.success_rate >= 90 ? '✓ Excellent success rate - maintain current quality standards' : data.success_rate >= 80 ? '⚠ Good success rate - focus on improving remaining failures' : '🔴 Critical attention needed - too many failures'}</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-purple-600 font-bold">→</span>
+            <span>{data.not_executed > 0 ? `${data.not_executed} test cases are pending execution - prioritize execution of unexecuted cases` : '✓ All test cases have been executed at least once'}</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-purple-600 font-bold">→</span>
+            <span>{data.at_risk > 0 ? `${data.at_risk} executions are in progress or blocked - monitor completion` : '✓ No blocked or in-progress executions'}</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-purple-600 font-bold">→</span>
+            <span>Focus on reducing failure rate ({data.failure_rate}%) through root cause analysis of failed tests</span>
+          </li>
         </ul>
       </div>
     </div>
@@ -2149,12 +2421,12 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
             <div className="text-sm text-gray-600 mb-1">Medium</div>
             <div className="text-2xl font-bold text-warning-600">{mediumCount}</div>
-            <div className="text-xs text-gray-500">Norma priority</div>
+            <div className="text-xs text-gray-500">Normal</div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-600 mb-1">Low Priority</div>
+            <div className="text-sm text-gray-600 mb-1">Low</div>
             <div className="text-2xl font-bold text-gray-600">{lowPriorityCount}</div>
-            <div className="text-xs text-gray-500">Low + Lowest</div>
+            <div className="text-xs text-gray-500">Low</div>
           </div>
         </div>
 
@@ -2967,6 +3239,130 @@ export default function DetailModal({ modal, onClose, recommendations }) {
         );
       })()}
 
+      {/* Bug Resolution Analysis by Priority */}
+      {data.bugResolutionByPriority && Object.keys(data.bugResolutionByPriority).length > 0 && (
+        <div className="bg-white p-6 rounded-lg border border-gray-200 mt-8">
+          <h4 className="font-semibold text-gray-800 mb-6 flex items-center">
+            <Bug className="w-5 h-5 mr-2 text-red-600" />
+            Bug Resolution Status - Which failures have been fixed?
+          </h4>
+          
+          <p className="text-sm text-gray-600 mb-4">
+            This section shows the historical analysis of bugs that had failed test cases. It tracks which bugs were later fixed and verified.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {(() => {
+              const bugRes = data.bugResolutionByPriority;
+              const totalWithFail = Object.values(bugRes).reduce((sum, item) => sum + (item.totalWithFail || 0), 0);
+              const totalFixed = Object.values(bugRes).reduce((sum, item) => sum + (item.fixedAndVerified || 0), 0);
+              const totalStillFailing = Object.values(bugRes).reduce((sum, item) => sum + (item.stillFailing || 0), 0);
+              const fixRate = totalWithFail > 0 ? Math.round((totalFixed / totalWithFail) * 100) : 0;
+
+              return (
+                <>
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="text-sm text-blue-600 font-semibold mb-1">Bugs with Failures</div>
+                    <div className="text-3xl font-bold text-blue-900">{totalWithFail}</div>
+                    <div className="text-xs text-blue-600 mt-2">Total bugs that ever failed</div>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <div className="text-sm text-green-600 font-semibold mb-1">Fixed & Verified</div>
+                    <div className="text-3xl font-bold text-green-900">{totalFixed}</div>
+                    <div className="text-xs text-green-600 mt-2">{fixRate}% of failed bugs resolved</div>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <div className="text-sm text-red-600 font-semibold mb-1">Still Failing</div>
+                    <div className="text-3xl font-bold text-red-900">{totalStillFailing}</div>
+                    <div className="text-xs text-red-600 mt-2">{totalWithFail > 0 ? Math.round((totalStillFailing / totalWithFail) * 100) : 0}% still have issues</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-300 bg-gray-50">
+                  <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Priority</th>
+                  <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Bugs with Failures</th>
+                  <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Fixed & Verified</th>
+                  <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Still Failing</th>
+                  <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">In Progress</th>
+                  <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700">Resolution Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const bugRes = data.bugResolutionByPriority || {};
+                  const priorityOrder = ['High', 'Medium', 'Low'];
+                  
+                  const colorMap = {
+                    'High': { color: '#dc2626', bg: 'bg-red-50', text: 'text-red-700' },
+                    'Medium': { color: '#f59e0b', bg: 'bg-amber-50', text: 'text-amber-700' },
+                    'Low': { color: '#6b7280', bg: 'bg-gray-50', text: 'text-gray-700' }
+                  };
+
+                  return priorityOrder.map(priority => {
+                    const priorityData = bugRes[priority] || { totalWithFail: 0, fixedAndVerified: 0, stillFailing: 0, inProgressFix: 0 };
+                    const resolutionRate = priorityData.totalWithFail > 0 
+                      ? Math.round((priorityData.fixedAndVerified / priorityData.totalWithFail) * 100)
+                      : 0;
+                    const colors = colorMap[priority] || colorMap['Low'];
+
+                    return (
+                      <tr key={priority} className={`border-b border-gray-200 hover:bg-gray-50 ${colors.bg}`}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded" style={{ backgroundColor: colors.color }}></div>
+                            <span className={`font-semibold ${colors.text}`}>{priority}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-bold text-gray-900">
+                          {priorityData.totalWithFail}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-semibold text-green-700">{priorityData.fixedAndVerified}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <AlertCircle className="w-4 h-4 text-red-600" />
+                            <span className="text-sm font-semibold text-red-700">{priorityData.stillFailing}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-semibold text-amber-700">
+                          {priorityData.inProgressFix || 0}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="inline-block">
+                            <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full font-semibold text-sm`} style={{ 
+                              backgroundColor: resolutionRate >= 80 ? '#d1fae5' : resolutionRate >= 60 ? '#fef3c7' : '#fee2e2',
+                              color: resolutionRate >= 80 ? '#047857' : resolutionRate >= 60 ? '#b45309' : '#dc2626'
+                            }}>
+                              {resolutionRate}%
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-800">
+              <strong>📊 What this shows:</strong> Based on test case execution history, we count each unique bug (clave_incidencia) that had at least one failed test case (estado = &apos;Fail&apos;). If that bug later has a passed test case (estado = &apos;Pass&apos;), it&apos;s marked as &quot;Fixed &amp; Verified&quot;. This helps identify which failure patterns have been resolved vs. still recurring.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Recomendaciones al final */}
       <div className="bg-warning-50 p-4 rounded-lg border border-warning-200">
         <h4 className="font-semibold text-warning-900 mb-2 flex items-center">
@@ -3007,6 +3403,7 @@ export default function DetailModal({ modal, onClose, recommendations }) {
           {modal.type === 'resolutionEfficiency' && renderResolutionEfficiencyDetail(modal.data)}
           {modal.type === 'regressionRate' && renderRegressionRateDetail(modal.data)}
           {(modal.type === 'testExecutionRate' || modal.type === 'testEfficiency') && renderTestExecutionRateDetail(modal.data)}
+          {modal.type === 'testExecutionSummary' && renderTestExecutionSummaryDetail(modal.data)}
           {modal.type === 'riskMatrix' && renderRiskMatrixDetail(modal.data)}
           {(modal.type === 'bugLeakageRate' || modal.type === 'bugLeakage') && renderBugLeakageRateDetail(modal.data)}
           {modal.type === 'module' && renderModuleDetail(modal.data)}
