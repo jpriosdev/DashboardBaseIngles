@@ -253,76 +253,95 @@ const ResolutionTimeModal = ({ isOpen, onClose, data }) => {
                 </div>
               </div>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-orange-800">
-                  These <strong>{openTestCases} test case{openTestCases !== 1 ? "s" : ""}</strong> have been executed multiple times 
-                  but remain in <strong>Fail status</strong> with no passing outcome. Total failures: <strong>{openRecords}</strong>
-                </p>
-              </div>
-
               {pendingCases.length > 0 && (
-                <div className="space-y-2">
-                  {pendingCases.map((caseItem, idx) => (
-                    <div 
-                      key={idx} 
-                      className="bg-white border border-orange-100 rounded-lg p-3 hover:bg-orange-50 transition-colors cursor-default"
-                    >
-                      {/* Header con Clave */}
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-bold text-gray-900 text-sm">{caseItem.clave}</p>
-                        <div className="text-xs bg-gray-100 px-2 py-1 rounded font-semibold text-gray-600">
-                          {caseItem.idCount || 1} ID{(caseItem.idCount || 1) !== 1 ? 's' : ''}
-                        </div>
-                      </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-orange-100 border-b border-orange-300">
+                        <th className="text-left px-3 py-2 font-bold text-orange-900">Clave</th>
+                        <th className="text-left px-3 py-2 font-bold text-orange-900">Priority</th>
+                        <th className="text-left px-3 py-2 font-bold text-orange-900">Test Level</th>
+                        <th className="text-center px-3 py-2 font-bold text-orange-900">Failures</th>
+                        <th className="text-left px-3 py-2 font-bold text-orange-900">System</th>
+                        <th className="text-left px-3 py-2 font-bold text-orange-900">Browser</th>
+                        <th className="text-left px-3 py-2 font-bold text-orange-900">User Impact</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingCases.map((caseItem, idx) => {
+                        const getPriorityColor = (priority) => {
+                          if (!priority) return 'bg-gray-100 text-gray-800';
+                          const lower = priority.toLowerCase();
+                          if (lower.includes('high') || lower.includes('critical')) return 'bg-red-100 text-red-800';
+                          if (lower.includes('medium') || lower.includes('standard')) return 'bg-yellow-100 text-yellow-800';
+                          if (lower.includes('low')) return 'bg-blue-100 text-blue-800';
+                          return 'bg-gray-100 text-gray-800';
+                        };
 
-                      {/* Prioridad */}
-                      {caseItem.prioridad && (
-                        <p className="text-xs mb-2">
-                          <span className="text-gray-600">Priority:</span>{' '}
-                          <span className={`font-semibold ${
-                            caseItem.prioridad === 'High' ? 'text-red-600' : 
-                            caseItem.prioridad === 'Medium' ? 'text-orange-600' :
-                            'text-blue-600'
-                          }`}>
-                            {caseItem.prioridad}
-                          </span>
-                        </p>
-                      )}
-
-                      {/* Tag0 y Tag2 */}
-                      <div className="flex gap-2 mb-2 flex-wrap">
-                        {caseItem.tag0 && (
-                          <div className="text-xs bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                            <span className="text-blue-700 font-semibold">{caseItem.tag0}</span>
-                          </div>
-                        )}
-                        {caseItem.tag2 && (
-                          <div className="text-xs bg-purple-50 px-2 py-1 rounded border border-purple-200">
-                            <span className="text-purple-700 font-semibold">{caseItem.tag2}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Metrics badges */}
-                      <div className="flex gap-2 items-center">
-                        <div className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded">
-                          <span className="text-xs font-semibold text-orange-700">Failures:</span>
-                          <span className="text-sm font-bold text-orange-600">{caseItem.failCount}</span>
-                        </div>
-                        {caseItem.stateChanges !== undefined && (
-                          <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
-                            <span className="text-xs font-semibold text-blue-700">State Changes:</span>
-                            <span className="text-sm font-bold text-blue-600">{caseItem.stateChanges}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                        return (
+                          <tr key={idx} className="border-b border-orange-100 hover:bg-orange-50">
+                            <td className="px-3 py-2 font-bold text-gray-900">{caseItem.clave}</td>
+                            <td className="px-3 py-2">
+                              {caseItem.prioridad && (
+                                <span className={`inline-block ${getPriorityColor(caseItem.prioridad)} font-bold px-2 py-1 rounded text-xs`}>
+                                  {caseItem.prioridad}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {caseItem.nivelPrueba && (
+                                <span className="inline-block bg-green-100 text-green-900 font-bold px-2 py-1 rounded text-xs border border-green-300">
+                                  {caseItem.nivelPrueba}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-center font-bold text-orange-700">{caseItem.failCount}</td>
+                            <td className="px-3 py-2 text-xs">
+                              {caseItem.tag0 ? (
+                                <span className="inline-block bg-cyan-100 text-cyan-900 font-semibold px-2 py-1 rounded border border-cyan-300">
+                                  {caseItem.tag0}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 italic">–</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {caseItem.tag1 ? (
+                                <span className="inline-block bg-purple-100 text-purple-900 font-semibold px-2 py-1 rounded border border-purple-300">
+                                  {caseItem.tag1}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 italic">–</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {caseItem.tag2 ? (
+                                <span className="inline-block bg-indigo-100 text-indigo-900 font-semibold px-2 py-1 rounded border border-indigo-300">
+                                  {caseItem.tag2}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 italic">–</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                   {openTestCases > pendingCases.length && (
-                    <div className="text-center py-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex flex-col items-center gap-2 py-4 bg-gray-50 rounded-lg border border-gray-200 mt-3">
                       <p className="text-xs text-gray-600 font-medium">
                         ... and {openTestCases - pendingCases.length} more cases ({openRecords - pendingCases.reduce((sum, c) => sum + c.failCount, 0)} more failures)
                       </p>
+                      <button 
+                        onClick={() => {
+                          // Placeholder para cargar más registros
+                          console.log('Load more records');
+                        }}
+                        className="px-4 py-2 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 transition-colors"
+                      >
+                        Load More Cases
+                      </button>
                     </div>
                   )}
                 </div>

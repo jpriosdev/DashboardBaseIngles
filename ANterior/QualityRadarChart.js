@@ -444,7 +444,7 @@ const MATURITY_LEVELS = {
 };
 
 export default function QualityRadarChart({ data = {} }) {
-  const [selectedLevel, setSelectedLevel] = useState(3);
+  const [selectedLevel, setSelectedLevel] = useState(1);
   const [expandedLevel, setExpandedLevel] = useState(null);
 
   const currentLevel = MATURITY_LEVELS[0];
@@ -478,9 +478,9 @@ export default function QualityRadarChart({ data = {} }) {
 
       {/* Radar Chart - Main */}
       <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-        <div className="w-full h-96">
+        <div className="w-full" style={{ height: '500px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData} margin={{ top: 20, right: 100, left: 100, bottom: 20 }}>
+            <RadarChart data={radarData} margin={{ top: 40, right: 120, left: 120, bottom: 40 }}>
               <PolarGrid stroke="#e5e7eb" />
               <PolarAngleAxis dataKey="category" tick={{ fill: '#6b7280', fontSize: 11 }} />
               <PolarRadiusAxis angle={90} domain={[0, 100]} />

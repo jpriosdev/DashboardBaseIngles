@@ -1,8 +1,8 @@
-// TeamAnalysis.js - Scaffold for Team Analysis tab
+// TeamAnalysis.js - Now focused on Testers and Test Execution
 import React, { useMemo, useState, useEffect } from 'react';
 import ActionableRecommendations from './ActionableRecommendations';
 import DetailModal from './DetailModal';
-import { User, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { User, TrendingUp, TrendingDown, AlertCircle, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 
 function TeamKpiCard({ title, value, sub, children }) {
   return (
@@ -15,269 +15,264 @@ function TeamKpiCard({ title, value, sub, children }) {
   );
 }
 
-function DataSummaryPanel({ data, filteredSprintData }) {
-  const totalBugs = (data && (data.summary?.totalBugs || data.summary?.total_bugs)) || 0;
-  const developerData = Array.isArray(data?.developerData) ? data.developerData : (Array.isArray(data?.developers) ? data.developers : []);
-  // compute assigned sum from developerData (processor normalizes several names)
-  const assignedSum = developerData.reduce((s, d) => s + (d.assigned || d.total_bugs || d.assigned_bugs || 0), 0);
-  const unassigned = Math.max(0, totalBugs - assignedSum);
-
-  // top 5 developers
-  const topDevs = developerData.slice().sort((a, b) => (b.assigned || b.total_bugs || 0) - (a.assigned || a.total_bugs || 0)).slice(0, 5);
-
-  // distinct statuses and issue types from available bugs if present
-  const bugs = Array.isArray(data?.bugs) ? data.bugs : [];
-  const statusSet = new Set(bugs.map(b => (b.status || b.state || '').toString()).filter(Boolean));
-  const issueTypeSet = new Set(bugs.map(b => (b.issueType || b.type || '').toString()).filter(Boolean));
-
-  return (
-    <div className="text-sm text-gray-700 space-y-3">
-      <div className="font-semibold">Quick Data</div>
-      <div>Total bugs: <span className="font-medium">{totalBugs}</span></div>
-      <div>Assigned: <span className="font-medium">{assignedSum}</span> • Unassigned: <span className="font-medium">{unassigned}</span></div>
-
-      <div className="pt-2">
-        <div className="font-semibold">Top 5 Developers</div>
-        {topDevs.length > 0 ? (
-          <ul className="list-disc list-inside text-xs text-gray-600">
-            {topDevs.map((d, i) => (
-              <li key={i}>{d.name || d.developer_name || d.developer || 'Unassigned'} — {d.assigned || d.total_bugs || 0} bugs</li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-xs text-gray-500">No developer summary available</div>
-        )}
-      </div>
-
-      <div className="pt-2">
-        <div className="font-semibold">Statuses</div>
-        {statusSet.size > 0 ? (
-          <div className="text-xs text-gray-600">{Array.from(statusSet).join(', ')}</div>
-        ) : (
-          <div className="text-xs text-gray-500">No status values available</div>
-        )}
-      </div>
-
-      <div className="pt-2">
-        <div className="font-semibold">Issue Types</div>
-        {issueTypeSet.size > 0 ? (
-          <div className="text-xs text-gray-600">{Array.from(issueTypeSet).join(', ')}</div>
-        ) : (
-          <div className="text-xs text-gray-500">No issue types available</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SprintModulesList({ data }) {
-  // show modules breakdown if available (bugsByModule or data.bugs grouped)
-  const modules = data?.bugsByModule || [];
-  if (modules && modules.length > 0) {
-    return (
-      <ul className="text-xs space-y-1">
-        {modules.slice(0, 8).map((m, i) => (
-          <li key={i} className="flex justify-between">
-            <span>{m.module || m.name || m[0]}</span>
-            <span className="font-medium">{m.count || m.total || 0}</span>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  // fallback: derive from bugs array
-  const bugs = Array.isArray(data?.bugs) ? data.bugs : [];
-  if (bugs.length === 0) return <div className="text-xs text-gray-500">No module data available</div>;
-  const byModule = {};
-  bugs.forEach(b => {
-    const mod = (b.module || b.modulo || 'Other').toString();
-    byModule[mod] = (byModule[mod] || 0) + 1;
-  });
-  const rows = Object.entries(byModule).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  return (
-    <ul className="text-xs space-y-1">
-      {rows.map(([mod, count], i) => (
-        <li key={i} className="flex justify-between"><span>{mod}</span><span className="font-medium">{count}</span></li>
-      ))}
-    </ul>
-  );
-}
-
-function SprintListPanel({ data, loading }) {
-  if (loading) return <div className="text-xs text-gray-500">Loading...</div>;
-  const sprints = Array.isArray(data?.sprintData) ? data.sprintData : [];
-  if (!sprints || sprints.length === 0) return <div className="text-xs text-gray-500">No sprint data available</div>;
-  return (
-    <div className="space-y-2">
-      {sprints.slice().sort((a,b)=> (a.sprint_num||0)-(b.sprint_num||0)).map((s, idx) => (
-        <div key={idx} className="flex justify-between items-center border-b pb-2">
-          <div className="text-xs">
-            <div className="font-medium">{s.sprint || s.sprint_name || s.sprint}</div>
-            <div className="text-gray-500 text-xs">Start: {s.startDate || s.start_date || 'n/a'}</div>
-          </div>
-          <div className="text-sm text-gray-700">Bugs: <span className="font-semibold">{s.bugs || s.total || 0}</span> • Tests: <span className="font-semibold">{s.testCases || s.testCasesExecuted || s.testCases || 0}</span></div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function TeamAnalysis({ data, filteredSprintData }) {
-  // Prefer developer summary arrays from incoming data
-  const incomingDevelopers = useMemo(() => 
-    Array.isArray(data?.developerData) ? data.developerData : (Array.isArray(data?.developers) ? data.developers : []),
-    [data?.developerData, data?.developers]
-  );
-  const [fetchedDevelopers, setFetchedDevelopers] = useState(null);
-  const developers = incomingDevelopers.length > 0 ? incomingDevelopers : (Array.isArray(fetchedDevelopers) ? fetchedDevelopers : []);
-  // If incoming developer data is not present, fetch summaries from server-side API.
+  const [forceReload, setForceReload] = useState(0);
+  const [testersData, setTestersData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('totalExecutions');
+  const [sortOrder, setSortOrder] = useState('desc');
+  
+  // Cargar datos de testers directamente de la API
   useEffect(() => {
-    if (incomingDevelopers && incomingDevelopers.length > 0) return;
-    let cancelled = false;
-    (async () => {
+    const loadTestersData = async () => {
       try {
-        const res = await fetch('/api/team-analysis');
-        if (!res.ok) return;
-        const payload = await res.json();
-        if (cancelled) return;
-        if (Array.isArray(payload.developerSummaries) && payload.developerSummaries.length > 0) {
-          const normalized = payload.developerSummaries.map(d => ({
-            name: d.developer || 'Unassigned',
-            totalBugs: d.total || 0,
-            resolved: d.resolved || 0,
-            pending: d.pending || 0,
-            workload: ''
-          }));
-          setFetchedDevelopers(normalized);
+        setLoading(true);
+        const response = await fetch('/api/testers-data');
+        if (response.ok) {
+          const result = await response.json();
+          setTestersData(result.testersData || []);
+          console.log(`✅ Loaded ${result.testersData?.length || 0} testers from /api/testers-data`);
+        } else {
+          console.error('❌ Failed to load testers data:', response.status);
+          setTestersData([]);
         }
-      } catch (e) {
-        // ignore
+      } catch (error) {
+        console.error('❌ Error loading testers data:', error);
+        setTestersData([]);
+      } finally {
+        setLoading(false);
       }
-    })();
-    return () => { cancelled = true; };
-  }, [incomingDevelopers]);
+    };
 
-  if (!developers || developers.length === 0) {
-    return (
-      <div className="executive-card text-center p-8">
-        <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-gray-600">Loading developer data...</p>
-      </div>
-    );
-  }
+    loadTestersData();
+  }, [forceReload]);
 
-  const sortedDevelopers = [...developers].sort((a, b) => (b.pending || b.pending_bugs || 0) - (a.pending || a.pending_bugs || 0));
-  const totalBugs = developers.reduce((sum, dev) => sum + (dev.totalBugs || dev.total_bugs || 0), 0);
-  const totalPending = developers.reduce((sum, dev) => sum + (dev.pending || dev.pending_bugs || 0), 0);
-
-  const getWorkloadColor = (workload) => {
-    switch ((workload || '').toString()) {
-      case 'High':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'Medium':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Low':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+  // Build tester summary - ya viene procesado del endpoint + ordenamiento
+  const testerData = useMemo(() => {
+    if (!testersData || testersData.length === 0) return [];
+    
+    // Datos ya vienen agrupados y procesados del endpoint
+    let sorted = testersData
+      .map(t => ({
+        ...t,
+        // Calcular rates - Finding Rate = bugs encontrados (failed)
+        findingRate: t.totalExecutions > 0 ? Math.round((t.failed / t.totalExecutions) * 100) : 0,
+        efficiency: t.totalExecutions > 0 ? Math.round((t.passed / t.totalExecutions) * 100) : 0
+      }));
+    
+    // Aplicar ordenamiento
+    sorted.sort((a, b) => {
+      let aVal = a[sortBy] ?? 0;
+      let bVal = b[sortBy] ?? 0;
+      
+      // Si es string, comparar alfabéticamente
+      if (typeof aVal === 'string') {
+        return sortOrder === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      
+      // Si es número
+      if (sortOrder === 'asc') {
+        return aVal - bVal;
+      } else {
+        return bVal - aVal;
+      }
+    });
+    
+    return sorted;
+  }, [testersData, sortBy, sortOrder]);
+  
+  // Función para manejar clics en encabezados
+  const handleHeaderClick = (column) => {
+    if (sortBy === column) {
+      // Si ya está ordenado por esta columna, cambiar dirección
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Si es otra columna, ordenar descendente
+      setSortBy(column);
+      setSortOrder('desc');
     }
   };
+  
+  // Componente de encabezado clickeable
+  const SortableHeader = ({ column, label }) => (
+    <th 
+      onClick={() => handleHeaderClick(column)}
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
+    >
+      <div className="flex items-center gap-2">
+        <span>{label}</span>
+        {sortBy === column && (
+          <span className="text-sm">
+            {sortOrder === 'asc' ? '▲' : '▼'}
+          </span>
+        )}
+      </div>
+    </th>
+  );
 
-  const getEfficiencyColor = (efficiency) => {
-    if (efficiency >= 80) return 'text-green-600';
-    if (efficiency >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+  if (loading || testerData.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="executive-card p-8 text-center bg-amber-50 border-2 border-amber-300">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-amber-900 mb-2">{loading ? 'Loading Testers Data' : 'No Testers Found'}</h3>
+          <p className="text-amber-800 mb-6 text-base">
+            {loading ? 'Loading test execution data from database...' : 'No tester data available at the moment.'}
+          </p>
+          
+          {loading && (
+            <div className="flex justify-center items-center gap-2">
+              <RefreshCw className="w-5 h-5 animate-spin text-amber-600" />
+              <span className="text-amber-700">Processing...</span>
+            </div>
+          )}
+          
+          {!loading && (
+            <button 
+              onClick={() => setForceReload(f => f + 1)}
+              className="mt-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition"
+            >
+              🔄 Retry Load
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const totalTestsExecuted = testerData.reduce((sum, t) => sum + t.totalExecutions, 0);
+  const totalPassed = testerData.reduce((sum, t) => sum + t.passed, 0);
+  const totalFailed = testerData.reduce((sum, t) => sum + t.failed, 0);
+  const overallSuccessRate = totalTestsExecuted > 0 ? Math.round((totalFailed / totalTestsExecuted) * 100) : 0;
+
+  const getFindingRateColor = (rate) => {
+    // Mayor tasa de findings (bugs encontrados) = mejor tester
+    if (rate >= 30) return { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' };
+    if (rate >= 10) return { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' };
+    return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' };
   };
-
-  const lastReportedSprint = "Sprint 144: 2/20-3/5/25";
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="executive-card text-center">
-          <User className="w-8 h-8 text-executive-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">{developers.length}</div>
-          <div className="text-sm text-gray-600">Active Developers</div>
+          <User className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900">{testerData.length}</div>
+          <div className="text-sm text-gray-600">Active Testers</div>
         </div>
 
         <div className="executive-card text-center">
-          <AlertCircle className="w-8 h-8 text-warning-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">{totalPending}</div>
-          <div className="text-sm text-gray-600">Total Pending Bugs</div>
+          <CheckCircle2 className="w-8 h-8 text-green-600 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900">{totalTestsExecuted}</div>
+          <div className="text-sm text-gray-600">Total Executions</div>
         </div>
 
         <div className="executive-card text-center">
-          <TrendingUp className="w-8 h-8 text-success-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">
-            {totalBugs > 0 ? `${Math.round(((totalBugs - totalPending) / totalBugs) * 100)}%` : '—'}
-          </div>
-          <div className="text-sm text-gray-600">Overall Efficiency</div>
+          <TrendingUp className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900">{totalPassed}</div>
+          <div className="text-sm text-gray-600">Passed</div>
+        </div>
+
+        <div className="executive-card text-center cursor-pointer hover:bg-blue-50 transition" onClick={() => setForceReload(f => f + 1)}>
+          <RefreshCw className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900">{overallSuccessRate}%</div>
+          <div className="text-sm text-gray-600">Finding Rate</div>
         </div>
       </div>
 
+      {/* Detailed Tester Analysis Table - SHOW ALL ROWS NO LIMIT */}
       <div className="executive-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">Detailed Developer Analysis</h3>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Test Execution by Tester ({testerData.length}) - All Records</h3>
+          <button 
+            onClick={() => setForceReload(f => f + 1)}
+            className="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition"
+            title="Reload all data"
+          >
+            <RefreshCw className="w-4 h-4 inline mr-1" /> Reload
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Developer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bugs</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resolved</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Efficiency</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Workload</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% of Total</th>
+                <SortableHeader column="name" label="Tester" />
+                <SortableHeader column="totalExecutions" label="Executed" />
+                <SortableHeader column="passed" label="Passed" />
+                <SortableHeader column="failed" label="Failed" />
+                <SortableHeader column="notExecuted" label="Not Executed" />
+                <SortableHeader column="inProgress" label="In Progress" />
+                <SortableHeader column="blocked" label="Blocked" />
+                <SortableHeader column="productsJoined" label="Product" />
+                <SortableHeader column="testTypesCount" label="Test Type" />
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedDevelopers.map((developer, index) => {
-                const total = developer.totalBugs || developer.total_bugs || 0;
-                const resolved = developer.resolved || 0;
-                const pending = developer.pending || 0;
-                const efficiency = total > 0 ? Math.round((resolved / total) * 100) : 0;
-                const percentageOfTotal = totalBugs > 0 ? Math.round((total / totalBugs) * 100) : 0;
-
+              {testerData.map((tester, index) => {
+                const findingColors = getFindingRateColor(tester.findingRate);
                 return (
                   <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-8 w-8">
-                          <div className="h-8 w-8 rounded-full bg-executive-100 flex items-center justify-center">
-                            <span className="text-sm font-medium text-executive-600">
-                              {(developer.name || 'NA').toString().split(' ').map(n => n[0]).join('').substring(0,2)}
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-xs">
+                            <span className="font-medium text-blue-600">
+                              {(tester.name || 'NA').toString().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{developer.name || 'No name'}</div>
+                          <div className="text-sm font-medium text-gray-900">{tester.name || 'Unassigned'}</div>
+                          <div className="text-xs text-gray-500">{tester.totalTests} test cases</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><span className="font-semibold">{total}</span></td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`font-semibold ${pending > 15 ? 'text-red-600' : pending > 10 ? 'text-yellow-600' : 'text-green-600'}`}>{pending}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">{resolved}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center">
-                        <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                          <div className={`${efficiency >= 80 ? 'bg-green-500' : efficiency >= 60 ? 'bg-yellow-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${efficiency}%` }} />
-                        </div>
-                        <span className={`font-semibold ${getEfficiencyColor(efficiency)}`}>{efficiency}%</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkloadColor(developer.workload || '')}`}>{developer.workload || 'N/A'}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <div className="w-12 bg-gray-200 rounded-full h-2 mr-2">
-                          <div className="bg-executive-500 h-2 rounded-full" style={{ width: `${percentageOfTotal}%` }} />
+                      <span className="font-bold text-lg">{tester.totalExecutions}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className="font-bold text-green-600 text-lg">{tester.passed}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className="font-bold text-red-600 text-lg">{tester.failed}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className="font-bold text-gray-600 text-lg">{tester.notExecuted}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className="font-bold text-yellow-600 text-lg">{tester.inProgress}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className="font-bold text-orange-600 text-lg">{tester.blocked}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
+                      {tester.productsJoined && tester.productsJoined.trim() ? (
+                        <div className="flex flex-wrap gap-1">
+                          {tester.products && tester.products.length > 0 ? (
+                            tester.products.map((product, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs font-semibold whitespace-nowrap">
+                                {product}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </div>
-                        <span className="font-medium">{percentageOfTotal}%</span>
-                      </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {tester.testTypesCount > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
+                            {tester.testTypesCount}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -285,38 +280,63 @@ export default function TeamAnalysis({ data, filteredSprintData }) {
             </tbody>
           </table>
         </div>
+        <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-600">
+          📊 Showing ALL {testerData.length} testers with {totalTestsExecuted} total test executions
+        </div>
       </div>
 
+      {/* Test Coverage by Module */}
       <div className="executive-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Recommendations</h3>
-        <div className="space-y-3">
-          {sortedDevelopers[0] && (sortedDevelopers[0].pending || 0) > 15 && (
-            <div className="flex items-start p-3 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-red-800">Critical Overload Detected</p>
-                <p className="text-sm text-red-700">{sortedDevelopers[0].name} has {sortedDevelopers[0].pending} pending bugs. Consider redistributing workload immediately.</p>
-              </div>
-            </div>
-          )}
-
-          {developers.filter(dev => (dev.workload || '').toString().toLowerCase().includes('low')).length > 0 && (
-            <div className="flex items-start p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-blue-500 mr-3 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-800">Balancing Opportunity</p>
-                <p className="text-sm text-blue-700">{developers.filter(dev => (dev.workload || '').toString().toLowerCase().includes('low')).length} developers with low workload can take on more responsibilities.</p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-start p-3 bg-green-50 border border-green-200 rounded-lg">
-            <TrendingUp className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-green-800">Overall Team Efficiency</p>
-              <p className="text-sm text-green-700">The team maintains an efficiency of {totalBugs > 0 ? Math.round(((totalBugs - totalPending) / totalBugs) * 100) : 0}% in bug resolution.</p>
-            </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Coverage Summary</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="text-2xl font-bold text-blue-900 mb-1">{testerData.reduce((sum, t) => sum + t.modulesTestedCount, 0)}</div>
+            <div className="text-sm text-blue-700">Products Tested</div>
           </div>
+          <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="text-2xl font-bold text-purple-900 mb-1">{testerData.reduce((sum, t) => sum + t.testTypesCount, 0)}</div>
+            <div className="text-sm text-purple-700">Test Types</div>
+          </div>
+          <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-2xl font-bold text-green-900 mb-1">{totalPassed}</div>
+            <div className="text-sm text-green-700">Total Passed Executions</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Team Insights */}
+      <div className="executive-card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Insights</h3>
+        <div className="space-y-3">
+          {testerData.length > 0 && (
+            <div className="flex items-start p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <CheckCircle2 className="w-5 h-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-blue-800">Data Loaded Successfully</p>
+                <p className="text-sm text-blue-700">{testerData.length} testers executing {totalTestsExecuted} test cases across {Array.from(new Set(testerData.flatMap(t => t.modules))).length} products.</p>
+              </div>
+            </div>
+          )}
+
+          {overallSuccessRate < 10 && (
+            <div className="flex items-start p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-yellow-800">Quality Alert</p>
+                <p className="text-sm text-yellow-700">Overall finding rate is {overallSuccessRate}%. Testers are detecting very few bugs - ensure adequate test coverage.</p>
+              </div>
+            </div>
+          )}
+
+          {testerData.length < 3 && (
+            <div className="flex items-start p-3 bg-orange-50 border border-orange-200 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-orange-600 mr-3 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-orange-800">Resource Notice</p>
+                <p className="text-sm text-orange-700">Only {testerData.length} testers active. Consider expanding team for better coverage.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

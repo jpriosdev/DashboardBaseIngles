@@ -76,6 +76,10 @@ export default function ExecutiveDashboard({
   // Resolution Time Modal state
   const [openResolutionModal, setOpenResolutionModal] = useState(false);
 
+  // Leak Rate by Product state
+  const [leakRateByProduct, setLeakRateByProduct] = useState([]);
+  const [leakRateLoading, setLeakRateLoading] = useState(false);
+
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
 
@@ -88,8 +92,18 @@ export default function ExecutiveDashboard({
   const [selectedDevelopers, setSelectedDevelopers] = useState(['All']);
   const [selectedCategories, setSelectedCategories] = useState(['All']);
   const [selectedFixVersions, setSelectedFixVersions] = useState(['All']);
+  const [selectedTesters, setSelectedTesters] = useState(['All']);
+  const [selectedProducts, setSelectedProducts] = useState(['All']);
+  const [selectedTestTypes, setSelectedTestTypes] = useState(['All']);
+  const [selectedAttributes, setSelectedAttributes] = useState(['All']);
   const [showFilters, setShowFilters] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, fixVersion: false });
+  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, fixVersion: false, tester: false, product: false, testType: false, attribute: false });
+  
+  // Dinámicamente cargados desde BD
+  const [testersList, setTestersList] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  const [testTypesList, setTestTypesList] = useState([]);
+  const [attributesList, setAttributesList] = useState([]);
 
   const handleFilterToggle = (filterType, value) => {
     const setterMap = {
@@ -98,7 +112,11 @@ export default function ExecutiveDashboard({
       priority: setSelectedPriorities,
       developer: setSelectedDevelopers,
       category: setSelectedCategories,
-      fixVersion: setSelectedFixVersions
+      fixVersion: setSelectedFixVersions,
+      tester: setSelectedTesters,
+      product: setSelectedProducts,
+      testType: setSelectedTestTypes,
+      attribute: setSelectedAttributes
     };
 
     const setter = setterMap[filterType];
@@ -126,7 +144,11 @@ export default function ExecutiveDashboard({
       priority: setSelectedPriorities,
       developer: setSelectedDevelopers,
       category: setSelectedCategories,
-      fixVersion: setSelectedFixVersions
+      fixVersion: setSelectedFixVersions,
+      tester: setSelectedTesters,
+      product: setSelectedProducts,
+      testType: setSelectedTestTypes,
+      attribute: setSelectedAttributes
     };
     const setter = setterMap[filterType];
     if (!setter) return;
@@ -297,6 +319,45 @@ export default function ExecutiveDashboard({
     loadRecommendations();
   }, []);
 
+  // Load filter options on mount
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        // Cargar testers
+        const testersRes = await fetch('/api/testers-list');
+        if (testersRes.ok) {
+          const testersData = await testersRes.json();
+          setTestersList(testersData.testers || []);
+        }
+        
+        // Cargar productos
+        const productsRes = await fetch('/api/products');
+        if (productsRes.ok) {
+          const productsData = await productsRes.json();
+          setProductsList(productsData.products || []);
+        }
+        
+        // Cargar tipos de prueba
+        const testTypesRes = await fetch('/api/test-types');
+        if (testTypesRes.ok) {
+          const testTypesData = await testTypesRes.json();
+          setTestTypesList(testTypesData.testTypes || []);
+        }
+        
+        // Cargar atributos
+        const attributesRes = await fetch('/api/attributes');
+        if (attributesRes.ok) {
+          const attributesData = await attributesRes.json();
+          setAttributesList(attributesData.attributes || []);
+        }
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+      }
+    };
+    
+    loadFilterOptions();
+  }, []);
+
   
 
   
@@ -365,6 +426,24 @@ export default function ExecutiveDashboard({
     }
   }
 
+  async function loadLeakRateByProduct() {
+    setLeakRateLoading(true);
+    try {
+      const response = await fetch('/api/leak-rate-by-product');
+      if (response.ok) {
+        const data = await response.json();
+        setLeakRateByProduct(data.productsData || []);
+        console.log('✅ Leak Rate by Product loaded');
+      } else {
+        console.warn('Could not load leak rate data');
+      }
+    } catch (error) {
+      console.warn('Error loading leak rate:', error);
+    } finally {
+      setLeakRateLoading(false);
+    }
+  }
+
   const handleRefresh = () => {
     if (isParametricMode) {
       loadParametricData();
@@ -420,6 +499,11 @@ export default function ExecutiveDashboard({
     const selectedDevelopersSet = new Set(selectedDevelopers.map(s => normalize(s)));
     const selectedCategoriesSet = new Set(selectedCategories.map(s => normalize(s)));
     const selectedFixVersionsSet = new Set(selectedFixVersions.map(s => normalize(s)));
+    const selectedTestersSet = new Set(selectedTesters.map(s => normalize(s)));
+    const selectedProductsSet = new Set(selectedProducts.map(s => normalize(s)));
+    const selectedTestTypesSet = new Set(selectedTestTypes.map(s => normalize(s)));
+    const selectedAttributesSet = new Set(selectedAttributes.map(s => normalize(s)));
+    
     const bugs = (data.bugs || []).filter(b => {
       // Status
       if (!selectedStatus.includes('All')) {
@@ -436,6 +520,22 @@ export default function ExecutiveDashboard({
       // Category
       if (!selectedCategories.includes('All')) {
         if (!selectedCategoriesSet.has(normalize(b.category || b.categoria || ''))) return false;
+      }
+      // Tester
+      if (!selectedTesters.includes('All')) {
+        if (!selectedTestersSet.has(normalize(b.reportado_por || b.tester || ''))) return false;
+      }
+      // Product (TAG0)
+      if (!selectedProducts.includes('All')) {
+        if (!selectedProductsSet.has(normalize(b.tag0 || b.product || ''))) return false;
+      }
+      // Test Type
+      if (!selectedTestTypes.includes('All')) {
+        if (!selectedTestTypesSet.has(normalize(b.tipo_prueba || b.test_type || ''))) return false;
+      }
+      // Attribute
+      if (!selectedAttributes.includes('All')) {
+        if (!selectedAttributesSet.has(normalize(b.atributo || b.attribute || ''))) return false;
       }
 
       // Execution strategy filter removed per request
@@ -545,7 +645,7 @@ export default function ExecutiveDashboard({
 
   const tabs = [
     { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
+    // { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
     { id: 'teams', label: 'Team Analysis', icon: <Activity className="w-4 h-4" /> },
     { id: 'roadmap', label: 'Quality Radar', icon: <Target className="w-4 h-4" /> }
   ];
@@ -855,6 +955,158 @@ export default function ExecutiveDashboard({
                 {/* Environment filter removed per user request */}
 
                 {/* Fix Version filter removed per request */}
+
+                {/* Tester Filter Section */}
+                <div className="border rounded-lg p-1 bg-purple-50 border-purple-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, tester: !prev.tester}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">👨‍🔬</span>
+                      <p className="font-bold uppercase text-xs">Testers</p>
+                      {selectedTesters.length > 0 && selectedTesters[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedTesters.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.tester ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.tester && (
+                      <div>
+                        {testersList && testersList.length === 0 ? (
+                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                        ) : (
+                          <select
+                              multiple
+                              size={Math.min(6, Math.max(3, (testersList?.length || 0) + 1))}
+                              value={selectedTesters}
+                              onChange={(e) => handleMultiSelectChange('tester', e)}
+                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                            >
+                            <option value="All">All</option>
+                            {testersList && testersList.map(t => <option key={t.tester} value={t.tester}>{t.tester}</option>)}
+                          </select>
+                        )}
+                      </div>
+                  )}
+                </div>
+
+                {/* Test Type Filter Section */}
+                <div className="border rounded-lg p-1 bg-cyan-50 border-cyan-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, testType: !prev.testType}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">🧪</span>
+                      <p className="font-bold uppercase text-xs">Test Type</p>
+                      {selectedTestTypes.length > 0 && selectedTestTypes[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedTestTypes.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.testType ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.testType && (
+                      <div>
+                        {testTypesList && testTypesList.length === 0 ? (
+                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                        ) : (
+                          <select
+                              multiple
+                              size={Math.min(6, Math.max(3, (testTypesList?.length || 0) + 1))}
+                              value={selectedTestTypes}
+                              onChange={(e) => handleMultiSelectChange('testType', e)}
+                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                            >
+                            <option value="All">All</option>
+                            {testTypesList && testTypesList.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        )}
+                      </div>
+                  )}
+                </div>
+
+                {/* Attribute Filter Section */}
+                <div className="border rounded-lg p-1 bg-yellow-50 border-yellow-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, attribute: !prev.attribute}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">📋</span>
+                      <p className="font-bold uppercase text-xs">Attribute</p>
+                      {selectedAttributes.length > 0 && selectedAttributes[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedAttributes.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.attribute ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.attribute && (
+                      <div>
+                        {attributesList && attributesList.length === 0 ? (
+                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                        ) : (
+                          <select
+                              multiple
+                              size={Math.min(6, Math.max(3, (attributesList?.length || 0) + 1))}
+                              value={selectedAttributes}
+                              onChange={(e) => handleMultiSelectChange('attribute', e)}
+                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                            >
+                            <option value="All">All</option>
+                            {attributesList && attributesList.map(a => <option key={a} value={a}>{a}</option>)}
+                          </select>
+                        )}
+                      </div>
+                  )}
+                </div>
+
+                {/* Product (TAG0) Filter Section */}
+                <div className="border rounded-lg p-1 bg-indigo-50 border-indigo-200 flex-shrink-0 w-44">
+                  <button
+                    onClick={() => setCollapsedSections(prev => ({...prev, product: !prev.product}))}
+                    className="w-full flex items-center justify-between mb-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg">📦</span>
+                      <p className="font-bold uppercase text-xs">Products</p>
+                      {selectedProducts.length > 0 && selectedProducts[0] !== 'All' && (
+                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
+                          {selectedProducts.length}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.product ? '' : 'rotate-180'}`} />
+                  </button>
+
+                  {!collapsedSections.product && (
+                      <div>
+                        {productsList && productsList.length === 0 ? (
+                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
+                        ) : (
+                          <select
+                              multiple
+                              size={Math.min(6, Math.max(3, (productsList?.length || 0) + 1))}
+                              value={selectedProducts}
+                              onChange={(e) => handleMultiSelectChange('product', e)}
+                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
+                            >
+                            <option value="All">All</option>
+                            {productsList && productsList.map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                        )}
+                      </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -951,6 +1203,10 @@ export default function ExecutiveDashboard({
               // filter state & handlers
               selectedSprints={selectedSprints}
               setSelectedSprints={setSelectedSprints}
+              selectedTesters={selectedTesters}
+              selectedProducts={selectedProducts}
+              selectedTestTypes={selectedTestTypes}
+              selectedAttributes={selectedAttributes}
               testTypeFilter={testTypeFilter}
               setTestTypeFilter={setTestTypeFilter}
               selectedStatus={selectedStatus}
@@ -968,8 +1224,12 @@ export default function ExecutiveDashboard({
           {activeTab === 'teams' && <TeamAnalysis data={currentData} filteredSprintData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} />}
           {/* trends tab removed */}
           {activeTab === 'roadmap' && (
-            <div className="pb-6">
-              <QualityRadarChart data={currentData} />
+            <div className="pb-6 w-full min-h-screen">
+              <div className="bg-white rounded-lg shadow-lg p-6 h-full">
+                <div style={{ height: '600px', width: '100%' }}>
+                  <QualityRadarChart data={currentData} />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -986,6 +1246,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   sprintList, moduleList, priorityList, statusList, developerList, categoryList,
   selectedSprints, setSelectedSprints, testTypeFilter, setTestTypeFilter,
   selectedStatus, selectedPriorities, selectedDevelopers, selectedCategories,
+  selectedTesters, selectedProducts, selectedTestTypes, selectedAttributes,
   showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle,
   openResolutionModal, setOpenResolutionModal
 }) {
@@ -1857,6 +2118,17 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   <div className="text-3xl font-bold text-purple-600">{data.resolutionTimeData.average}</div>
                   <div className="text-xs text-gray-500 font-normal mt-0.5">days avg</div>
                 </div>
+                <div className="h-12 w-px bg-gray-200"></div>
+                <div className="flex gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-green-600">✅ {data.resolutionTimeData.resolvedRecords || 238}</div>
+                    <div className="text-xs text-gray-500 font-normal">Resolved</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-orange-600">❌ {data.resolutionTimeData.openRecords || 58}</div>
+                    <div className="text-xs text-gray-500 font-normal">Open</div>
+                  </div>
+                </div>
               </div>
             }
             icon={<Clock className="w-6 h-6 text-purple-600" />}
@@ -1864,29 +2136,17 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             status={data.resolutionTimeData.average <= 3 ? 'success' : data.resolutionTimeData.average <= 7 ? 'warning' : 'danger'}
             subtitle={
               <div className="flex flex-col gap-2 w-full">
-                <span>{data.resolutionTimeData.count} test cases analyzed</span>
-                <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full rounded-full ${data.resolutionTimeData.average <= 3 ? 'bg-success-500' : data.resolutionTimeData.average <= 7 ? 'bg-warning-500' : 'bg-danger-500'}`}
-                    style={{ width: `${Math.min(((data.resolutionTimeData.distribution?.same_day?.percentage || 0) + 50) || 50, 100)}%` }}
-                  ></div>
-                </div>
-                {/* NEW: Show 296 breakdown in small text */}
-                <div className="text-xs text-gray-600 pt-2 border-t border-gray-200 mt-2">
-                  <div className="flex justify-between gap-4 font-semibold">
-                    <span>From {data.resolutionTimeData.totalFailureRecords || 296} failure records:</span>
+                <div className="text-xs text-gray-600">
+                  <div className="font-semibold mb-2">
+                    From {data.resolutionTimeData.totalFailureRecords || 296} failure records
                   </div>
-                  <div className="flex justify-between gap-4 mt-1 text-gray-600">
-                    <span>✅ {data.resolutionTimeData.resolvedRecords || 238} resolved (80%)</span>
-                    <span>❌ {data.resolutionTimeData.openRecords || 58} open (20%)</span>
-                  </div>
-                  <div className="text-gray-500 mt-1">
+                  <div className="text-gray-500">
                     Related to {data.resolutionTimeData.totalUniqueTestCases || 216} unique test cases
                   </div>
                 </div>
               </div>
             }
-            formula={`Average Resolution Time: ${data.resolutionTimeData.average} days`}
+            
             tooltip={
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
@@ -1936,6 +2196,26 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             }
             icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
             subtitle="Findings reopened after closure"
+            onClick={() => setDetailModal({
+              type: 'regressionRate',
+              title: 'Regression Rate Analysis',
+              data: {
+                regressionRate: 2.4,
+                reopened: Math.round(bugsClosed * 0.024),
+                closed: bugsClosed,
+                trend: [
+                  { month: 'Jan', value: 3.2 },
+                  { month: 'Feb', value: 2.8 },
+                  { month: 'Mar', value: 2.4 }
+                ]
+              },
+              sparklineData: [
+                { month: 'Jan', value: 3.2 },
+                { month: 'Feb', value: 2.8 },
+                { month: 'Mar', value: 2.4 }
+              ],
+              sprints: filteredSprintData
+            })}
             help={(
               <div>
                 <div className="font-semibold">What it measures:</div>
@@ -1999,56 +2279,70 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         )}
         
         {((kpis && kpis.bugLeakageRate !== undefined) || totalBugs > 0) && (
-          <KPICard
+          <UnderConstructionCard
             title="Leak Rate"
             value={
               <div className="flex items-center gap-3">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-red-600">{derivedLeakageRate}%</div>
-                  <div className="text-xs text-gray-500 font-normal mt-0.5">leak rate</div>
+                  <div className="text-3xl font-bold text-red-600">8.5%</div>
+                  <div className="text-xs text-gray-500 font-normal mt-0.5">leak rate (mock)</div>
                 </div>
                 <div className="h-12 w-px bg-gray-200"></div>
                 <div className="flex gap-3 text-sm">
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-red-600">{totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0}</div>
+                    <div className="text-xl font-semibold text-red-600">5</div>
                     <div className="text-xs text-gray-500 font-normal">Production</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-gray-600">{totalBugs}</div>
+                    <div className="text-xl font-semibold text-gray-600">59</div>
                     <div className="text-xs text-gray-500 font-normal">Total</div>
                   </div>
                 </div>
               </div>
             }
             icon={<TrendingUp className="w-6 h-6 text-red-600" />}
-            status="warning"
             subtitle={
               <div className="flex items-center gap-2">
-                <span>Findings that reached production</span>
+                <span>Findings that reached production (mock data)</span>
               </div>
             }
-            formula={`Leak Rate = ${totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0} / ${totalBugs} × 100 = ${derivedLeakageRate}%`}
-            tooltip={
+            onClick={async () => {
+              let productsData = [];
+              try {
+                const response = await fetch('/api/leak-rate-by-product');
+                if (response.ok) {
+                  const data = await response.json();
+                  productsData = data.productsData || [];
+                  setLeakRateByProduct(productsData);
+                }
+              } catch (error) {
+                console.warn('Error loading leak rate:', error);
+              }
+              setDetailModal({
+                type: 'leakRateByProduct',
+                title: 'Leak Rate by Product (TAG0)',
+                data: {
+                  leakageRate: 8.5,
+                  productionBugs: 5,
+                  totalBugs: 59
+                },
+                productsData: productsData,
+                sparklineData: [
+                  { month: 'Jan', value: 12 },
+                  { month: 'Feb', value: 10 },
+                  { month: 'Mar', value: 8.5 }
+                ],
+                sprints: filteredSprintData
+              });
+            }}
+            help={
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                <div className="text-xs text-gray-600 mb-2">Percentage of defects detected in production versus total.</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of defects detected in production versus total (mock data preview).</div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
                 <div className="text-xs text-gray-600">Indicates impact on real users and helps prioritize urgent fixes.</div>
               </div>
             }
-            onClick={() => setDetailModal({
-              type: 'bugLeakageRate',
-              title: 'Leak Rate Analysis',
-              data: {
-                leakageRate: derivedLeakageRate,
-                productionBugs: totalBugs ? Math.round((derivedLeakageRate / 100) * totalBugs) : 0,
-                totalBugs: totalBugs || 0,
-                trend: getSparklineData('bugLeakageRate')
-              },
-              sparklineData: getSparklineData('bugLeakageRate'),
-              sprints: filteredSprintData
-            })}
-            detailData={{ leakageRate: derivedLeakageRate }}
           />
         )}
       </div>
