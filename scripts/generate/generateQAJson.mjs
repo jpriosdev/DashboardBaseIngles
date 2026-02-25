@@ -78,6 +78,7 @@ async function main() {
       executionRateByMonth: qaData.executionRateByMonth,
       bugResolutionByPriority: qaData.bugResolutionByPriority,
       executionSummary: qaData.executionSummary,
+      resolutionTimeData: qaData.resolutionTimeData,
       summary: qaData.summary // También mantener summary para referencia
     };
 

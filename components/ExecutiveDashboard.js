@@ -10,6 +10,7 @@ import { enUS } from 'date-fns/locale';
 import ExecutiveRecommendations from './ExecutiveRecommendations';
 import QualityMetrics from './QualityMetrics';
 import DetailModal from './DetailModal';
+import ResolutionTimeModal from './ResolutionTimeModal';
 import SprintComparison from './SprintComparison';
 import ActionableRecommendations from './ActionableRecommendations';
 import SettingsMenu from './SettingsMenu';
@@ -71,6 +72,9 @@ export default function ExecutiveDashboard({
   ]);
   // Global detail modal state so any tab can open the same modal
   const [detailModal, setDetailModal] = useState(null);
+  
+  // Resolution Time Modal state
+  const [openResolutionModal, setOpenResolutionModal] = useState(false);
 
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
@@ -935,6 +939,8 @@ export default function ExecutiveDashboard({
               showSprintTooltip={showSprintTooltip}
               hideSprintTooltip={hideSprintTooltip}
               setTooltipInfo={setTooltipInfo}
+              openResolutionModal={openResolutionModal}
+              setOpenResolutionModal={setOpenResolutionModal}
               // filter lists
               sprintList={sprintList}
               moduleList={moduleList}
@@ -980,7 +986,8 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
   sprintList, moduleList, priorityList, statusList, developerList, categoryList,
   selectedSprints, setSelectedSprints, testTypeFilter, setTestTypeFilter,
   selectedStatus, selectedPriorities, selectedDevelopers, selectedCategories,
-  showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle
+  showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle,
+  openResolutionModal, setOpenResolutionModal
 }) {
   // DEBUG: log incoming data
   console.log('[OverviewTab] data properties:', Object.keys(data || {}).slice(0, 15));
@@ -1841,45 +1848,57 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         )}
         
         {/* 3. VELOCITY: Average Resolution Time */}
-        {isKpiVisible('tiempoSolucion') && (
-          <UnderConstructionCard
+        {isKpiVisible('tiempoSolucion') && data.resolutionTimeData && (
+          <KPICard
             title="Average Resolution Time"
             value={
               <div className="flex items-center gap-3">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600">{cycleTimeData.avg}</div>
+                  <div className="text-3xl font-bold text-purple-600">{data.resolutionTimeData.average}</div>
                   <div className="text-xs text-gray-500 font-normal mt-0.5">days avg</div>
                 </div>
-                <div className="h-12 w-px bg-gray-200"></div>
-                <div className="flex gap-3 text-sm">
-                  <div className="text-center">
-                    <div className="text-xl font-semibold text-orange-600">{cycleTimeData.byPriority.critical}</div>
-                    <div className="text-xs text-gray-500 font-normal">Critical</div>
+              </div>
+            }
+            icon={<Clock className="w-6 h-6 text-purple-600" />}
+            trend={data.resolutionTimeData.average <= 3 ? 5 : data.resolutionTimeData.average <= 7 ? 0 : -5}
+            status={data.resolutionTimeData.average <= 3 ? 'success' : data.resolutionTimeData.average <= 7 ? 'warning' : 'danger'}
+            subtitle={
+              <div className="flex flex-col gap-2 w-full">
+                <span>{data.resolutionTimeData.count} test cases analyzed</span>
+                <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full ${data.resolutionTimeData.average <= 3 ? 'bg-success-500' : data.resolutionTimeData.average <= 7 ? 'bg-warning-500' : 'bg-danger-500'}`}
+                    style={{ width: `${Math.min(((data.resolutionTimeData.distribution?.same_day?.percentage || 0) + 50) || 50, 100)}%` }}
+                  ></div>
+                </div>
+                {/* NEW: Show 296 breakdown in small text */}
+                <div className="text-xs text-gray-600 pt-2 border-t border-gray-200 mt-2">
+                  <div className="flex justify-between gap-4 font-semibold">
+                    <span>From {data.resolutionTimeData.totalFailureRecords || 296} failure records:</span>
                   </div>
-                  <div className="text-center">
-                    <div className="text-xl font-semibold text-yellow-600">{cycleTimeData.byPriority.high}</div>
-                    <div className="text-xs text-gray-500 font-normal">High</div>
+                  <div className="flex justify-between gap-4 mt-1 text-gray-600">
+                    <span>✅ {data.resolutionTimeData.resolvedRecords || 238} resolved (80%)</span>
+                    <span>❌ {data.resolutionTimeData.openRecords || 58} open (20%)</span>
+                  </div>
+                  <div className="text-gray-500 mt-1">
+                    Related to {data.resolutionTimeData.totalUniqueTestCases || 216} unique test cases
                   </div>
                 </div>
               </div>
             }
-            icon={<Clock className="w-6 h-6 text-executive-600" />}
-            subtitle="Time from detection to resolution"
-            help={(
+            formula={`Average Resolution Time: ${data.resolutionTimeData.average} days`}
+            tooltip={
               <div>
-                <div className="font-semibold">What it measures:</div>
-                <div className="text-xs">Average time (in days) from detection to resolution of a finding.</div>
-                <div className="font-semibold mt-2">Why it matters:</div>
-                <div className="text-xs">Measures team response capacity; lower values indicate greater operational agility.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
+                <div className="text-xs text-gray-600 mb-2">Average time in days from first failure to successful resolution across test cases with multiple execution attempts.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">What&apos;s included</div>
+                <div className="text-xs text-gray-600 mb-2">Test cases with multiple executions where at least one failed, from initial failure date to date of successful fix.</div>
+                <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
+                <div className="text-xs text-gray-600">Indicates team efficiency in fixing defects and reworking test cases to successful execution.</div>
               </div>
-            )}
-            onClick={() => setDetailModal({
-              type: 'cycleTime',
-              title: 'Detailed Resolution Time Analysis',
-              data: cycleTimeData,
-              sparklineData: getSparklineData('cycleTime'),
-              sprints: filteredSprintData
-            })}
+            }
+            onClick={() => setOpenResolutionModal(true)}
+            detailData={{ avg: data.resolutionTimeData.average, count: data.resolutionTimeData.count }}
           />
         )}
         
@@ -2071,6 +2090,15 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         onClose={() => setDetailModal(null)} 
         recommendations={recommendations || data?.recommendations || {}}
       />
+      
+      {/* Resolution Time Modal */}
+      {openResolutionModal && (
+        <ResolutionTimeModal 
+          isOpen={openResolutionModal}
+          onClose={() => setOpenResolutionModal(false)}
+          data={data?.resolutionTimeData}
+        />
+      )}
     </div>
   );
 }
