@@ -1,4 +1,4 @@
-import { BarChart3, Target, CheckCircle, AlertTriangle, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
+import { BarChart3, Target, CheckCircle, AlertTriangle, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp, Calendar, X } from 'lucide-react';
 // ExecutiveDashboard.js - Refactorizado y alineado
 // Main dashboard component, normalized with SQL/CSV structure
 // Todas las variables, cálculos y referencias actualizadas
@@ -28,6 +28,15 @@ const parseMonthKey = (k) => {
   return p.length === 2 ? parseInt(p[1], 10) * 100 + parseInt(p[0], 10) : 0;
 };
 const sortMonthKeys = (a, b) => parseMonthKey(a) - parseMonthKey(b);
+// Convierte "MM-YYYY" → "Mon YYYY" legible (e.g. "08-2025" → "Aug 2025")
+const formatMonth = (k) => {
+  if (!k) return k;
+  const p = k.split('-');
+  if (p.length !== 2) return k;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const m = parseInt(p[0], 10) - 1;
+  return `${months[m] || p[0]} ${p[1]}`;
+};
 import DeveloperAnalysis from './DeveloperAnalysis';
 import TeamAnalysis from './TeamAnalysis';
 import dynamic from 'next/dynamic';
@@ -80,6 +89,17 @@ export default function ExecutiveDashboard({
   // Leak Rate by Product state
   const [leakRateByProduct, setLeakRateByProduct] = useState([]);
   const [leakRateLoading, setLeakRateLoading] = useState(false);
+
+  // Date range filter
+  const [dateFilter, setDateFilter] = useState({ from: '', to: '' });
+
+  // Tag0 (product) filter
+  const [tag0Filter, setTag0Filter] = useState('');
+  const [availableTag0s, setAvailableTag0s] = useState([]);
+  const [tag0Data, setTag0Data] = useState(null);
+  const [tag0Loading, setTag0Loading] = useState(false);
+  // Resolution time data filtered by both tag0 + date range (undefined = fallback to base)
+  const [filteredResolutionTime, setFilteredResolutionTime] = useState(undefined);
 
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
@@ -259,6 +279,162 @@ export default function ExecutiveDashboard({
     processedData, 
   } = useDashboardData(isParametricMode ? parametricData : externalData);
 
+  // Cargar lista de productos disponibles (una sola vez)
+  useEffect(() => {
+    fetch('/api/products')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.products) setAvailableTag0s(d.products); })
+      .catch(() => {});
+  }, []);
+
+  // Cargar datos filtrados por tag0 cuando cambia el filtro
+  useEffect(() => {
+    if (!tag0Filter) { setTag0Data(null); return; }
+    setTag0Loading(true);
+    fetch(`/api/qa-data-by-product?product=${encodeURIComponent(tag0Filter)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { setTag0Data(d || null); })
+      .catch(() => { setTag0Data(null); })
+      .finally(() => setTag0Loading(false));
+  }, [tag0Filter]);
+
+  // Cargar datos de resolution time filtrados cuando cambian filtros de producto o fecha
+  useEffect(() => {
+    const { from, to } = dateFilter;
+    // Si no hay ningún filtro activo, limpiar el override
+    if (!tag0Filter && !from && !to) {
+      setFilteredResolutionTime(undefined);
+      return;
+    }
+    const params = new URLSearchParams();
+    if (tag0Filter) params.set('tag0', tag0Filter);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    fetch(`/api/resolution-time-filtered?${params}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setFilteredResolutionTime(d?.resolutionTimeData ?? null))
+      .catch(() => setFilteredResolutionTime(null));
+  }, [tag0Filter, dateFilter.from, dateFilter.to]);
+
+  // Base data con override de tag0 (antes de filtro de fechas)
+  const tag0BaseData = useMemo(() => {
+    if (!processedData) return processedData;
+    if (!tag0Filter || !tag0Data) return processedData;
+
+    // Recomputar executionSummary para el producto seleccionado
+    const bm  = tag0Data.bugsByMonth     || {};
+    const tcm = tag0Data.testCasesByMonth || {};
+    const exFailed   = Object.values(bm).reduce((a, m) => a + (m.count   || 0), 0);
+    const exExecuted = Object.values(tcm).reduce((a, m) => a + (m.executed || 0), 0);
+    const exPlanned  = Object.values(tcm).reduce((a, m) => a + (m.planned  || 0), 0);
+    const exPassed   = Math.max(0, exExecuted - exFailed);
+    const exNotRun   = Math.max(0, exPlanned  - exExecuted);
+
+    return {
+      ...processedData,
+      bugsByMonth: bm,
+      testCasesByMonth: tcm,
+      summary: { ...processedData.summary, ...(tag0Data.summary || {}) },
+      executionSummary: {
+        total_executions: exPlanned,
+        passed:           exPassed,
+        failed:           exFailed,
+        not_executed:     exNotRun,
+        in_progress:      0,
+        blocked:          0,
+      },
+      // resolutionTimeData virá overrideado por filteredResolutionTime en filteredData
+      resolutionTimeData: tag0Data?.resolutionTimeData || processedData?.resolutionTimeData,
+    };
+  }, [processedData, tag0Filter, tag0Data]);
+
+  // Meses disponibles derivados de los datos procesados
+  const availableMonths = useMemo(() => {
+    if (!tag0BaseData) return [];
+    const allMonths = new Set([
+      ...Object.keys(tag0BaseData.bugsByMonth || {}),
+      ...Object.keys(tag0BaseData.testCasesByMonth || {}),
+    ]);
+    return Array.from(allMonths).sort(sortMonthKeys);
+  }, [tag0BaseData]);
+
+  // Datos filtrados por rango de fechas
+  const filteredData = useMemo(() => {
+    if (!tag0BaseData) return tag0BaseData;
+    const { from, to } = dateFilter;
+    if (!from && !to) return tag0BaseData;
+
+    const isInRange = (month) => {
+      const mVal = parseMonthKey(month);
+      const fVal = from ? parseMonthKey(from) : 0;
+      const tVal = to   ? parseMonthKey(to)   : Infinity;
+      return mVal >= fVal && mVal <= tVal;
+    };
+
+    const filteredBugsByMonth = Object.fromEntries(
+      Object.entries(tag0BaseData.bugsByMonth || {}).filter(([k]) => isInRange(k))
+    );
+    const filteredTestCasesByMonth = Object.fromEntries(
+      Object.entries(tag0BaseData.testCasesByMonth || {}).filter(([k]) => isInRange(k))
+    );
+    const filteredBugsByMonthByPriority = Object.fromEntries(
+      Object.entries(tag0BaseData.bugsByMonthByPriority || {}).filter(([k]) => isInRange(k))
+    );
+    const filteredExecutionRateByMonth = Object.fromEntries(
+      Object.entries(tag0BaseData.executionRateByMonth || {}).filter(([k]) => isInRange(k))
+    );
+    const filteredSprintData = (tag0BaseData.sprintData || []).filter(
+      s => s.sprint && isInRange(s.sprint)
+    );
+
+    // Recomputar totales del summary desde los meses filtrados
+    const totalBugs = Object.values(filteredBugsByMonth).reduce((acc, m) => acc + (m.count || 0), 0);
+    const testCasesExecuted = Object.values(filteredTestCasesByMonth).reduce((acc, m) => acc + (m.executed || 0), 0);
+    const testCasesTotal = Object.values(filteredTestCasesByMonth).reduce((acc, m) => acc + (m.planned || 0), 0);
+    const numMonths = Object.keys(filteredTestCasesByMonth).length || 1;
+
+    const filteredSummary = {
+      ...tag0BaseData.summary,
+      totalBugs,
+      testCasesTotal,
+      testCasesExecuted,
+      testCasesWithExecutions: testCasesExecuted,
+      avgTestCasesPerMonth: numMonths > 0 ? Math.round(testCasesTotal / numMonths) : 0,
+    };
+
+    // Recomputar executionSummary desde los meses filtrados
+    const filtExFailed   = Object.values(filteredBugsByMonth).reduce((a, m) => a + (m.count || 0), 0);
+    const filtExExecuted = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.executed || 0), 0);
+    const filtExPlanned  = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.planned  || 0), 0);
+    const filtExPassed   = Math.max(0, filtExExecuted - filtExFailed);
+    const filtExNotRun   = Math.max(0, filtExPlanned  - filtExExecuted);
+    const filteredExecutionSummary = {
+      total_executions: filtExPlanned,
+      passed:           filtExPassed,
+      failed:           filtExFailed,
+      not_executed:     filtExNotRun,
+      in_progress:      0,
+      blocked:          0,
+    };
+
+    // resolutionTimeData: si filteredResolutionTime está definido úsalo, si no fall back al base
+    const filteredResolutionTimeData = filteredResolutionTime !== undefined
+      ? filteredResolutionTime
+      : (tag0BaseData?.resolutionTimeData ?? null);
+
+    return {
+      ...tag0BaseData,
+      summary: filteredSummary,
+      executionSummary: filteredExecutionSummary,
+      bugsByMonth: filteredBugsByMonth,
+      testCasesByMonth: filteredTestCasesByMonth,
+      bugsByMonthByPriority: filteredBugsByMonthByPriority,
+      executionRateByMonth: filteredExecutionRateByMonth,
+      sprintData: filteredSprintData,
+      resolutionTimeData: filteredResolutionTimeData,
+    };
+  }, [tag0BaseData, dateFilter, filteredResolutionTime]);
+
   const handleRefresh = () => {
     if (isParametricMode) {
       loadParametricData();
@@ -432,6 +608,81 @@ export default function ExecutiveDashboard({
       )}
 
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        {/* ===== Date Range Filter Bar ===== */}
+        {availableMonths.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-5 bg-white/70 backdrop-blur-sm rounded-xl px-4 py-3 shadow-sm border" style={{ borderColor: '#e0e0e0' }}>
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-600">
+              <Calendar className="w-4 h-4" style={{ color: '#754bde' }} />
+              <span>Period</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400">From</label>
+              <select
+                value={dateFilter.from}
+                onChange={e => setDateFilter(f => ({ ...f, from: e.target.value }))}
+                className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ '--tw-ring-color': '#754bde' }}
+              >
+                <option value="">All</option>
+                {availableMonths
+                  .filter(m => !dateFilter.to || parseMonthKey(m) <= parseMonthKey(dateFilter.to))
+                  .map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400">To</label>
+              <select
+                value={dateFilter.to}
+                onChange={e => setDateFilter(f => ({ ...f, to: e.target.value }))}
+                className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ '--tw-ring-color': '#754bde' }}
+              >
+                <option value="">All</option>
+                {availableMonths
+                  .filter(m => !dateFilter.from || parseMonthKey(m) >= parseMonthKey(dateFilter.from))
+                  .map(m => <option key={m} value={m}>{formatMonth(m)}</option>)}
+              </select>
+            </div>
+
+            {/* Separator */}
+            {availableTag0s.length > 0 && (
+              <div className="h-5 w-px bg-gray-200 mx-1" />
+            )}
+
+            {/* Tag0 / Product filter */}
+            {availableTag0s.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Product</label>
+                <select
+                  value={tag0Filter}
+                  onChange={e => { setTag0Filter(e.target.value); setDateFilter({ from: '', to: '' }); }}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All products</option>
+                  {availableTag0s.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                {tag0Loading && <span className="text-xs text-gray-400 animate-pulse">Loading...</span>}
+              </div>
+            )}
+
+            {(dateFilter.from || dateFilter.to || tag0Filter) && (
+              <>
+                <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#f0ebff', color: '#754bde' }}>
+                  {[tag0Filter, dateFilter.from && formatMonth(dateFilter.from), dateFilter.to && formatMonth(dateFilter.to)].filter(Boolean).join(' → ')}
+                </span>
+                <button
+                  onClick={() => { setDateFilter({ from: '', to: '' }); setTag0Filter(''); }}
+                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 border rounded-md px-2 py-1 hover:bg-gray-50 transition-colors"
+                >
+                  <X className="w-3 h-3" /> Clear
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Navegación por tabs con estilo moderno */}
         <div className="mb-8">
           <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-2 shadow-sm border" style={{ borderColor: '#e0e0e0' }}>
@@ -466,7 +717,7 @@ export default function ExecutiveDashboard({
         <div className="animate-fade-in">
           {activeTab === 'overview' && (
             <OverviewTab
-              data={processedData}
+              data={filteredData}
               recommendations={recommendations}
               config={config}
               setDetailModal={setDetailModal}
@@ -479,14 +730,14 @@ export default function ExecutiveDashboard({
               setOpenResolutionModal={setOpenResolutionModal}
             />
           )}
-          {activeTab === 'quality' && <QualityTab data={processedData} config={config} setDetailModal={setDetailModal} />}
-          {activeTab === 'teams' && <TeamAnalysis data={processedData} setDetailModal={setDetailModal} />}
+          {activeTab === 'quality' && <QualityTab data={filteredData} config={config} setDetailModal={setDetailModal} />}
+          {activeTab === 'teams' && <TeamAnalysis data={filteredData} setDetailModal={setDetailModal} />}
           {/* trends tab removed */}
           {activeTab === 'roadmap' && (
             <div className="pb-6 w-full min-h-screen">
               <div className="bg-white rounded-lg shadow-lg p-6 h-full">
                 <div style={{ height: '600px', width: '100%' }}>
-                  <QualityRadarChart data={processedData} />
+                  <QualityRadarChart data={filteredData} />
                 </div>
               </div>
             </div>
