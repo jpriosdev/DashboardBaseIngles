@@ -153,7 +153,7 @@ const ResolutionTimeModal = ({ isOpen, onClose, data }) => {
                   Time to Resolution ({count} of {resolvedCount} Test Cases with Complete Date Data)
                 </h3>
 
-                <p className="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded border border-blue-200 space-y-2">
+                <div className="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded border border-blue-200 space-y-2">
                   <div className="flex gap-2">
                     <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <div>
@@ -166,7 +166,7 @@ const ResolutionTimeModal = ({ isOpen, onClose, data }) => {
                       </ul>
                     </div>
                   </div>
-                </p>
+                </div>
 
                 {/* Key Metrics Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

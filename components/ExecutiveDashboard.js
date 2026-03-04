@@ -1,4 +1,4 @@
-import { BarChart3, Target, CheckCircle, Filter, ChevronDown, AlertTriangle, X, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
+import { BarChart3, Target, CheckCircle, AlertTriangle, Activity, Bug, Clock, TrendingDown, Settings, TrendingUp } from 'lucide-react';
 // ExecutiveDashboard.js - Refactorizado y alineado
 // Main dashboard component, normalized with SQL/CSV structure
 // Todas las variables, cálculos y referencias actualizadas
@@ -15,6 +15,7 @@ import SprintComparison from './SprintComparison';
 import ActionableRecommendations from './ActionableRecommendations';
 import SettingsMenu from './SettingsMenu';
 import { QADataProcessor } from '../utils/dataProcessor'; // Nueva importación
+import { useDashboardData } from '../hooks/useDashboardData'; // Importar el nuevo hook
 import KPICard from './KPICard';
 import UnderConstructionCard from './UnderConstructionCard';
 import SprintTrendChart from './SprintTrendChart';
@@ -83,121 +84,12 @@ export default function ExecutiveDashboard({
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
 
-  // ===== Global filter state (shared across tabs) =====
-  const [selectedSprints, setSelectedSprints] = useState(['All']);
-  const [stagedSelectedSprints, setStagedSelectedSprints] = useState(selectedSprints);
-  const [testTypeFilter, setTestTypeFilter] = useState('all'); // 'all', 'system', 'uat'
-  const [selectedStatus, setSelectedStatus] = useState(['All']);
-  const [selectedPriorities, setSelectedPriorities] = useState(['All']);
-  const [selectedDevelopers, setSelectedDevelopers] = useState(['All']);
-  const [selectedCategories, setSelectedCategories] = useState(['All']);
-  const [selectedFixVersions, setSelectedFixVersions] = useState(['All']);
-  const [selectedTesters, setSelectedTesters] = useState(['All']);
-  const [selectedProducts, setSelectedProducts] = useState(['All']);
-  const [selectedTestTypes, setSelectedTestTypes] = useState(['All']);
-  const [selectedAttributes, setSelectedAttributes] = useState(['All']);
-  const [showFilters, setShowFilters] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState({ sprint: false, module: false, status: false, priority: false, fixVersion: false, tester: false, product: false, testType: false, attribute: false });
-  
-  // Dinámicamente cargados desde BD
-  const [testersList, setTestersList] = useState([]);
-  const [productsList, setProductsList] = useState([]);
-  const [testTypesList, setTestTypesList] = useState([]);
-  const [attributesList, setAttributesList] = useState([]);
-
-  const handleFilterToggle = (filterType, value) => {
-    const setterMap = {
-      sprint: setSelectedSprints,
-      status: setSelectedStatus,
-      priority: setSelectedPriorities,
-      developer: setSelectedDevelopers,
-      category: setSelectedCategories,
-      fixVersion: setSelectedFixVersions,
-      tester: setSelectedTesters,
-      product: setSelectedProducts,
-      testType: setSelectedTestTypes,
-      attribute: setSelectedAttributes
-    };
-
-    const setter = setterMap[filterType];
-    if (!setter) return;
-
-    if (value === 'All') {
-      setter(['All']);
-    } else {
-      setter(prev => {
-        if (prev.includes('All')) return [value];
-        if (prev.includes(value)) {
-          const filtered = prev.filter(v => v !== value);
-          return filtered.length === 0 ? ['All'] : filtered;
-        }
-        return [...prev, value];
-      });
-    }
-  };
-
-  // Generic handler for compact multi-select inputs
-  const handleMultiSelectChange = (filterType, e) => {
-    const setterMap = {
-      sprint: setSelectedSprints,
-      status: setSelectedStatus,
-      priority: setSelectedPriorities,
-      developer: setSelectedDevelopers,
-      category: setSelectedCategories,
-      fixVersion: setSelectedFixVersions,
-      tester: setSelectedTesters,
-      product: setSelectedProducts,
-      testType: setSelectedTestTypes,
-      attribute: setSelectedAttributes
-    };
-    const setter = setterMap[filterType];
-    if (!setter) return;
-
-    const values = Array.from(e.target.selectedOptions).map(o => o.value);
-    if (values.includes('All') || values.length === 0) {
-      setter(['All']);
-    } else {
-      setter(values.filter(v => v !== 'All'));
-    }
-  };
-
-  // Wrapper for sprint toggle to keep compatibility with XTemporal design
-  const handleSprintToggle = (sprint) => handleFilterToggle('sprint', sprint);
-
-  // Keep staged sprint selection in sync when committed externally
-  useEffect(() => {
-    setStagedSelectedSprints(selectedSprints);
-  }, [selectedSprints]);
-
-  const showSprintTooltip = (e, sprintKey, sprintData) => {
-    try {
-      const rect = e.currentTarget.getBoundingClientRect();
-      setTooltipInfo({ visible: true, sprint: sprintKey, sprintData, rect });
-    } catch (err) {
-      // ignore
-    }
-  };
-
-  const hideSprintTooltip = () => {
-    setTooltipInfo({ visible: false, sprint: null, sprintData: null, rect: null });
-  };
-
-  
-
-  // Determinar qué datos usar
-  const isParametricMode = useParametricMode && !externalData;
-  const currentData = isParametricMode ? parametricData : externalData;
-  const currentLoading = isParametricMode ? parametricLoading : externalLoading;
-  const currentLastUpdated = isParametricMode ? parametricLastUpdated : externalLastUpdated;
-
   // Cargar configuración para modo paramétrico
   const loadConfiguration = useCallback(async () => {
     try {
       const response = await fetch(configSource);
       if (response.ok) {
         const configData = await response.json();
-
-        // If there's a locally persisted config (e.g. user saved but server doesn't accept POST), merge it so local toggles take precedence
         let finalConfig = configData;
         try {
           if (typeof window !== 'undefined') {
@@ -210,22 +102,11 @@ export default function ExecutiveDashboard({
         } catch (e) {
           console.warn('Failed to merge persisted config:', e);
         }
-
         setConfig(finalConfig);
-
-        // Aplicar configuración de auto-refresh si existe
-        if (finalConfig.autoRefresh !== undefined) {
-          setAutoRefresh(finalConfig.autoRefresh);
-        }
-
-        // Aplicar configuración de modo paramétrico si existe
-        if (finalConfig.useParametricMode !== undefined) {
-          setUseParametricMode(finalConfig.useParametricMode);
-        }
+        if (finalConfig.autoRefresh !== undefined) setAutoRefresh(finalConfig.autoRefresh);
+        if (finalConfig.useParametricMode !== undefined) setUseParametricMode(finalConfig.useParametricMode);
         return;
       }
-
-      // If response not ok, try to load from localStorage as a fallback
       if (typeof window !== 'undefined') {
         const persisted = localStorage.getItem('qa-config');
         if (persisted) {
@@ -236,27 +117,9 @@ export default function ExecutiveDashboard({
           return;
         }
       }
-
-      // Last resort: defaults
       console.warn('Using default configuration: remote not available');
-      setConfig({
-        autoRefresh: true,
-        refreshInterval: 300000,
-        useParametricMode: true,
-        weights: {
-          resolutionRate: 0.3,
-          testCoverage: 0.25,
-          bugDensity: 0.2,
-          criticalBugs: 0.25
-        },
-        thresholds: {
-          criticalBugsAlert: 20,
-          maxBugsDeveloper: 15,
-          criticalModulePercentage: 60
-        }
-      });
+      setConfig({ autoRefresh: true, refreshInterval: 300000, useParametricMode: true, weights: { resolutionRate: 0.3, testCoverage: 0.25, bugDensity: 0.2, criticalBugs: 0.25 }, thresholds: { criticalBugsAlert: 20, maxBugsDeveloper: 15, criticalModulePercentage: 60 } });
     } catch (error) {
-      // Network or parse error: try localStorage fallback
       try {
         if (typeof window !== 'undefined') {
           const persisted = localStorage.getItem('qa-config');
@@ -271,178 +134,130 @@ export default function ExecutiveDashboard({
       } catch (e) {
         console.warn('Failed to load persisted config:', e);
       }
-
       console.warn('Using default configuration:', error);
-      setConfig({
-        autoRefresh: true,
-        refreshInterval: 300000,
-        useParametricMode: true,
-        weights: {
-          resolutionRate: 0.3,
-          testCoverage: 0.25,
-          bugDensity: 0.2,
-          criticalBugs: 0.25
-        },
-        thresholds: {
-          criticalBugsAlert: 20,
-          maxBugsDeveloper: 15,
-          criticalModulePercentage: 60
-        }
-      });
+      setConfig({ autoRefresh: true, refreshInterval: 300000, useParametricMode: true, weights: { resolutionRate: 0.3, testCoverage: 0.25, bugDensity: 0.2, criticalBugs: 0.25 }, thresholds: { criticalBugsAlert: 20, maxBugsDeveloper: 15, criticalModulePercentage: 60 } });
     }
   }, [configSource]);
 
   useEffect(() => {
     loadConfiguration();
-    // Listen for config updates issued elsewhere in the app and reload
     const onConfigUpdated = () => loadConfiguration();
-    if (typeof window !== 'undefined') {
-      window.addEventListener('config:updated', onConfigUpdated);
-    }
-
+    if (typeof window !== 'undefined') window.addEventListener('config:updated', onConfigUpdated);
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('config:updated', onConfigUpdated);
-      }
+      if (typeof window !== 'undefined') window.removeEventListener('config:updated', onConfigUpdated);
     };
   }, [loadConfiguration]);
 
-  // If no external data is provided, enable parametric mode by default
   useEffect(() => {
-    if (!externalData) {
-      setUseParametricMode(true);
-    }
+    if (!externalData) setUseParametricMode(true);
   }, [externalData]);
 
-  // Load recommendations on mount
-  useEffect(() => {
-    loadRecommendations();
-  }, []);
+  // Filter options are loaded by the useDashboardData hook
 
-  // Load filter options on mount
-  useEffect(() => {
-    const loadFilterOptions = async () => {
-      try {
-        // Cargar testers
-        const testersRes = await fetch('/api/testers-list');
-        if (testersRes.ok) {
-          const testersData = await testersRes.json();
-          setTestersList(testersData.testers || []);
-        }
-        
-        // Cargar productos
-        const productsRes = await fetch('/api/products');
-        if (productsRes.ok) {
-          const productsData = await productsRes.json();
-          setProductsList(productsData.products || []);
-        }
-        
-        // Cargar tipos de prueba
-        const testTypesRes = await fetch('/api/test-types');
-        if (testTypesRes.ok) {
-          const testTypesData = await testTypesRes.json();
-          setTestTypesList(testTypesData.testTypes || []);
-        }
-        
-        // Cargar atributos
-        const attributesRes = await fetch('/api/attributes');
-        if (attributesRes.ok) {
-          const attributesData = await attributesRes.json();
-          setAttributesList(attributesData.attributes || []);
-        }
-      } catch (error) {
-        console.error('Error loading filter options:', error);
-      }
-    };
-    
-    loadFilterOptions();
-  }, []);
+  const showSprintTooltip = (e, sprintKey, sprintData) => {
+    try {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setTooltipInfo({ visible: true, sprint: sprintKey, sprintData, rect });
+    } catch (err) {
+      // ignore
+    }
+  };
 
-  
+  const hideSprintTooltip = () => {
+    setTooltipInfo({ visible: false, sprint: null, sprintData: null, rect: null });
+  };
 
-  
+  // Determinar qué datos usar (debe estar ANTES de los useEffects que lo usan)
+  const isParametricMode = useParametricMode && !externalData;
+  const currentData = isParametricMode ? parametricData : externalData;
+  const currentLoading = isParametricMode ? parametricLoading : externalLoading;
+  const currentLastUpdated = isParametricMode ? parametricLastUpdated : externalLastUpdated;
 
-  // Auto-refresh mejorado
-  const loadParametricData = useCallback(async () => {
+  // ===== Carga de datos paramétricos =====
+  async function loadParametricData() {
     setParametricLoading(true);
     setError(null);
     try {
       const response = await fetch(dataSource);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       const rawData = await response.json();
+      if (!rawData) return;
 
-      if (rawData && config) {
-        // Usar el nuevo procesador con configuración
-        const processedData = QADataProcessor.processQAData(rawData, config);
-        setParametricData(processedData);
-        setParametricLastUpdated(new Date());
+      // Construir summary enriquecido con los campos del nivel raíz que el dashboard espera
+      const enrichedSummary = {
+        // Campos propios del summary del JSON
+        ...(rawData.summary || {}),
+        // Mapear campos de nivel raíz al summary si no existen ya
+        totalBugs:               rawData.summary?.totalBugs              ?? rawData.totalBugs              ?? 0,
+        bugsClosed:              rawData.summary?.bugsClosed             ?? rawData.bugsClosed             ?? 0,
+        bugsPending:             rawData.summary?.bugsPending            ?? rawData.pendingBugs            ?? 0,
+        criticalBugs:            rawData.summary?.criticalBugs           ?? rawData.criticalBugs           ?? 0,
+        testCasesTotal:          rawData.summary?.testCasesTotal         ?? rawData.testCasesTotal         ?? 0,
+        testCasesExecuted:       rawData.summary?.testCasesExecuted      ?? rawData.testCasesExecuted      ?? 0,
+        testCasesWithExecutions: rawData.summary?.testCasesWithExecutions ?? rawData.testCasesWithExecutions ?? 0,
+        testCasesWithoutExecutions: rawData.summary?.testCasesWithoutExecutions ?? rawData.testCasesWithoutExecutions ?? 0,
+        testCasesReused:         rawData.summary?.testCasesReused        ?? rawData.testCasesReused        ?? 0,
+        testCasesUsed:           rawData.summary?.testCasesUsed          ?? rawData.testCasesUsed          ?? 0,
+        testCasesNotUsed:        rawData.summary?.testCasesNotUsed       ?? rawData.testCasesNotUsed       ?? 0,
+        testCasesReusedRate:     rawData.summary?.testCasesReusedRate    ?? rawData.testCasesReusedRate    ?? 0,
+        testCasesUsedRate:       rawData.summary?.testCasesUsedRate      ?? rawData.testCasesUsedRate      ?? 0,
+        testCasesNotUsedRate:    rawData.summary?.testCasesNotUsedRate   ?? rawData.testCasesNotUsedRate   ?? 0,
+        testCasesPlanned:        rawData.summary?.testCasesPlanned       ?? rawData.testCasesPlanned       ?? 0,
+        testCasesEfficiency:     rawData.summary?.testCasesEfficiency    ?? rawData.testCasesEfficiency    ?? 0,
+        testCasesExecutionRate:  rawData.summary?.testCasesExecutionRate ?? rawData.testCasesExecutionRate ?? 0,
+        productionBugs:          rawData.summary?.productionBugs         ?? rawData.productionBugs         ?? 0,
+      };
+
+      // Calcular avgTestCasesPerMonth para el summary
+      const months = Object.keys(rawData.testCasesByMonth || {}).length || 1;
+      enrichedSummary.avgTestCasesPerMonth = enrichedSummary.testCasesTotal > 0
+        ? Math.round(enrichedSummary.testCasesTotal / months)
+        : 0;
+
+      // Aplicar QADataProcessor para calcular kpis y alerts sobre los datos enriquecidos
+      const dataForProcessor = { ...rawData, summary: enrichedSummary };
+      let processedResult;
+      if (config) {
+        processedResult = QADataProcessor.processQAData(dataForProcessor, config);
+      } else {
+        processedResult = { ...dataForProcessor, kpis: {}, alerts: [], recommendations: [] };
       }
+      // Asegurar que el summary enriquecido y los campos de nivel raíz estén en el resultado
+      processedResult = { ...processedResult, summary: enrichedSummary };
+
+      setParametricData(processedResult);
+      setParametricLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading parametric data:', error);
       setError(error.message);
     } finally {
       setParametricLoading(false);
     }
-  }, [dataSource, config]);
+  }
 
-  useEffect(() => {
-    if (!autoRefresh) return;
-
-    const interval = setInterval(() => {
-      if (isParametricMode) {
-        loadParametricData();
-      } else if (externalOnRefresh) {
-        externalOnRefresh();
-      }
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, isParametricMode, externalOnRefresh, refreshInterval, dataSource, config, loadParametricData]);
-
-  // Cargar datos paramétricos cuando hay configuración
+  // Cargar datos cuando el modo paramétrico está activo y hay configuración
   useEffect(() => {
     if (isParametricMode && config) {
       loadParametricData();
     }
-  }, [isParametricMode, config, dataSource, loadParametricData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isParametricMode, config, dataSource]);
 
-  
+  // Auto-refresh
+  useEffect(() => {
+    if (!autoRefresh || !isParametricMode) return;
+    const interval = setInterval(() => {
+      if (isParametricMode) loadParametricData();
+      else if (externalOnRefresh) externalOnRefresh();
+    }, refreshInterval);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, isParametricMode, refreshInterval]);
 
-
-  async function loadRecommendations() {
-    try {
-      const response = await fetch('/api/recommendations');
-      if (response.ok) {
-        const data = await response.json();
-        setRecommendations(data);
-        console.log('✅ Recommendations loaded from file');
-      } else {
-        console.warn('Could not load recommendations, using default values');
-      }
-    } catch (error) {
-      console.warn('Error loading recommendations:', error);
-      // Do not set error because recommendations are optional
-    }
-  }
-
-  async function loadLeakRateByProduct() {
-    setLeakRateLoading(true);
-    try {
-      const response = await fetch('/api/leak-rate-by-product');
-      if (response.ok) {
-        const data = await response.json();
-        setLeakRateByProduct(data.productsData || []);
-        console.log('✅ Leak Rate by Product loaded');
-      } else {
-        console.warn('Could not load leak rate data');
-      }
-    } catch (error) {
-      console.warn('Error loading leak rate:', error);
-    } finally {
-      setLeakRateLoading(false);
-    }
-  }
+  // ===== Centralized Data & Filter Logic =====
+  const { 
+    processedData, 
+  } = useDashboardData(isParametricMode ? parametricData : externalData);
 
   const handleRefresh = () => {
     if (isParametricMode) {
@@ -452,200 +267,37 @@ export default function ExecutiveDashboard({
     }
   };
 
-  if (!currentData && !currentLoading) {
+  if (!processedData && currentLoading) {
     return (
       <>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="text-gray-400 text-xl mb-4">📊</div>
-            <p className="text-gray-600 mb-4">No data available</p>
-            <button 
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-executive-600 text-white rounded-lg hover:bg-executive-700"
-            >
-              Load Data
-            </button>
+            <p className="text-gray-600 mb-4">Loading Dashboard Data...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-executive-600 mx-auto"></div>
           </div>
         </div>
-
-        {/* (tooltip portal removed from no-data branch; rendered in main view) */}
       </>
     );
   }
 
-  if (!currentData) return null;
+  if (!processedData) return null;
 
-  const { kpis, summary, alerts } = currentData;
-
-  // Derived lists are computed from `filteredData` below so they update dynamically
-
-  // Helper to classify sprint test type (reuse light logic from OverviewTab)
-  const classifyTestType = (sprint) => {
-    if (!sprint) return 'system';
-    if (sprint.testType) return sprint.testType;
-    const tags = (sprint.tags || '').toLowerCase();
-    if (tags.includes('uat') || tags.includes('equipo')) return 'uat';
-    if (tags.includes('integración') || tags.includes('smoke')) return 'system';
-    return 'system';
-  };
-
-  // Apply global filters to currentData and return a filtered copy
-  const applyGlobalFilters = (data) => {
-    if (!data) return data;
-
-    const normalize = v => (v || '').toString().trim().toLowerCase();
-    const selectedStatusSet = new Set(selectedStatus.map(s => normalize(s)));
-    const selectedPrioritiesSet = new Set(selectedPriorities.map(s => normalize(s)));
-    const selectedDevelopersSet = new Set(selectedDevelopers.map(s => normalize(s)));
-    const selectedCategoriesSet = new Set(selectedCategories.map(s => normalize(s)));
-    const selectedFixVersionsSet = new Set(selectedFixVersions.map(s => normalize(s)));
-    const selectedTestersSet = new Set(selectedTesters.map(s => normalize(s)));
-    const selectedProductsSet = new Set(selectedProducts.map(s => normalize(s)));
-    const selectedTestTypesSet = new Set(selectedTestTypes.map(s => normalize(s)));
-    const selectedAttributesSet = new Set(selectedAttributes.map(s => normalize(s)));
-    
-    const bugs = (data.bugs || []).filter(b => {
-      // Status
-      if (!selectedStatus.includes('All')) {
-        if (!selectedStatusSet.has(normalize(b.status || b.estado || b.status))) return false;
-      }
-      // Priority
-      if (!selectedPriorities.includes('All')) {
-        if (!selectedPrioritiesSet.has(normalize(b.priority || b.prioridad || ''))) return false;
-      }
-      // Developer
-      if (!selectedDevelopers.includes('All')) {
-        if (!selectedDevelopersSet.has(normalize(b.developer || b.developer_name || ''))) return false;
-      }
-      // Category
-      if (!selectedCategories.includes('All')) {
-        if (!selectedCategoriesSet.has(normalize(b.category || b.categoria || ''))) return false;
-      }
-      // Tester
-      if (!selectedTesters.includes('All')) {
-        if (!selectedTestersSet.has(normalize(b.reportado_por || b.tester || ''))) return false;
-      }
-      // Product (TAG0)
-      if (!selectedProducts.includes('All')) {
-        if (!selectedProductsSet.has(normalize(b.tag0 || b.product || ''))) return false;
-      }
-      // Test Type
-      if (!selectedTestTypes.includes('All')) {
-        if (!selectedTestTypesSet.has(normalize(b.tipo_prueba || b.test_type || ''))) return false;
-      }
-      // Attribute
-      if (!selectedAttributes.includes('All')) {
-        if (!selectedAttributesSet.has(normalize(b.atributo || b.attribute || ''))) return false;
-      }
-
-      // Execution strategy filter removed per request
-      // Fix version
-      if (!selectedFixVersions.includes('All')) {
-        const fv = normalize(b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '');
-        if (!selectedFixVersionsSet.has(fv)) return false;
-      }
-      return true;
-    });
-
-    // Filter sprintData by selectedSprints and testTypeFilter
-    let sprintData = data.sprintData || [];
-    const selectedSprintsSet = new Set(selectedSprints.map(s => (s || '').toString()));
-    if (!selectedSprints.includes('All')) {
-      sprintData = sprintData.filter(s => selectedSprintsSet.has(((s.sprint || s.name || s.id) || '').toString()));
-    }
-    if (testTypeFilter !== 'all') {
-      sprintData = sprintData.filter(s => classifyTestType(s) === testTypeFilter);
-    }
-
-    // Further filter sprintData by other selected filpenditers so KPIs and charts respond
-    const sprintMatches = (s) => {
-      // Fix version / version
-      if (!selectedFixVersions.includes('All')) {
-        const fv = normalize(s.fixVersion || s.version || s['Version de correccion 1'] || s.release || '');
-        if (!selectedFixVersionsSet.has(fv)) return false;
-      }
-
-      return true;
-    };
-
-    if (sprintData && sprintData.length > 0) {
-      sprintData = sprintData.filter(sprintMatches);
-    }
-
-    return { ...data, bugs, sprintData };
-  };
-
-  const filteredData = applyGlobalFilters(currentData);
-
-  // Recompute filter option lists from the filtered data so options are dynamic
-  const sprintList = (filteredData.sprintData || [])
-    .map(s => ((s.sprint || s.name || s.id) || '').toString())
-    .filter(Boolean);
-
-  const bugsArray = Array.isArray(filteredData.bugs) ? filteredData.bugs : [];
-
-  // Backwards-compatible alias: some compiled artifacts/reference patches expect `sourceBugs`.
-  // Ensure it's always defined to avoid ReferenceError during server-side rendering.
-  const sourceBugs = (currentData && Array.isArray(currentData.bugs) && currentData.bugs.length > 0)
-    ? currentData.bugs
-    : bugsArray;
-
-  // Modules
-  let moduleList = [];
-  if (bugsArray.length > 0) {
-    moduleList = Array.from(new Set(bugsArray.map(b => (b.module || 'Other').toString().trim()))).filter(Boolean).sort();
-  } else if (Array.isArray(filteredData.bugsByModule) && filteredData.bugsByModule.length > 0) {
-    moduleList = Array.from(new Set(filteredData.bugsByModule.map(m => (m.module || m.name || m[0] || '').toString().trim()))).filter(Boolean).sort();
-  }
-
-  // Priorities
-  let priorityList = [];
-  if (bugsArray.length > 0) {
-    priorityList = Array.from(new Set(bugsArray.map(b => (b.priority || 'No priority').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
-  } else if (filteredData.bugsByPriority && typeof filteredData.bugsByPriority === 'object') {
-    priorityList = Object.keys(filteredData.bugsByPriority || {}).filter(Boolean).sort((a,b)=> a.localeCompare(b));
-  }
-
-  // Status
-  let statusList = [];
-  if (bugsArray.length > 0) {
-    statusList = Array.from(new Set(bugsArray.map(b => (b.status || 'Unknown').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
-  }
-  // Fallback: if no bug-level data, use server-extracted status list
-  if (statusList.length === 0 && filteredData && Array.isArray(filteredData._statusList) && filteredData._statusList.length > 0) {
-    statusList = Array.from(new Set(filteredData._statusList)).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-  }
-
-  // Developers
-  let developerList = [];
-  if (bugsArray.length > 0) {
-    developerList = Array.from(new Set(bugsArray.map(b => (b.developer || 'Unassigned').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
-  } else if (Array.isArray(filteredData.developerData) && filteredData.developerData.length > 0) {
-    developerList = Array.from(new Set(filteredData.developerData.map(d => (d.developer_name || d.name || d[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=> a.localeCompare(b));
-  }
-
-  // Categories
-  let categoryList = [];
-  if (bugsArray.length > 0) {
-    categoryList = Array.from(new Set(bugsArray.map(b => (b.category || 'Uncategorized').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-  } else if (filteredData.bugsByCategory && Array.isArray(filteredData.bugsByCategory) && filteredData.bugsByCategory.length > 0) {
-    categoryList = Array.from(new Set(filteredData.bugsByCategory.map(c => (c.category || c.name || c[0] || '').toString().trim()))).filter(Boolean).sort((a,b)=>a.localeCompare(b));
-  }
-
-  let fixVersionList = [];
-  if (bugsArray.length > 0) {
-    fixVersionList = Array.from(new Set(bugsArray.map(b => (b.fixVersion || b['Version de correccion 1'] || b.fixedVersion || '').toString().trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
-  }
-
-  // Fallbacks for strategy/environment/fixVersion from server-provided lists
-  // Strategy/environment lists removed per request
-  if (fixVersionList.length === 0 && filteredData && Array.isArray(filteredData._fixVersionList) && filteredData._fixVersionList.length > 0) {
-    fixVersionList.push(...filteredData._fixVersionList);
-  }
+  const { 
+    kpis, 
+    summary, 
+    alerts,
+    bugs,
+    sprintData,
+    bugsByModule,
+    bugsByPriority,
+    developerData,
+    bugsByCategory,
+  } = processedData;
 
   const tabs = [
     { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
-    // { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
+    { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
     { id: 'teams', label: 'Team Analysis', icon: <Activity className="w-4 h-4" /> },
     { id: 'roadmap', label: 'Quality Radar', icon: <Target className="w-4 h-4" /> }
   ];
@@ -739,377 +391,10 @@ export default function ExecutiveDashboard({
                 onRefresh={handleRefresh}
                 loading={currentLoading}
               />
-              {/* Toggle global filters visibility */}
-              <button
-                onClick={() => {
-                  setShowFilters(prev => {
-                    try { if (typeof window !== 'undefined') localStorage.setItem('qa-show-filters', JSON.stringify(!prev)); } catch(e) {}
-                    return !prev;
-                  });
-                }}
-                className="ml-3 inline-flex items-center px-3 py-1.5 bg-white border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                {showFilters ? 'Hide filters' : 'Show filters'}
-              </button>
             </div>
           </div>
         </div>
       </div>
-
-          {/* Filtro Moderno Estilo DashboardDemo */}
-          {/* Encabezado con gradiente */}
-          <div 
-            onClick={() => setShowFilters(!showFilters)}
-            className="bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 rounded-t-lg p-3 text-white flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow mb-0"
-          >
-            <div className="flex items-center gap-2">
-              <Filter />
-              <h2 className="text-sm font-bold">Filters</h2>
-                {(() => {
-                const activeFilters = 
-                  (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
-                  (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
-                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0);
-                return activeFilters > 0 ? (
-                  <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs font-semibold">
-                    {activeFilters} active{activeFilters > 1 ? 's' : ''}
-                  </span>
-                ) : null;
-              })()}
-            </div>
-            <div className="flex items-center gap-2">
-                {(() => {
-                const activeFilters = 
-                  (selectedStatus[0] !== 'All' ? selectedStatus.length : 0) +
-                  (selectedPriorities[0] !== 'All' ? selectedPriorities.length : 0) +
-                  (selectedCategories[0] !== 'All' ? selectedCategories.length : 0);
-                return activeFilters > 0 ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedStatus(['All']);
-                      setSelectedPriorities(['All']);
-                      setSelectedCategories(['All']);
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-20 hover:bg-opacity-30 rounded text-xs font-semibold transition-all"
-                  >
-                    <X size={14} />
-                    Clear
-                  </button>
-                ) : null;
-              })()}
-              <ChevronDown 
-                size={18} 
-                className={`transform transition-transform ${showFilters ? 'rotate-180' : ''}`}
-              />
-            </div>
-          </div>
-
-          {/* Grid de Filtros - Colapsable */}
-          {showFilters && (
-            <div className="bg-gray-50 rounded-b-lg p-4 border border-gray-200 border-t-0 mb-6">
-              <div className="flex gap-2 overflow-x-auto py-2">
-                {/* Module filter removed as requested */}
-
-                {/* Sprint Filter Section (added) */}
-                <div className="border rounded-lg p-1 bg-indigo-50 border-indigo-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, sprint: !prev.sprint}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">📅</span>
-                      <p className="font-bold uppercase text-xs">Sprint</p>
-                      {selectedSprints.length > 0 && selectedSprints[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedSprints.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.sprint ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.sprint && (
-                    <div>
-                      {sprintList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                      ) : (
-                        <>
-                          <select
-                            multiple
-                            size={Math.min(6, Math.max(3, sprintList.length))}
-                            value={stagedSelectedSprints}
-                            onChange={(e) => {
-                              const values = Array.from(e.target.selectedOptions).map(o => o.value);
-                              if (values.includes('All') || values.length === 0) {
-                                setStagedSelectedSprints(['All']);
-                              } else {
-                                setStagedSelectedSprints(values.filter(v => v !== 'All'));
-                              }
-                            }}
-                            className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                          >
-                            <option value="All">All</option>
-                            {sprintList.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setSelectedSprints(stagedSelectedSprints); }}
-                              className="text-xs px-2 py-1 bg-indigo-600 text-white rounded-sm"
-                            >
-                              Apply
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setStagedSelectedSprints(selectedSprints); }}
-                              className="text-xs px-2 py-1 bg-white border rounded-sm"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Priority Filter Section */}
-                <div className="border rounded-lg p-1 bg-orange-50 border-orange-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, priority: !prev.priority}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">⚡</span>
-                      <p className="font-bold uppercase text-xs">Priority</p>
-                      {selectedPriorities.length > 0 && selectedPriorities[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedPriorities.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.priority ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.priority && (
-                    <div>
-                      {priorityList.length === 0 ? (
-                        <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                      ) : (
-                        <select
-                          multiple
-                          size={Math.min(6, Math.max(3, priorityList.length))}
-                          value={selectedPriorities}
-                          onChange={(e) => handleMultiSelectChange('priority', e)}
-                          className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                        >
-                          <option value="All">All</option>
-                          {priorityList.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Status Filter Section */}
-                <div className="border rounded-lg p-1 bg-green-50 border-green-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, status: !prev.status}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">✓</span>
-                      <p className="font-bold uppercase text-xs">Status</p>
-                      {selectedStatus.length > 0 && selectedStatus[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedStatus.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.status ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.status && (
-                      <div>
-                        {statusList.length === 0 ? (
-                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                        ) : (
-                          <select
-                              multiple
-                              size={Math.min(6, Math.max(3, statusList.length))}
-                              value={selectedStatus}
-                              onChange={(e) => handleMultiSelectChange('status', e)}
-                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                            >
-                            <option value="All">All</option>
-                            {statusList.map(s => <option key={s} value={s}>{s}</option>)}
-                          </select>
-                        )}
-                      </div>
-                  )}
-                </div>
-                {/* Developer filter removed per request */}
-
-                {/* Strategy filter removed per user request */}
-
-                {/* Environment filter removed per user request */}
-
-                {/* Fix Version filter removed per request */}
-
-                {/* Tester Filter Section */}
-                <div className="border rounded-lg p-1 bg-purple-50 border-purple-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, tester: !prev.tester}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">👨‍🔬</span>
-                      <p className="font-bold uppercase text-xs">Testers</p>
-                      {selectedTesters.length > 0 && selectedTesters[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedTesters.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.tester ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.tester && (
-                      <div>
-                        {testersList && testersList.length === 0 ? (
-                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                        ) : (
-                          <select
-                              multiple
-                              size={Math.min(6, Math.max(3, (testersList?.length || 0) + 1))}
-                              value={selectedTesters}
-                              onChange={(e) => handleMultiSelectChange('tester', e)}
-                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                            >
-                            <option value="All">All</option>
-                            {testersList && testersList.map(t => <option key={t.tester} value={t.tester}>{t.tester}</option>)}
-                          </select>
-                        )}
-                      </div>
-                  )}
-                </div>
-
-                {/* Test Type Filter Section */}
-                <div className="border rounded-lg p-1 bg-cyan-50 border-cyan-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, testType: !prev.testType}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">🧪</span>
-                      <p className="font-bold uppercase text-xs">Test Type</p>
-                      {selectedTestTypes.length > 0 && selectedTestTypes[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedTestTypes.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.testType ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.testType && (
-                      <div>
-                        {testTypesList && testTypesList.length === 0 ? (
-                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                        ) : (
-                          <select
-                              multiple
-                              size={Math.min(6, Math.max(3, (testTypesList?.length || 0) + 1))}
-                              value={selectedTestTypes}
-                              onChange={(e) => handleMultiSelectChange('testType', e)}
-                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                            >
-                            <option value="All">All</option>
-                            {testTypesList && testTypesList.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        )}
-                      </div>
-                  )}
-                </div>
-
-                {/* Attribute Filter Section */}
-                <div className="border rounded-lg p-1 bg-yellow-50 border-yellow-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, attribute: !prev.attribute}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">📋</span>
-                      <p className="font-bold uppercase text-xs">Attribute</p>
-                      {selectedAttributes.length > 0 && selectedAttributes[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedAttributes.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.attribute ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.attribute && (
-                      <div>
-                        {attributesList && attributesList.length === 0 ? (
-                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                        ) : (
-                          <select
-                              multiple
-                              size={Math.min(6, Math.max(3, (attributesList?.length || 0) + 1))}
-                              value={selectedAttributes}
-                              onChange={(e) => handleMultiSelectChange('attribute', e)}
-                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                            >
-                            <option value="All">All</option>
-                            {attributesList && attributesList.map(a => <option key={a} value={a}>{a}</option>)}
-                          </select>
-                        )}
-                      </div>
-                  )}
-                </div>
-
-                {/* Product (TAG0) Filter Section */}
-                <div className="border rounded-lg p-1 bg-indigo-50 border-indigo-200 flex-shrink-0 w-44">
-                  <button
-                    onClick={() => setCollapsedSections(prev => ({...prev, product: !prev.product}))}
-                    className="w-full flex items-center justify-between mb-2"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg">📦</span>
-                      <p className="font-bold uppercase text-xs">Products</p>
-                      {selectedProducts.length > 0 && selectedProducts[0] !== 'All' && (
-                        <span className="ml-1 px-1 py-0.5 bg-white bg-opacity-50 text-xs font-bold rounded-sm">
-                          {selectedProducts.length}
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown size={14} className={`transition-transform flex-shrink-0 ${collapsedSections.product ? '' : 'rotate-180'}`} />
-                  </button>
-
-                  {!collapsedSections.product && (
-                      <div>
-                        {productsList && productsList.length === 0 ? (
-                          <div className="text-xs text-gray-500 px-2 py-1">No values</div>
-                        ) : (
-                          <select
-                              multiple
-                              size={Math.min(6, Math.max(3, (productsList?.length || 0) + 1))}
-                              value={selectedProducts}
-                              onChange={(e) => handleMultiSelectChange('product', e)}
-                              className="w-full text-xs p-0.5 rounded-sm border bg-white"
-                            >
-                            <option value="All">All</option>
-                            {productsList && productsList.map(p => <option key={p} value={p}>{p}</option>)}
-                          </select>
-                        )}
-                      </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Critical Alerts (improved) */}
       {alerts && alerts.length > 0 && (
@@ -1181,8 +466,7 @@ export default function ExecutiveDashboard({
         <div className="animate-fade-in">
           {activeTab === 'overview' && (
             <OverviewTab
-              data={currentData}
-              filteredData={filteredData}
+              data={processedData}
               recommendations={recommendations}
               config={config}
               setDetailModal={setDetailModal}
@@ -1193,41 +477,16 @@ export default function ExecutiveDashboard({
               setTooltipInfo={setTooltipInfo}
               openResolutionModal={openResolutionModal}
               setOpenResolutionModal={setOpenResolutionModal}
-              // filter lists
-              sprintList={sprintList}
-              moduleList={moduleList}
-              priorityList={priorityList}
-              statusList={statusList}
-              developerList={developerList}
-              categoryList={categoryList}
-              // filter state & handlers
-              selectedSprints={selectedSprints}
-              setSelectedSprints={setSelectedSprints}
-              selectedTesters={selectedTesters}
-              selectedProducts={selectedProducts}
-              selectedTestTypes={selectedTestTypes}
-              selectedAttributes={selectedAttributes}
-              testTypeFilter={testTypeFilter}
-              setTestTypeFilter={setTestTypeFilter}
-              selectedStatus={selectedStatus}
-              selectedPriorities={selectedPriorities}
-              selectedDevelopers={selectedDevelopers}
-              selectedCategories={selectedCategories}
-              showFilters={showFilters}
-              setShowFilters={setShowFilters}
-              collapsedSections={collapsedSections}
-              setCollapsedSections={setCollapsedSections}
-              handleFilterToggle={handleFilterToggle}
             />
           )}
-          {activeTab === 'quality' && <QualityTab data={currentData} filteredData={filteredData} config={config} setDetailModal={setDetailModal} detailModal={detailModal} />}
-          {activeTab === 'teams' && <TeamAnalysis data={currentData} filteredSprintData={filteredData} setDetailModal={setDetailModal} detailModal={detailModal} />}
+          {activeTab === 'quality' && <QualityTab data={processedData} config={config} setDetailModal={setDetailModal} />}
+          {activeTab === 'teams' && <TeamAnalysis data={processedData} setDetailModal={setDetailModal} />}
           {/* trends tab removed */}
           {activeTab === 'roadmap' && (
             <div className="pb-6 w-full min-h-screen">
               <div className="bg-white rounded-lg shadow-lg p-6 h-full">
                 <div style={{ height: '600px', width: '100%' }}>
-                  <QualityRadarChart data={currentData} />
+                  <QualityRadarChart data={processedData} />
                 </div>
               </div>
             </div>
@@ -1242,507 +501,94 @@ export default function ExecutiveDashboard({
 // TAB COMPONENTS (keep existing ones)
 // ===============================
 
-function OverviewTab({ data, filteredData, recommendations, config, setDetailModal, detailModal, tooltipInfo, showSprintTooltip, hideSprintTooltip, setTooltipInfo,
-  sprintList, moduleList, priorityList, statusList, developerList, categoryList,
-  selectedSprints, setSelectedSprints, testTypeFilter, setTestTypeFilter,
-  selectedStatus, selectedPriorities, selectedDevelopers, selectedCategories,
-  selectedTesters, selectedProducts, selectedTestTypes, selectedAttributes,
-  showFilters, setShowFilters, collapsedSections, setCollapsedSections, handleFilterToggle,
-  openResolutionModal, setOpenResolutionModal
+function OverviewTab({ 
+  data, 
+  recommendations, 
+  config, 
+  setDetailModal, 
+  detailModal, 
+  openResolutionModal, 
+  setOpenResolutionModal
 }) {
-  // DEBUG: log incoming data
-  console.log('[OverviewTab] data properties:', Object.keys(data || {}).slice(0, 15));
-  console.log('[OverviewTab] bugsByMonthByPriority:', data?.bugsByMonthByPriority ? 'EXISTS' : 'MISSING');
-  
-  const { kpis, summary } = data;
-  // Use filtered sprint data computed at parent level
-  const filteredSprintData = filteredData?.sprintData || data.sprintData || [];
+  // Extraer toda la data procesada del hook
+  const { 
+    kpis = {}, 
+    summary = {}, 
+    bugs = [],
+    sprintData = [],
+    bugsByMonth = {},
+    testCasesByMonth = {},
+    executionSummary = {},
+    bugsByPriority = {},
+    bugsByMonthByPriority = {},
+    resolutionTimeData = {},
+    executionRateByMonth = {},
+    moduleData = {},
+    developerData = {},
+  } = data || {};
 
-  // Helper to check if a KPI should be visible according to config
+  // Helper para verificar si un KPI es visible
   const isKpiVisible = (kpiId) => {
-    try {
-      const visible = config?.visibleKpis?.overview;
-      // if config not set or visible list not present, show everything
-      if (!visible || !Array.isArray(visible)) return true;
-      return visible.includes(kpiId);
-    } catch (e) {
-      return true;
-    }
+    const visible = config?.visibleKpis?.overview;
+    return !visible || !Array.isArray(visible) || visible.includes(kpiId);
   };
 
-  // Clasificar sprints por tipo de prueba basado en tags y environment
-  const classifyTestType = (sprint) => {
-    // Preferir el campo testType si existe (viene del procesador Excel enriquecido)
-    if (sprint.testType) {
-      return sprint.testType;
-    }
-    
-    const tags = (sprint.tags || '').toLowerCase();
-    const env = (sprint.environment || '').toUpperCase();
-    
-    // Si contiene tags de UAT o "equipo", es UAT
-    if (tags.includes('uat') || tags.includes('equipo')) {
-      return 'uat';
-    }
-    // Si contiene tags de integración o smoke, es System
-    if (tags.includes('integración') || tags.includes('smoke')) {
-      return 'system';
-    }
-    // Por defecto, asumir system testing
-    return 'system';
-  };
+  // Labels para los gráficos de series de tiempo (meses)
+  const monthLabels = useMemo(() => {
+    const allMonthsSet = new Set([
+      ...Object.keys(bugsByMonth),
+      ...Object.keys(testCasesByMonth)
+    ]);
+    return Array.from(allMonthsSet).sort(sortMonthKeys);
+  }, [bugsByMonth, testCasesByMonth]);
 
-  // Filtro de sprints con checkboxes
-  const handleSprintToggle = (sprint) => {
-    if (sprint === 'All') {
-      setSelectedSprints(['All']);
-    } else {
-      setSelectedSprints(prev => {
-        // If 'All' is selected, replace with the clicked sprint
-        if (prev.includes('All')) {
-          return [sprint];
-        }
-
-        // If the sprint is already selected, remove it
-        if (prev.includes(sprint)) {
-          const filtered = prev.filter(s => s !== sprint);
-          // If none left, return to 'All'
-          return filtered.length === 0 ? ['All'] : filtered;
-        }
-
-        // Otherwise add it
-        return [...prev, sprint];
-      });
-    }
-  };
-
-  // Manejar cambio de tipo de prueba - resetear sprints seleccionados
-  const handleTestTypeChange = (newType) => {
-    setTestTypeFilter(newType);
-    // Reset sprints to 'All' when test type changes
-    setSelectedSprints(['All']);
-  };
-
-  // Obtener sprints disponibles según el tipo de prueba seleccionado
-  const getAvailableSprints = () => {
-    if (testTypeFilter === 'all') {
-      return sprintList;
-    }
-    // Filtrar sprints según el tipo seleccionado
-      return sprintList.filter(sprint => {
-        const sprintData = data.sprintData?.find(s => (((s.sprint || s.name || s.id) || '').toString() === (sprint || '').toString()));
-        return classifyTestType(sprintData) === testTypeFilter;
-      });
-  };
-
-  const availableSprints = getAvailableSprints();
+  // Series para gráficos
+  const plannedSeries = useMemo(() => monthLabels.map(month => testCasesByMonth[month]?.planned || 0), [monthLabels, testCasesByMonth]);
+  const executedSeries = useMemo(() => monthLabels.map(month => testCasesByMonth[month]?.executed || 0), [monthLabels, testCasesByMonth]);
   
-
-  // Recalcular KPIs basados en los sprints seleccionados y tipo de prueba
-  // If any filters are active (sprint, type or any other filter), treat as filtered mode
-  const hasFiltersActive = (
-    !selectedSprints.includes('All') ||
-    testTypeFilter !== 'all' ||
-    (typeof selectedStatus !== 'undefined' && selectedStatus[0] !== 'All') ||
-    (typeof selectedPriorities !== 'undefined' && selectedPriorities[0] !== 'All') ||
-    (typeof selectedFixVersions !== 'undefined' && selectedFixVersions[0] !== 'All')
-  );
-
-  // Para totalTestCases: si hay filtros activos, usar sprints filtrados. Si no, usar el total global
-  const totalTestCases = hasFiltersActive
-    ? (filteredSprintData?.reduce((acc, s) => acc + (s.testCases || s.testCasesExecuted || 0), 0) || 0)
-    : (summary?.testCasesTotal || summary?.testCasesExecuted || 0);
-
-  // Para totalBugs: si hay filtros activos, usar sprints filtrados. Si no, usar el total global (238)
-  const totalBugs = hasFiltersActive
-    ? (filteredSprintData?.reduce((acc, s) => acc + (s.bugs || s.bugsFound || 0), 0) || 0)
-    : (summary.totalBugs || 0);
-  const bugsClosed = hasFiltersActive
-    ? (filteredSprintData?.reduce((acc, s) => acc + (s.bugsResolved || s.bugsClosed || 0), 0) || 0)
-    : (summary.bugsClosed || 0);
-  
-  // Calcular bugs críticos desde los sprints filtrados (usar datos reales del JSON)
-  let criticalBugsPending, criticalBugsTotal, criticalBugsMasAlta, criticalBugsAlta, trivialBugs;
-  if (hasFiltersActive) {
-    // Con filtros: calcular desde datos reales de sprints filtrados
-    const sprintsCriticalData = filteredSprintData?.reduce((acc, sprint) => {
-      // sprint may expose the Major count under different names depending on processor
-      acc.total += (sprint.critical || sprint.criticalBugsTotal || sprint.criticalBugs || 0);
-      acc.pending += (sprint.criticalBugsPending || sprint.critical_pending || 0);
-      return acc;
-    }, { total: 0, pending: 0 });
-
-    criticalBugsTotal = sprintsCriticalData?.total || 0;
-    criticalBugsPending = sprintsCriticalData?.pending || 0;
-    // Only 'Major' exists -> treat as the single critical bucket
-    criticalBugsMasAlta = criticalBugsTotal;
-    criticalBugsAlta = 0;
-    trivialBugs = 0;
-  } else {
-    // Sin filtros: preferir valores agregados en summary si existen
-    criticalBugsTotal = data.summary?.total_critical || data.summary?.critical || data.summary?.criticalBugs || data.summary?.totalCritical || 0;
-    criticalBugsPending = data.summary?.criticalPending || data.summary?.critical_pending || 0;
-
-    // Fallback: sumar cualquier prioridad que indique 'major' en las claves de bugsByPriority
-    if (!criticalBugsTotal || criticalBugsTotal === 0) {
-      criticalBugsTotal = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
-        const lk = (key || '').toString().toLowerCase();
-        if (lk.includes('major') || lk.includes('más alta') || lk === 'major' || lk === 'más alta') {
-          return acc + ((data.bugsByPriority[key]?.count) || 0);
-        }
-        return acc;
-      }, 0);
-    }
-
-    if (!criticalBugsPending || criticalBugsPending === 0) {
-      criticalBugsPending = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
-        const lk = (key || '').toString().toLowerCase();
-        if (lk.includes('major') || lk.includes('más alta') || lk === 'major' || lk === 'más alta') {
-          return acc + ((data.bugsByPriority[key]?.pending) || 0);
-        }
-        return acc;
-      }, 0);
-    }
-
-    // Buscar Trivial en bugsByPriority
-    trivialBugs = Object.keys(data.bugsByPriority || {}).reduce((acc, key) => {
-      const lk = (key || '').toString().toLowerCase();
-      if (lk.includes('trivial') || lk.includes('más baja') || lk.includes('lowest') || lk === 'trivial') {
-        return acc + ((data.bugsByPriority[key]?.count) || 0);
-      }
-      return acc;
-    }, 0);
-
-    criticalBugsMasAlta = criticalBugsTotal;
-    criticalBugsAlta = 0;
-  }
-  
-  // Calculate average test cases per MONTH (not per sprint)
-  const calculateTestCasesPerMonth = () => {
-    const testCasesByMonth = data.testCasesByMonth || {};
-    if (!testCasesByMonth || Object.keys(testCasesByMonth).length === 0) {
-      return kpis.avgTestCasesPerSprint || 0;
-    }
-    
-    const plannedPerMonth = Object.values(testCasesByMonth).map(m => m.planned || 0);
-    if (plannedPerMonth.length === 0) return 0;
-    
-    const totalPlanned = plannedPerMonth.reduce((a, b) => a + b, 0);
-    return Math.round(totalPlanned / plannedPerMonth.length);
-  };
-  
-  const avgTestCasesPerSprint = calculateTestCasesPerMonth();
-  
-  const resolutionEfficiency = totalBugs > 0 
-    ? Math.round((bugsClosed / totalBugs) * 100) 
-    : kpis.resolutionEfficiency || 0;
-  
-  const criticalBugsRatio = totalBugs > 0 
-    ? Math.round((criticalBugsPending / totalBugs) * 100) 
-    : kpis.criticalBugsRatio || 0;
-
-  // Series para gráficas: executed vs planned por MES (no por sprint, para series de tiempo en modal)
-  const testCasesByMonth = data.testCasesByMonth || {};
-  const bugsByMonthObj = data.bugsByMonth || {};
-  
-  // Usar meses de ambas fuentes (priorizar bugs si están disponibles)
-  const allMonthsSet = new Set([
-    ...Object.keys(bugsByMonthObj),
-    ...Object.keys(testCasesByMonth)
-  ]);
-  const monthLabels = Array.from(allMonthsSet).sort(sortMonthKeys);
-  
-  const executedSeries = monthLabels.map(month => testCasesByMonth[month]?.executed || 0);
-  const plannedSeries = monthLabels.map(month => testCasesByMonth[month]?.planned || 0);
-
-  // Calculate Execution Rate by MONTH (based on test cases with executions / total designed)
-  const calculateExecutionRatePerMonth = () => {
-    // Usar datos de test cases en lugar de bugs
+  // Datos para la tarjeta de Tasa de Ejecución
+  const executionRateData = useMemo(() => {
     const totalDesigned = summary?.testCasesTotal || 0;
     const totalWithExecutions = summary?.testCasesWithExecutions || 0;
-    
-    if (totalDesigned === 0) {
-      return { avg: 0, completed: 0, total: 0, months: 0 };
-    }
-
-    const executionRate = Math.round((totalWithExecutions / totalDesigned) * 100);
-
+    const executionRate = totalDesigned > 0 ? Math.round((totalWithExecutions / totalDesigned) * 100) : 0;
     return {
       avg: executionRate,
       completed: totalWithExecutions,
       total: totalDesigned,
-      months: monthLabels?.length || 0
+      months: monthLabels.length || 0
     };
-  };
+  }, [summary, monthLabels]);
 
-  const executionRateData = calculateExecutionRatePerMonth();
-
-  // Derived leakage rate: prefer kpis value, fallback to 0
-  const derivedLeakageRate = (kpis && kpis.bugLeakageRate !== undefined) ? kpis.bugLeakageRate : 0;
-
-  // Calculate trends comparing first half vs second half of selected sprints
-  const calculateTrend = (getData) => {
-    if (!filteredSprintData || filteredSprintData.length < 2) return 0;
+  // Datos para la tarjeta de Densidad de Hallazgos
+  const defectDensityData = useMemo(() => {
+    const bugsPerMonth = monthLabels.map(m => bugsByMonth[m]?.count || 0);
+    if (bugsPerMonth.length === 0) return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
     
-    const midPoint = Math.floor(filteredSprintData.length / 2);
-    const firstHalf = filteredSprintData.slice(0, midPoint);
-    const secondHalf = filteredSprintData.slice(midPoint);
-    
-    const firstAvg = firstHalf.reduce((acc, s) => acc + getData(s), 0) / firstHalf.length;
-    const secondAvg = secondHalf.reduce((acc, s) => acc + getData(s), 0) / secondHalf.length;
-    
-    if (firstAvg === 0) return 0;
-    return Math.round(((secondAvg - firstAvg) / firstAvg) * 100);
-  };
-
-  const testCasesTrend = calculateTrend(s => s.testCases || s.testCasesExecuted || 0);
-  const resolutionTrend = calculateTrend(s => {
-    const total = s.bugs || s.bugsFound || 0;
-    const resolved = s.bugsResolved || s.bugsClosed || 0;
-    return total > 0 ? (resolved / total) * 100 : 0;
-  });
-  const criticalBugsTrend = calculateTrend(s => s.bugs || s.bugsFound || 0) * -1; // Invertido porque menos bugs es mejor
-
-  const executionTrend = calculateTrend(s => {
-    const planned = (s.testCasesPlanned || s.testCasesTotal || s.testCases || 0) || 0;
-    const executed = (s.testCases || s.testCasesExecuted || 0) || 0;
-    return planned > 0 ? Math.round((executed / planned) * 100) : 0;
-  });
-
-  // 1. Cycle Time: Tiempo promedio de resolución de bugs
-  const calculateCycleTime = () => {
-    if (!filteredSprintData || filteredSprintData.length === 0) return { avg: 0, byPriority: {} };
-    
-    // Usar datos reales del JSON si están disponibles (avgResolutionTime en cada sprint)
-    let avgCycleTime;
-    const sprintDuration = 14; // días
-    
-    // Intentar usar datos enriquecidos de cada sprint
-    const sprintResolutionTimes = filteredSprintData
-      .filter(s => s.avgResolutionTime !== undefined)
-      .map(s => s.avgResolutionTime);
-    
-    if (sprintResolutionTimes.length > 0) {
-      // Usar el promedio de los tiempos de resolución reales
-      avgCycleTime = Math.round(
-        sprintResolutionTimes.reduce((a, b) => a + b, 0) / sprintResolutionTimes.length
-      );
-    } else {
-      // Fallback: calcular como antes
-      let totalBugsOpen = 0;
-      let totalBugsResolved = 0;
-      
-      filteredSprintData.forEach(sprint => {
-        const bugsOpen = sprint.bugs || sprint.bugsFound || 0;
-        const bugsResolved = sprint.bugsResolved || sprint.bugsClosed || 0;
-        totalBugsOpen += bugsOpen;
-        totalBugsResolved += bugsResolved;
-      });
-      
-      // Cycle Time = (Bugs pendientes promedio) / (Velocidad de resolución por día)
-      const numSprints = filteredSprintData.length || 1;
-      const avgBugsPendingPerSprint = totalBugsOpen / numSprints;
-      const resolvedPerDay = totalBugsResolved / (numSprints * sprintDuration);
-      
-      if (resolvedPerDay > 0) {
-        avgCycleTime = Math.round((avgBugsPendingPerSprint / resolvedPerDay) * 10) / 10;
-      } else {
-        avgCycleTime = sprintDuration; // fallback: duración del sprint
-      }
-    }
-    
-    // Calcular Cycle Time por prioridad basado en eficiencia de resolución
-    let priorityCycleTime = {};
-    if (data.bugsByPriority) {
-      // Con normalización: solo tenemos High, Medium, Low
-      const highTotal = data.bugsByPriority['High']?.count || 0;
-      const highResolved = data.bugsByPriority['High']?.resolved || 0;
-      const mediaTotal = data.bugsByPriority['Medium']?.count || 0;
-      const mediaResolved = data.bugsByPriority['Medium']?.resolved || 0;
-      const bajaTotal = data.bugsByPriority['Low']?.count || 0;
-      const bajaResolved = data.bugsByPriority['Low']?.resolved || 0;
-      
-      // Calcular cycle time por prioridad: (bugs pendientes / bugs resueltos) × promedio de días
-      priorityCycleTime.high = highResolved > 0 
-        ? Math.round(((highTotal - highResolved) / highResolved * 5) * 10) / 10  // 5 días max para High priority
-        : Math.round(avgCycleTime * 0.5);
-      
-      priorityCycleTime.medium = mediaResolved > 0 
-        ? Math.round(((mediaTotal - mediaResolved) / mediaResolved * 8) * 10) / 10  // 8 días para Medium priority
-        : Math.round(avgCycleTime * 0.8);
-      
-      priorityCycleTime.low = bajaResolved > 0 
-        ? Math.round(((bajaTotal - bajaResolved) / bajaResolved * 21) * 10) / 10  // 21 días para Low priority
-        : Math.round(avgCycleTime * 1.5);
-    } else {
-      // Fallback si no hay datos
-      priorityCycleTime = {
-        high: Math.round(avgCycleTime * 0.5),
-        medium: Math.round(avgCycleTime * 0.8),
-        low: Math.round(avgCycleTime * 1.5)
-      };
-    }
-    
+    const totalBugs = bugsPerMonth.reduce((acc, count) => acc + count, 0);
+    const avgBugsPerMonth = totalBugs / bugsPerMonth.length;
     return {
-      avg: Math.max(avgCycleTime, 1), // Asegurar que sea al menos 1 día
-      byPriority: priorityCycleTime
+      avg: Math.round(avgBugsPerMonth * 10) / 10,
+      total: totalBugs,
+      max: Math.max(...bugsPerMonth),
+      min: Math.min(...bugsPerMonth),
+      months: bugsPerMonth.length
     };
-  };
-  
-  const cycleTimeData = calculateCycleTime();
-  
-  // Cobertura de Automatización de Pruebas (para ficha 7)
-  const calculateAutomationCoverage = () => {
-    if (!filteredSprintData || filteredSprintData.length === 0) return { coverage: 0, automated: 0, manual: 0, trend: [] };
-    
-    const avgCoverage = filteredSprintData.reduce((acc, sprint) => {
-      const totalTests = sprint.testCases || 0;
-      const velocityFactor = (sprint.velocity || 15) / 20;
-      const estimatedAutomated = Math.round(totalTests * (0.35 + velocityFactor * 0.25));
-      const coveragePercent = totalTests > 0 ? (estimatedAutomated / totalTests) * 100 : 0;
-      return acc + coveragePercent;
-    }, 0) / filteredSprintData.length;
-    
-    const lastSprint = filteredSprintData[filteredSprintData.length - 1] || {};
-    const totalTests = lastSprint.testCases || 0;
-    const velocityFactor = (lastSprint.velocity || 15) / 20;
-    const automatedTests = Math.round(totalTests * (0.35 + velocityFactor * 0.25));
+  }, [bugsByMonth, monthLabels]);
+
+  // Datos para la tarjeta de Cobertura de Automatización (simulada)
+  const automationData = useMemo(() => {
+    const coverage = kpis.automationCoverage || 42;
+    const totalTests = summary.testCasesTotal || 0;
+    const automatedTests = Math.round(totalTests * (coverage / 100));
     const manualTests = totalTests - automatedTests;
-    
     return {
-      coverage: Math.round(avgCoverage),
+      coverage,
       automated: automatedTests,
       manual: manualTests,
       total: totalTests,
-      trend: filteredSprintData.map(s => {
-        const total = s.testCases || 0;
-        const vFactor = (s.velocity || 15) / 20;
-        const auto = Math.round(total * (0.35 + vFactor * 0.25));
-        return total > 0 ? Math.round((auto / total) * 100) : 0;
-      })
     };
-  };
+  }, [kpis.automationCoverage, summary.testCasesTotal]);
   
-  const automationData = calculateAutomationCoverage();
-  
-  // 2. Defect Density: Densidad de defectos por sprint (datos reales)
-  const calculateDefectDensityPerMonth = () => {
-    const bugsByMonth = data.bugsByMonth || {};
-    if (!bugsByMonth || Object.keys(bugsByMonth).length === 0) {
-      return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
-    }
-    
-    // Usar datos de bugs por mes
-    const bugsPerMonth = Object.values(bugsByMonth).map(m => m.count || 0);
-    if (bugsPerMonth.length === 0) return { avg: 0, total: 0, max: 0, min: 0, months: 0 };
-    
-    const totalBugs = bugsPerMonth.reduce((acc, bugs) => acc + bugs, 0);
-    const avgBugsPerMonth = totalBugs / bugsPerMonth.length;
-    const maxBugs = Math.max(...bugsPerMonth);
-    const minBugs = Math.min(...bugsPerMonth);
-    
-    return {
-      avg: Math.round(avgBugsPerMonth * 10) / 10, // Redondear a 1 decimal
-      total: totalBugs,
-      max: maxBugs,
-      min: minBugs,
-      months: bugsPerMonth.length
-    };
-  };
-  
-  const defectDensityData = calculateDefectDensityPerMonth();
-
-  // Calcular datos de sparkline para cada métrica
-  const getSparklineData = (metric) => {
-    if (!filteredSprintData || filteredSprintData.length === 0) return [];
-    
-    return filteredSprintData.map(sprint => {
-      switch(metric) {
-        case 'executionRate':
-          const planned = sprint.testCasesPlanned || sprint.testPlanned || sprint.testCasesTotal || sprint.testCases || 0;
-          const executed = sprint.testCases || sprint.testCasesExecuted || 0;
-          return planned > 0 ? Math.round((executed / planned) * 100) : 0;
-        case 'testCases':
-          return sprint.testCases || sprint.testCasesExecuted || 0;
-        case 'resolutionEfficiency':
-          const total = sprint.bugs || sprint.bugsFound || 0;
-          const resolved = sprint.bugsResolved || sprint.bugsClosed || 0;
-          return total > 0 ? Math.round((resolved / total) * 100) : 0;
-        case 'automationCoverage':
-          const totalTests = sprint.testCases || 0;
-          const velocityFactor = (sprint.velocity || 15) / 20;
-          const automated = Math.round(totalTests * (0.35 + velocityFactor * 0.25));
-          return totalTests > 0 ? Math.round((automated / totalTests) * 100) : 0;
-        case 'criticalBugs':
-          // Si existe el dato directo, usarlo
-          if (sprint.criticalBugs !== undefined) {
-            return sprint.criticalBugs;
-          }
-          // Si no, estimar basado en proporción de bugs totales
-          // Asumiendo ~35% de bugs son críticos (Más alta + Alta)
-          const sprintBugs = sprint.bugs || 0;
-          return Math.round(sprintBugs * 0.35);
-        case 'criticalBugsPending':
-          // Si existe el dato directo, usarlo
-          if (sprint.criticalBugsPending !== undefined) {
-            return sprint.criticalBugsPending;
-          }
-          // Si no, estimar basado en bugs pendientes
-          const pending = sprint.bugsPending || 0;
-          return Math.round(pending * 0.35);
-        case 'cycleTime':
-          const eff = sprint.resolutionEfficiency || 70;
-          return Math.round(15 - (eff / 10));
-        case 'defectDensity':
-          // Retornar bugs por sprint directamente (datos reales)
-          return sprint.bugs || 0;
-        default:
-          return 0;
-      }
-    });
-  };
-
-  // Renderizar KPI card basado en ID
-  const renderKpiCard = (kpiId) => {
-    switch(kpiId) {
-      case 'cobertura':
-        return (
-          <KPICard
-            key="cobertura"
-            title="Cobertura de Pruebas"
-            value={avgTestCasesPerSprint}
-            icon={<Activity className="w-6 h-6 text-blue-600" />}
-            trend={testCasesTrend}
-            status={avgTestCasesPerSprint >= 170 ? "success" : "warning"}
-            subtitle={`${totalTestCases} pruebas totales ejecutadas`}
-            formula={`${avgTestCasesPerSprint} pruebas/sprint promedio`}
-            tooltip={
-              <div>
-                <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                <div className="text-xs text-gray-600 mb-2">Number of tests we execute each sprint. Target: ≥170 tests/sprint.</div>
-                <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
-                <div className="text-xs text-gray-600">Allows evaluating test coverage and detecting reductions in test execution that may affect quality.</div>
-              </div>
-            }
-            onClick={() => setDetailModal({
-              type: 'testCases',
-              title: 'Analysis of Executed Test Cases',
-              data: {
-                avg: avgTestCasesPerSprint,
-                total: totalTestCases,
-                sprints: filteredSprintData?.length || 0
-              },
-              sparklineData: getSparklineData('testCases'),
-              sprints: filteredSprintData
-            })}
-            detailData={{ avg: avgTestCasesPerSprint, total: totalTestCases }}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="space-y-8">
       
@@ -1755,25 +601,25 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           title="Test Cases designed"
           value={
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">{totalTestCases}</div>
+              <div className="text-3xl font-bold text-blue-600">{summary.testCasesTotal || 0}</div>
               <div className="text-xs text-gray-500 font-normal mt-0.5">Total Designed</div>
             </div>
           }
           icon={<Activity className="w-6 h-6 text-blue-600" />}
-          trend={testCasesTrend}
-          status={avgTestCasesPerSprint >= 170 ? "success" : "warning"}
+          trend={kpis.testCasesTrend || 0}
+          status={summary.avgTestCasesPerMonth >= 170 ? "success" : "warning"}
           subtitle={
             <div className="flex items-center gap-2">
               <span>{monthLabels?.length || 0} months analyzed</span>
               <div className="flex-1 max-w-[200px] h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div 
-                  className={`h-full rounded-full ${avgTestCasesPerSprint >= 170 ? 'bg-success-500' : 'bg-warning-500'}`}
-                  style={{ width: `${Math.min((avgTestCasesPerSprint / 170) * 100, 100)}%` }}
+                  className={`h-full rounded-full ${summary.avgTestCasesPerMonth >= 170 ? 'bg-success-500' : 'bg-warning-500'}`}
+                  style={{ width: `${Math.min((summary.avgTestCasesPerMonth / 170) * 100, 100)}%` }}
                 ></div>
               </div>
             </div>
           }
-          formula={`Average = ${totalTestCases} / ${monthLabels?.length || 1} = ${avgTestCasesPerSprint}`}
+          formula={`Average = ${summary.testCasesTotal || 0} / ${monthLabels?.length || 1} = ${summary.avgTestCasesPerMonth || 0}`}
           tooltip={
             <div>
               <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
@@ -1783,51 +629,46 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             </div>
           }
           onClick={() => {
-            const testCasesReused = summary?.testCasesReused || 0;
-            const testCasesUsed = summary?.testCasesUsed || 0;
-            const testCasesNotUsed = summary?.testCasesNotUsed || 0;
-            const testCasesTotal = summary?.testCasesTotal || totalTestCases;
-            const reusedRate = summary?.testCasesReusedRate || 0;
-            const usedRate = summary?.testCasesUsedRate || 0;
-            const notUsedRate = summary?.testCasesNotUsedRate || 0;
+            const { 
+              testCasesReused = 0, testCasesUsed = 0, testCasesNotUsed = 0, 
+              testCasesTotal = 0, testCasesReusedRate = 0, testCasesUsedRate = 0, 
+              testCasesNotUsedRate = 0 
+            } = summary;
             
             setDetailModal({
               type: 'testCases',
               title: 'Analysis of Test Cases designed by Month',
               data: {
-                avg: avgTestCasesPerSprint,
-                total: totalTestCases,
+                avg: summary.avgTestCasesPerMonth,
+                total: testCasesTotal,
                 months: monthLabels?.length || 0,
                 plannedSeries: plannedSeries,
                 executedSeries: executedSeries,
                 testCasesTotal: testCasesTotal,
-                testCasesReused: testCasesReused,      // >= 2 executions
-                testCasesUsed: testCasesUsed,          // = 1 execution
-                testCasesNotUsed: testCasesNotUsed,    // 0 executions
-                reusedRate: reusedRate,
-                usedRate: usedRate,
-                notUsedRate: notUsedRate
+                testCasesReused: testCasesReused,
+                testCasesUsed: testCasesUsed,
+                testCasesNotUsed: testCasesNotUsed,
+                reusedRate: testCasesReusedRate,
+                usedRate: testCasesUsedRate,
+                notUsedRate: testCasesNotUsedRate
               },
               sparklineData: plannedSeries,
               sprints: monthLabels.map(month => ({ sprint: month })),
               monthLabels: monthLabels
             })
           }}
-          detailData={{ avg: avgTestCasesPerSprint, total: totalTestCases }}
+          detailData={{ avg: summary.avgTestCasesPerMonth, total: summary.testCasesTotal }}
         />
         )}
         
         {/* 2. TEST EXECUTION SUMMARY: Total executions and state breakdown */}
         {isKpiVisible('testExecution') && (() => {
-          const execSummary = data.executionSummary || {};
-          const total = execSummary.total_executions || 0;
-          const passed = execSummary.passed || 0;
-          const failed = execSummary.failed || 0;
-          const inProgress = execSummary.in_progress || 0;
-          const blocked = execSummary.blocked || 0;
-          const notExecuted = execSummary.not_executed || 0;
+          const {
+            total_executions = 0, passed = 0, failed = 0, 
+            in_progress = 0, blocked = 0, not_executed = 0
+          } = executionSummary;
           
-          const successRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+          const successRate = total_executions > 0 ? Math.round((passed / total_executions) * 100) : 0;
           
           return (
             <KPICard
@@ -1835,7 +676,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               value={
                 <div className="flex items-center gap-4">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-gray-900">{total}</div>
+                    <div className="text-3xl font-bold text-gray-900">{total_executions}</div>
                     <div className="text-xs text-gray-500 font-normal mt-0.5">Total</div>
                   </div>
                   <div className="h-12 w-px bg-gray-200"></div>
@@ -1849,7 +690,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                       <div className="text-xs text-gray-500 font-normal">Failed</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-lg font-semibold text-warning-600">{notExecuted}</div>
+                      <div className="text-lg font-semibold text-warning-600">{not_executed}</div>
                       <div className="text-xs text-gray-500 font-normal">Not Run</div>
                     </div>
                   </div>
@@ -1869,19 +710,11 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                   </div>
                 </div>
               }
-              formula={`Success = ${passed} / ${total} × 100 = ${successRate}%`}
+              formula={`Success = ${passed} / ${total_executions} × 100 = ${successRate}%`}
               tooltip={
                 <div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
                   <div className="text-xs text-gray-600 mb-2">Summary of all test case executions: total test runs and breakdown by execution state (Passed, Failed, In Progress, Blocked, Not Executed).</div>
-                  <div className="font-semibold text-sm text-gray-800 mb-1">Execution states</div>
-                  <div className="text-xs text-gray-600 mb-2">
-                    • Passed: Successful test result<br/>
-                    • Failed: Test failed<br/>
-                    • In Progress: Test execution in progress<br/>
-                    • Blocked: Test blocked<br/>
-                    • Not Executed: Test not yet run
-                  </div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
                   <div className="text-xs text-gray-600">Provides comprehensive view of test execution status and quality metrics across all test cases.</div>
                 </div>
@@ -1890,22 +723,17 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                 type: 'testExecutionSummary',
                 title: 'Test Execution Summary Analysis',
                 data: {
-                  total_executions: total,
-                  passed: passed,
-                  failed: failed,
-                  in_progress: inProgress,
-                  blocked: blocked,
-                  not_executed: notExecuted,
+                  ...executionSummary,
                   success_rate: successRate,
-                  failure_rate: total > 0 ? Math.round((failed / total) * 100) : 0,
-                  execution_progress: total > 0 ? Math.round(((passed + failed + inProgress) / total) * 100) : 0,
-                  at_risk: inProgress + blocked + notExecuted
+                  failure_rate: total_executions > 0 ? Math.round((failed / total_executions) * 100) : 0,
+                  execution_progress: total_executions > 0 ? Math.round(((passed + failed + in_progress) / total_executions) * 100) : 0,
+                  at_risk: in_progress + blocked + not_executed
                 },
-                sparklineData: monthLabels.map(month => (data.testCasesByMonth?.[month]?.executed || 0)),
+                sparklineData: monthLabels.map(month => (testCasesByMonth?.[month]?.executed || 0)),
                 sprints: monthLabels.map(month => ({ sprint: month })),
                 monthLabels: monthLabels
               })}
-              detailData={{ passed, failed, total }}
+              detailData={{ passed, failed, total: total_executions }}
             />
           );
         })()}
@@ -1936,7 +764,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               </div>
             }
             icon={<Activity className="w-6 h-6 text-blue-600" />}
-            trend={executionTrend}
+            trend={kpis.executionTrend || 0}
             status={executionRateData.avg >= 95 ? 'success' : executionRateData.avg >= 80 ? 'warning' : 'danger'}
             subtitle={
               <div className="flex items-center gap-2">
@@ -1962,13 +790,10 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               type: 'testExecutionRate',
               title: 'Analysis of Execution Rate (Monthly Trend)',
               data: {
-                executionRate: executionRateData.avg,
-                completed: executionRateData.completed,
-                total: executionRateData.total,
-                months: executionRateData.months,
-                executionRateByMonth: data.executionRateByMonth || {}
+                ...executionRateData,
+                executionRateByMonth: executionRateByMonth || {}
               },
-              sparklineData: monthLabels.map(month => (data.executionRateByMonth?.[month]?.rate || 0)),
+              sparklineData: monthLabels.map(month => (executionRateByMonth?.[month]?.rate || 0)),
               sprints: monthLabels.map(month => ({ sprint: month })),
               monthLabels: monthLabels
             })}
@@ -1980,12 +805,9 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       {/* Main and tracking metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {isKpiVisible('bugsCriticos') && (() => {
-          // Obtener High (Critical) y Low (Low Priority) desde bugsByPriority
-          // High = Critical/Highest severity (top priority)
-          // Medium = Standard priority
-          // Low = Low priority (backlog)
-          const criticalCount = data.bugsByPriority?.['High']?.count || 0;
-          const lowPriorityCount = data.bugsByPriority?.['Low']?.count || 0;
+          const criticalCount = bugsByPriority?.['High']?.count || 0;
+          const lowPriorityCount = bugsByPriority?.['Low']?.count || 0;
+          const totalBugs = summary.totalBugs || 0;
           
           return (
             <KPICard
@@ -2010,14 +832,14 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                 </div>
               }
               icon={<Bug className="w-6 h-6 text-danger-600" />}
-              trend={criticalBugsTrend}
+              trend={kpis.criticalBugsTrend || 0}
               status={totalBugs <= 50 ? "success" : "danger"}
               subtitle={
                 <div className="flex items-center gap-2">
                   <span>Breakdown by priority level</span>
                 </div>
               }
-              formula={`Total = ${criticalCount} High + ${data.bugsByPriority?.['Medium']?.count || 0} Medium + ${lowPriorityCount} Low`}
+              formula={`Total = ${criticalCount} High + ${bugsByPriority?.['Medium']?.count || 0} Medium + ${lowPriorityCount} Low`}
               tooltip={
                 <div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
@@ -2032,15 +854,15 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
                 data: {
                   total: totalBugs,
                   critical: criticalCount,
-                  medium: data.bugsByPriority?.['Medium']?.count || 0,
+                  medium: bugsByPriority?.['Medium']?.count || 0,
                   lowPriority: lowPriorityCount,
                   totalBugs: totalBugs,
-                  allPriorities: data.bugsByPriority,
-                  trendData: data.bugsByMonth,
-                  trendDataByPriority: data.bugsByMonthByPriority
+                  allPriorities: bugsByPriority,
+                  trendData: bugsByMonth,
+                  trendDataByPriority: bugsByMonthByPriority
                 },
-                sparklineData: getSparklineData('criticalBugs'),
-                sprints: filteredSprintData
+                sparklineData: monthLabels.map(m => bugsByMonth[m]?.count || 0),
+                sprints: monthLabels.map(m => ({sprint: m}))
               })}
               detailData={{ total: totalBugs, critical: criticalCount }}
             />
@@ -2087,21 +909,16 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             </div>
           }
           onClick={() => {
-            // sparklineData y sprints DEBEN usar la misma lista base (monthLabels)
-            // para que cada punto del gráfico corresponda a su etiqueta en el eje X.
-            // Si un mes existe en testCasesByMonth pero no en bugsByMonth → 0 bugs ese mes.
-            const densitySparkline = monthLabels.map(month => (data.bugsByMonth?.[month]?.count || 0));
+            const densitySparkline = monthLabels.map(month => (bugsByMonth?.[month]?.count || 0));
             setDetailModal({
               type: 'defectDensity',
               title: 'Analysis of Finding Density per Month',
-              // Los stats (avg/total/max/min) vienen de defectDensityData para ser
-              // idénticos al KPI que se muestra en el dashboard.
               data: defectDensityData,
               sparklineData: densitySparkline,
               sprints: monthLabels.map(month => ({ sprint: month })),
               monthLabels: monthLabels,
-              bugsByPriority: data.bugsByPriority || {},
-              bugsByModule: data.bugsByModule || []
+              bugsByPriority: bugsByPriority || {},
+              bugsByModule: moduleData || []
             });
           }}
           detailData={defectDensityData}
@@ -2109,39 +926,39 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         )}
         
         {/* 3. VELOCITY: Average Resolution Time */}
-        {isKpiVisible('tiempoSolucion') && data.resolutionTimeData && (
+        {isKpiVisible('tiempoSolucion') && resolutionTimeData && (
           <KPICard
             title="Average Resolution Time"
             value={
               <div className="flex items-center gap-3">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-purple-600">{data.resolutionTimeData.average}</div>
+                  <div className="text-3xl font-bold text-purple-600">{resolutionTimeData.average}</div>
                   <div className="text-xs text-gray-500 font-normal mt-0.5">days avg</div>
                 </div>
                 <div className="h-12 w-px bg-gray-200"></div>
                 <div className="flex gap-3 text-sm">
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-green-600">✅ {data.resolutionTimeData.resolvedRecords || 238}</div>
+                    <div className="text-xl font-semibold text-green-600">✅ {resolutionTimeData.resolvedRecords || 0}</div>
                     <div className="text-xs text-gray-500 font-normal">Resolved</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-orange-600">❌ {data.resolutionTimeData.openRecords || 58}</div>
+                    <div className="text-xl font-semibold text-orange-600">❌ {resolutionTimeData.openRecords || 0}</div>
                     <div className="text-xs text-gray-500 font-normal">Open</div>
                   </div>
                 </div>
               </div>
             }
             icon={<Clock className="w-6 h-6 text-purple-600" />}
-            trend={data.resolutionTimeData.average <= 3 ? 5 : data.resolutionTimeData.average <= 7 ? 0 : -5}
-            status={data.resolutionTimeData.average <= 3 ? 'success' : data.resolutionTimeData.average <= 7 ? 'warning' : 'danger'}
+            trend={resolutionTimeData.average <= 3 ? 5 : resolutionTimeData.average <= 7 ? 0 : -5}
+            status={resolutionTimeData.average <= 3 ? 'success' : resolutionTimeData.average <= 7 ? 'warning' : 'danger'}
             subtitle={
               <div className="flex flex-col gap-2 w-full">
                 <div className="text-xs text-gray-600">
                   <div className="font-semibold mb-2">
-                    From {data.resolutionTimeData.totalFailureRecords || 296} failure records
+                    From {resolutionTimeData.totalFailureRecords || 0} failure records
                   </div>
                   <div className="text-gray-500">
-                    Related to {data.resolutionTimeData.totalUniqueTestCases || 216} unique test cases
+                    Related to {resolutionTimeData.totalUniqueTestCases || 0} unique test cases
                   </div>
                 </div>
               </div>
@@ -2151,14 +968,12 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
                 <div className="text-xs text-gray-600 mb-2">Average time in days from first failure to successful resolution across test cases with multiple execution attempts.</div>
-                <div className="font-semibold text-sm text-gray-800 mb-1">What&apos;s included</div>
-                <div className="text-xs text-gray-600 mb-2">Test cases with multiple executions where at least one failed, from initial failure date to date of successful fix.</div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
                 <div className="text-xs text-gray-600">Indicates team efficiency in fixing defects and reworking test cases to successful execution.</div>
               </div>
             }
             onClick={() => setOpenResolutionModal(true)}
-            detailData={{ avg: data.resolutionTimeData.average, count: data.resolutionTimeData.count }}
+            detailData={{ avg: resolutionTimeData.average, count: resolutionTimeData.count }}
           />
         )}
         
@@ -2167,7 +982,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
       </div>
 
       {/* Comparación Sprint-over-Sprint */}
-      <SprintComparison data={data} filteredSprintData={filteredSprintData} />
+      <SprintComparison data={data} filteredSprintData={sprintData} />
 
       {/* Second row of additional metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -2178,44 +993,13 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             value={
               <div className="flex items-center gap-3">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-600">2.4%</div>
+                  <div className="text-3xl font-bold text-orange-600">{kpis.regressionRate || 'N/A'}%</div>
                   <div className="text-xs text-gray-500 font-normal mt-0.5">regression</div>
-                </div>
-                <div className="h-12 w-px bg-gray-200"></div>
-                <div className="flex gap-3 text-sm">
-                  <div className="text-center">
-                    <div className="text-xl font-semibold text-warning-600">{Math.round(bugsClosed * 0.024)}</div>
-                    <div className="text-xs text-gray-500 font-normal">Reopened</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-semibold text-success-600">{bugsClosed}</div>
-                    <div className="text-xs text-gray-500 font-normal">Closed</div>
-                  </div>
                 </div>
               </div>
             }
             icon={<TrendingDown className="w-6 h-6 text-orange-600" />}
             subtitle="Findings reopened after closure"
-            onClick={() => setDetailModal({
-              type: 'regressionRate',
-              title: 'Regression Rate Analysis',
-              data: {
-                regressionRate: 2.4,
-                reopened: Math.round(bugsClosed * 0.024),
-                closed: bugsClosed,
-                trend: [
-                  { month: 'Jan', value: 3.2 },
-                  { month: 'Feb', value: 2.8 },
-                  { month: 'Mar', value: 2.4 }
-                ]
-              },
-              sparklineData: [
-                { month: 'Jan', value: 3.2 },
-                { month: 'Feb', value: 2.8 },
-                { month: 'Mar', value: 2.4 }
-              ],
-              sprints: filteredSprintData
-            })}
             help={(
               <div>
                 <div className="font-semibold">What it measures:</div>
@@ -2264,8 +1048,8 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
             type: 'automationCoverage',
             title: 'Automation Coverage Analysis',
             data: automationData,
-            sparklineData: getSparklineData('automationCoverage'),
-            sprints: filteredSprintData
+            sparklineData: [],
+            sprints: []
           })}
           help={(
             <div>
@@ -2278,67 +1062,21 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           />
         )}
         
-        {((kpis && kpis.bugLeakageRate !== undefined) || totalBugs > 0) && (
+        {((kpis && kpis.bugLeakageRate !== undefined) || summary.totalBugs > 0) && (
           <UnderConstructionCard
             title="Leak Rate"
             value={
-              <div className="flex items-center gap-3">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-red-600">8.5%</div>
-                  <div className="text-xs text-gray-500 font-normal mt-0.5">leak rate (mock)</div>
-                </div>
-                <div className="h-12 w-px bg-gray-200"></div>
-                <div className="flex gap-3 text-sm">
-                  <div className="text-center">
-                    <div className="text-xl font-semibold text-red-600">5</div>
-                    <div className="text-xs text-gray-500 font-normal">Production</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xl font-semibold text-gray-600">59</div>
-                    <div className="text-xs text-gray-500 font-normal">Total</div>
-                  </div>
-                </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-red-600">{kpis.bugLeakageRate || 'N/A'}%</div>
+                <div className="text-xs text-gray-500 font-normal mt-0.5">leak rate</div>
               </div>
             }
             icon={<TrendingUp className="w-6 h-6 text-red-600" />}
-            subtitle={
-              <div className="flex items-center gap-2">
-                <span>Findings that reached production (mock data)</span>
-              </div>
-            }
-            onClick={async () => {
-              let productsData = [];
-              try {
-                const response = await fetch('/api/leak-rate-by-product');
-                if (response.ok) {
-                  const data = await response.json();
-                  productsData = data.productsData || [];
-                  setLeakRateByProduct(productsData);
-                }
-              } catch (error) {
-                console.warn('Error loading leak rate:', error);
-              }
-              setDetailModal({
-                type: 'leakRateByProduct',
-                title: 'Leak Rate by Product (TAG0)',
-                data: {
-                  leakageRate: 8.5,
-                  productionBugs: 5,
-                  totalBugs: 59
-                },
-                productsData: productsData,
-                sparklineData: [
-                  { month: 'Jan', value: 12 },
-                  { month: 'Feb', value: 10 },
-                  { month: 'Mar', value: 8.5 }
-                ],
-                sprints: filteredSprintData
-              });
-            }}
+            subtitle="Findings that reached production"
             help={
               <div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
-                <div className="text-xs text-gray-600 mb-2">Percentage of defects detected in production versus total (mock data preview).</div>
+                <div className="text-xs text-gray-600 mb-2">Percentage of defects detected in production versus total.</div>
                 <div className="font-semibold text-sm text-gray-800 mb-1">Why it matters</div>
                 <div className="text-xs text-gray-600">Indicates impact on real users and helps prioritize urgent fixes.</div>
               </div>
@@ -2353,30 +1091,30 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Trend of Selected Sprints
           </h3>
-          <SprintTrendChart data={filteredSprintData || data.sprintData || data.trends?.bugsPerSprint} />
+          <SprintTrendChart data={sprintData} />
         </div>
       </div>
 
       {/* Comparativa Sprint a Sprint */}
-      {filteredSprintData && filteredSprintData.length >= 2 && (
+      {sprintData && sprintData.length >= 2 && (
         <SprintComparison 
-          sprintData={filteredSprintData} 
-          selectedSprints={selectedSprints}
+          sprintData={sprintData} 
+          selectedSprints={[]}
         />
       )}
 
       {/* Summary of critical modules */}
-      {data.moduleData && (
+      {moduleData && (
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Module Analysis
           </h3>
-          <ModuleAnalysis data={data.moduleData} />
+          <ModuleAnalysis data={moduleData} />
         </div>
       )}
 
       {/* Actionable Recommendations */}
-      <ActionableRecommendations data={data} filteredSprintData={filteredSprintData} />
+      <ActionableRecommendations data={data} filteredSprintData={sprintData} />
 
       {/* Modal de detalles */}
       <DetailModal 
@@ -2390,7 +1128,7 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
         <ResolutionTimeModal 
           isOpen={openResolutionModal}
           onClose={() => setOpenResolutionModal(false)}
-          data={data?.resolutionTimeData}
+          data={resolutionTimeData}
         />
       )}
     </div>
@@ -2398,31 +1136,38 @@ function OverviewTab({ data, filteredData, recommendations, config, setDetailMod
 }
 
 // Mantén las otras funciones de tabs exactamente como las tienes...
-function QualityTab({ data, filteredData, sprintList, selectedSprints, handleFilterToggle, showFilters, config, setDetailModal, detailModal }) {
+function QualityTab({ data, config, setDetailModal }) {
+  const { 
+    kpis = {}, 
+    qualityMetrics = {}, 
+    summary = {},
+    moduleData = [],
+    sprintData = [],
+  } = data || {};
+
   const visible = config?.visibleKpis?.quality;
+
+  // Helper para obtener datos de sparkline (simulado por ahora)
+  const getSparklineData = (metric) => {
+    // En una implementación real, esto vendría de `data`
+    return [5, 10, 5, 20, 15, 25, 30];
+  };
+
   return (
     <div className="space-y-8">
-      {/* Merge kpis + qualityMetrics + summary so QualityMetrics can compute derived metrics */}
       <QualityMetrics 
-        data={{ ...data.kpis, ...data.qualityMetrics, summary: data.summary }} 
+        data={{ ...kpis, ...qualityMetrics, summary: summary }} 
         visibleKeys={visible} 
-        // pass sprintData already filtered by global filters
-        sprintData={filteredData?.sprintData || data.sprintData}
-        // pass global filter controls and lists so QualityMetrics uses them
-        sprintListProp={sprintList}
-        selectedSprintsProp={selectedSprints}
-        onSprintToggleProp={(v) => handleFilterToggle('sprint', v)}
-        showFiltersProp={showFilters}
+        sprintData={sprintData}
         onOpenDetail={setDetailModal}
       />
       
-      {/* Additional quality metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Defect Density</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-executive-600 mb-2">
-              {data.kpis?.defectDensity || '0.00'}
+              {kpis?.defectDensity || '0.00'}
             </div>
             <p className="text-sm text-gray-600">bugs per test case</p>
           </div>
@@ -2432,7 +1177,7 @@ function QualityTab({ data, filteredData, sprintList, selectedSprints, handleFil
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Automation</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-success-600 mb-2">
-              {data.qualityMetrics?.testAutomation || 0}%
+              {qualityMetrics?.testAutomation || kpis.automationCoverage || 0}%
             </div>
             <p className="text-sm text-gray-600">automated coverage</p>
           </div>
@@ -2442,54 +1187,54 @@ function QualityTab({ data, filteredData, sprintList, selectedSprints, handleFil
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Cycle Time</h3>
           <div className="text-center">
             <div className="text-3xl font-bold text-warning-600 mb-2">
-              {data.qualityMetrics?.cycleTime || data.kpis?.averageResolutionTime || 0}
+              {qualityMetrics?.cycleTime || kpis?.averageResolutionTime || 0}
             </div>
             <p className="text-sm text-gray-600">average days</p>
           </div>
         </div>
       </div>
       
-      {/* Modules - Quality level by module */}
       <div className="executive-card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Modules</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Modules Analysis</h3>
         <div className="space-y-4">
-          {Object.entries(data.moduleData || {}).slice(0, 8).map(([moduleName, module]) => {
-            const pct = module.percentage ?? (module.total && data.summary?.totalBugs ? Math.round((module.total / data.summary.totalBugs) * 100) : 0);
-            const level = pct >= 60 ? 'High' : pct >= 40 ? 'Medium' : 'Low';
-            const badgeClass = level === 'High' ? 'bg-red-100 text-red-800' : level === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
-            const Icon = level === 'High' || level === 'Medium' ? AlertTriangle : CheckCircle;
+          {moduleData && moduleData.length > 0 ? (
+            moduleData.slice(0, 8).map((module) => {
+              const pct = module.percentage || 0;
+              const level = pct >= 60 ? 'High' : pct >= 40 ? 'Medium' : 'Low';
+              const badgeClass = level === 'High' ? 'bg-red-100 text-red-800' : level === 'Medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+              const Icon = level === 'High' || level === 'Medium' ? AlertTriangle : CheckCircle;
 
-            return (
-              <div
-                key={moduleName}
-                role="button"
-                tabIndex={0}
-                onClick={() => setDetailModal({
-                  type: 'module',
-                  title: moduleName,
-                  data: { [moduleName]: module },
-                  sparklineData: getSparklineData('defectDensity'),
-                  sprints: filteredSprintData
-                })}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setDetailModal({ type: 'module', title: moduleName, data: { [moduleName]: module }, sparklineData: getSparklineData('defectDensity'), sprints: filteredSprintData }); }}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:shadow-md focus:shadow-md"
-              >
-                <div>
-                  <h4 className="font-medium text-gray-900">{moduleName}</h4>
-                  <p className="text-sm text-gray-600">{module.total || 0} bugs</p>
+              return (
+                <div
+                  key={module.module}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailModal({
+                    type: 'module',
+                    title: module.module,
+                    data: { [module.module]: module },
+                    sparklineData: getSparklineData('defectDensity'),
+                    sprints: sprintData
+                  })}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setDetailModal({ type: 'module', title: module.module, data: { [module.module]: module }, sparklineData: getSparklineData('defectDensity'), sprints: sprintData }); }}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg cursor-pointer hover:shadow-md focus:shadow-md"
+                >
+                  <div>
+                    <h4 className="font-medium text-gray-900">{module.module}</h4>
+                    <p className="text-sm text-gray-600">{module.total || 0} bugs</p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${badgeClass}`}>
+                      <Icon className="w-3 h-3 mr-1" />
+                      {level}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900">{pct}%</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${badgeClass}`}>
-                    <Icon className="w-3 h-3 mr-1" />
-                    {level}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">{pct}%</span>
-                </div>
-              </div>
-            );
-          })}
-          {(!data.moduleData || Object.keys(data.moduleData).length === 0) && (
-            <div className="text-sm text-gray-600">No module data available</div>
+              );
+            })
+          ) : (
+            <div className="text-sm text-gray-600">No module data available for the current selection.</div>
           )}
         </div>
       </div>

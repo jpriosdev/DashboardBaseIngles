@@ -167,7 +167,7 @@ export default function KPICard({
         <div className="text-xs text-gray-400 mt-0.5 leading-tight line-clamp-2">{formula}</div>
       )}
       {subtitle && (
-        <p className="text-xs text-gray-600 mt-0.5 leading-tight line-clamp-2">{subtitle}</p>
+        <div className="text-xs text-gray-600 mt-0.5 leading-tight">{subtitle}</div>
       )}
       
       {isClickable && (
