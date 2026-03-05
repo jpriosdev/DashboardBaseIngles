@@ -41,7 +41,6 @@ import DeveloperAnalysis from './DeveloperAnalysis';
 import TeamAnalysis from './TeamAnalysis';
 import dynamic from 'next/dynamic';
 const QualityRadarChart = dynamic(() => import('../ANterior/QualityRadarChart'), { ssr: false });
-// TeamAnalysis tab/component removed
 
 export default function ExecutiveDashboard({ 
   // Original props
@@ -100,6 +99,22 @@ export default function ExecutiveDashboard({
   const [tag0Loading, setTag0Loading] = useState(false);
   // Resolution time data filtered by both tag0 + date range (undefined = fallback to base)
   const [filteredResolutionTime, setFilteredResolutionTime] = useState(undefined);
+
+  // Priority and Status filters
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [availablePriorities, setAvailablePriorities] = useState([]);
+  const [availableStatuses, setAvailableStatuses] = useState([]);
+
+  // Test Type, Attribute, Test Level, Environment filters
+  const [testTypeFilter, setTestTypeFilter] = useState('');
+  const [attributeFilter, setAttributeFilter] = useState('');
+  const [testLevelFilter, setTestLevelFilter] = useState('');
+  const [ambienteFilter, setAmbienteFilter] = useState('');
+  const [availableTestTypes, setAvailableTestTypes] = useState([]);
+  const [availableAttributes, setAvailableAttributes] = useState([]);
+  const [availableTestLevels, setAvailableTestLevels] = useState([]);
+  const [availableAmbientes, setAvailableAmbientes] = useState([]);
 
   // Tooltip state for sprint details (rendered via portal to avoid clipping)
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, sprint: null, sprintData: null, rect: null });
@@ -279,24 +294,52 @@ export default function ExecutiveDashboard({
     processedData, 
   } = useDashboardData(isParametricMode ? parametricData : externalData);
 
-  // Cargar lista de productos disponibles (una sola vez)
+  // Cargar opciones de filtros en cascada: se recalculan cuando cambia cualquier filtro activo.
+  // Para cada dimensión, las opciones reflejan los valores disponibles dadas las OTRAS selecciones.
   useEffect(() => {
-    fetch('/api/products')
+    const params = new URLSearchParams();
+    if (tag0Filter)      params.set('product',   tag0Filter);
+    if (priorityFilter)  params.set('priority',  priorityFilter);
+    if (statusFilter)    params.set('status',    statusFilter);
+    if (testTypeFilter)  params.set('testType',  testTypeFilter);
+    if (attributeFilter) params.set('attribute', attributeFilter);
+    if (testLevelFilter) params.set('testLevel', testLevelFilter);
+    if (ambienteFilter)  params.set('ambiente',  ambienteFilter);
+    fetch(`/api/filter-options?${params}`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.products) setAvailableTag0s(d.products); })
+      .then(d => {
+        if (!d) return;
+        if (d.products)    setAvailableTag0s(d.products);
+        if (d.priorities)  setAvailablePriorities(d.priorities);
+        if (d.statuses)    setAvailableStatuses(d.statuses);
+        if (d.testTypes)   setAvailableTestTypes(d.testTypes);
+        if (d.attributes)  setAvailableAttributes(d.attributes);
+        if (d.testLevels)  setAvailableTestLevels(d.testLevels);
+        if (d.ambientes)   setAvailableAmbientes(d.ambientes);
+      })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tag0Filter, priorityFilter, statusFilter, testTypeFilter, attributeFilter, testLevelFilter, ambienteFilter]);
 
-  // Cargar datos filtrados por tag0 cuando cambia el filtro
+  // Cargar datos filtrados cuando cambia cualquier filtro no-fecha
   useEffect(() => {
-    if (!tag0Filter) { setTag0Data(null); return; }
+    const hasFilter = tag0Filter || priorityFilter || statusFilter || testTypeFilter || attributeFilter || testLevelFilter || ambienteFilter;
+    if (!hasFilter) { setTag0Data(null); return; }
     setTag0Loading(true);
-    fetch(`/api/qa-data-by-product?product=${encodeURIComponent(tag0Filter)}`)
+    const params = new URLSearchParams();
+    if (tag0Filter)      params.set('product',   tag0Filter);
+    if (priorityFilter)  params.set('priority',  priorityFilter);
+    if (statusFilter)    params.set('status',    statusFilter);
+    if (testTypeFilter)  params.set('testType',  testTypeFilter);
+    if (attributeFilter) params.set('attribute', attributeFilter);
+    if (testLevelFilter) params.set('testLevel', testLevelFilter);
+    if (ambienteFilter)  params.set('ambiente',  ambienteFilter);
+    fetch(`/api/qa-data-filtered?${params}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { setTag0Data(d || null); })
       .catch(() => { setTag0Data(null); })
       .finally(() => setTag0Loading(false));
-  }, [tag0Filter]);
+  }, [tag0Filter, priorityFilter, statusFilter, testTypeFilter, attributeFilter, testLevelFilter, ambienteFilter]);
 
   // Cargar datos de resolution time filtrados cuando cambian filtros de producto o fecha
   useEffect(() => {
@@ -319,34 +362,39 @@ export default function ExecutiveDashboard({
   // Base data con override de tag0 (antes de filtro de fechas)
   const tag0BaseData = useMemo(() => {
     if (!processedData) return processedData;
-    if (!tag0Filter || !tag0Data) return processedData;
+    const hasFilter = tag0Filter || priorityFilter || statusFilter || testTypeFilter || attributeFilter || testLevelFilter || ambienteFilter;
+    if (!hasFilter || !tag0Data) return processedData;
 
     // Recomputar executionSummary para el producto seleccionado
     const bm  = tag0Data.bugsByMonth     || {};
     const tcm = tag0Data.testCasesByMonth || {};
-    const exFailed   = Object.values(bm).reduce((a, m) => a + (m.count   || 0), 0);
-    const exExecuted = Object.values(tcm).reduce((a, m) => a + (m.executed || 0), 0);
-    const exPlanned  = Object.values(tcm).reduce((a, m) => a + (m.planned  || 0), 0);
-    const exPassed   = Math.max(0, exExecuted - exFailed);
-    const exNotRun   = Math.max(0, exPlanned  - exExecuted);
+    const exTotal    = Object.values(tcm).reduce((a, m) => a + (m.executed    || 0), 0);
+    const exPassed   = Object.values(tcm).reduce((a, m) => a + (m.passed      || 0), 0);
+    const exFailed   = Object.values(tcm).reduce((a, m) => a + (m.failed      || 0), 0);
+    const exNotExec  = Object.values(tcm).reduce((a, m) => a + (m.notExecuted || 0), 0);
+    const exInProg   = Object.values(tcm).reduce((a, m) => a + (m.inProgress  || 0), 0);
+    const exBlocked  = Object.values(tcm).reduce((a, m) => a + (m.blocked     || 0), 0);
+    const exPlanned  = Object.values(tcm).reduce((a, m) => a + (m.planned     || 0), 0);
+    const exNotRun   = Math.max(0, exPlanned - exTotal);
 
     return {
       ...processedData,
       bugsByMonth: bm,
       testCasesByMonth: tcm,
       summary: { ...processedData.summary, ...(tag0Data.summary || {}) },
+      bugsByPriority: tag0Data?.bugsByPriority || processedData?.bugsByPriority,
       executionSummary: {
-        total_executions: exPlanned,
+        total_executions: exTotal,
         passed:           exPassed,
         failed:           exFailed,
-        not_executed:     exNotRun,
-        in_progress:      0,
-        blocked:          0,
+        not_executed:     exNotExec + exNotRun,
+        in_progress:      exInProg,
+        blocked:          exBlocked,
       },
       // resolutionTimeData virá overrideado por filteredResolutionTime en filteredData
       resolutionTimeData: tag0Data?.resolutionTimeData || processedData?.resolutionTimeData,
     };
-  }, [processedData, tag0Filter, tag0Data]);
+  }, [processedData, tag0Filter, priorityFilter, statusFilter, testTypeFilter, attributeFilter, testLevelFilter, ambienteFilter, tag0Data]);
 
   // Meses disponibles derivados de los datos procesados
   const availableMonths = useMemo(() => {
@@ -403,18 +451,21 @@ export default function ExecutiveDashboard({
     };
 
     // Recomputar executionSummary desde los meses filtrados
-    const filtExFailed   = Object.values(filteredBugsByMonth).reduce((a, m) => a + (m.count || 0), 0);
-    const filtExExecuted = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.executed || 0), 0);
-    const filtExPlanned  = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.planned  || 0), 0);
-    const filtExPassed   = Math.max(0, filtExExecuted - filtExFailed);
-    const filtExNotRun   = Math.max(0, filtExPlanned  - filtExExecuted);
+    const filtExTotal   = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.executed    || 0), 0);
+    const filtExPassed  = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.passed      || 0), 0);
+    const filtExFailed  = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.failed      || 0), 0);
+    const filtExNotExec = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.notExecuted || 0), 0);
+    const filtExInProg  = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.inProgress  || 0), 0);
+    const filtExBlocked = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.blocked     || 0), 0);
+    const filtExPlanned = Object.values(filteredTestCasesByMonth).reduce((a, m) => a + (m.planned     || 0), 0);
+    const filtExNotRun  = Math.max(0, filtExPlanned - filtExTotal);
     const filteredExecutionSummary = {
-      total_executions: filtExPlanned,
+      total_executions: filtExTotal,
       passed:           filtExPassed,
       failed:           filtExFailed,
-      not_executed:     filtExNotRun,
-      in_progress:      0,
-      blocked:          0,
+      not_executed:     filtExNotExec + filtExNotRun,
+      in_progress:      filtExInProg,
+      blocked:          filtExBlocked,
     };
 
     // resolutionTimeData: si filteredResolutionTime está definido úsalo, si no fall back al base
@@ -473,7 +524,6 @@ export default function ExecutiveDashboard({
 
   const tabs = [
     { id: 'overview', label: 'Executive Summary', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'quality', label: 'Quality Metrics', icon: <Target className="w-4 h-4" /> },
     { id: 'teams', label: 'Team Analysis', icon: <Activity className="w-4 h-4" /> },
     { id: 'roadmap', label: 'Quality Radar', icon: <Target className="w-4 h-4" /> }
   ];
@@ -513,14 +563,28 @@ export default function ExecutiveDashboard({
           <div className="flex items-center justify-between h-20">
             {/* Logo y Título */}
             <div className="flex items-center space-x-6">
-              {/* Logo Tiendas 3B */}
+              {/* Logo Absencesoft */}
+              <div className="flex-shrink-0">
+                <Image
+                  src="/Absencesoft.jpg"
+                  alt="Absencesoft"
+                  width={203}
+                  height={62}
+                  className="h-16 w-auto object-contain"
+                />
+              </div>
+
+              {/* Separador */}
+              <div className="hidden md:block h-12 w-px bg-gradient-to-b from-transparent via-slate-300 to-transparent"></div>
+
+              {/* Logo Abstracta */}
               <div className="flex-shrink-0">
                 <Image
                   src="/abstracta.png"
                   alt="Abstracta.us"
                   width={50}
                   height={50}
-                  className="h-15 w-auto"
+                  className="h-10 w-auto"
                 />
               </div>
               
@@ -663,17 +727,120 @@ export default function ExecutiveDashboard({
                   <option value="">All products</option>
                   {availableTag0s.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
-                {tag0Loading && <span className="text-xs text-gray-400 animate-pulse">Loading...</span>}
               </div>
             )}
 
-            {(dateFilter.from || dateFilter.to || tag0Filter) && (
+            {/* Priority filter */}
+            {availablePriorities.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Priority</label>
+                <select
+                  value={priorityFilter}
+                  onChange={e => setPriorityFilter(e.target.value)}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All priorities</option>
+                  {availablePriorities.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Status filter */}
+            {availableStatuses.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All statuses</option>
+                  {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Test Type filter */}
+            {availableTestTypes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Test Type</label>
+                <select
+                  value={testTypeFilter}
+                  onChange={e => setTestTypeFilter(e.target.value)}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All types</option>
+                  {availableTestTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Attribute (Module) filter */}
+            {availableAttributes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Module</label>
+                <select
+                  value={attributeFilter}
+                  onChange={e => setAttributeFilter(e.target.value)}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All modules</option>
+                  {availableAttributes.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Test Level filter */}
+            {availableTestLevels.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Level</label>
+                <select
+                  value={testLevelFilter}
+                  onChange={e => setTestLevelFilter(e.target.value)}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All levels</option>
+                  {availableTestLevels.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Environment (Browser) filter */}
+            {availableAmbientes.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 font-semibold">Environment</label>
+                <select
+                  value={ambienteFilter}
+                  onChange={e => setAmbienteFilter(e.target.value)}
+                  disabled={tag0Loading}
+                  className="text-sm border rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:border-transparent"
+                  style={{ '--tw-ring-color': '#754bde' }}
+                >
+                  <option value="">All environments</option>
+                  {availableAmbientes.map(e => <option key={e} value={e}>{e}</option>)}
+                </select>
+              </div>
+            )}
+
+            {tag0Loading && <span className="text-xs text-gray-400 animate-pulse">Loading...</span>}
+
+            {(dateFilter.from || dateFilter.to || tag0Filter || priorityFilter || statusFilter || testTypeFilter || attributeFilter || testLevelFilter || ambienteFilter) && (
               <>
                 <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#f0ebff', color: '#754bde' }}>
-                  {[tag0Filter, dateFilter.from && formatMonth(dateFilter.from), dateFilter.to && formatMonth(dateFilter.to)].filter(Boolean).join(' → ')}
+                  {[tag0Filter, priorityFilter, statusFilter, testTypeFilter, attributeFilter, testLevelFilter, ambienteFilter, dateFilter.from && formatMonth(dateFilter.from), dateFilter.to && formatMonth(dateFilter.to)].filter(Boolean).join(' \u00b7 ')}
                 </span>
                 <button
-                  onClick={() => { setDateFilter({ from: '', to: '' }); setTag0Filter(''); }}
+                  onClick={() => { setDateFilter({ from: '', to: '' }); setTag0Filter(''); setPriorityFilter(''); setStatusFilter(''); setTestTypeFilter(''); setAttributeFilter(''); setTestLevelFilter(''); setAmbienteFilter(''); }}
                   className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 border rounded-md px-2 py-1 hover:bg-gray-50 transition-colors"
                 >
                   <X className="w-3 h-3" /> Clear
@@ -731,7 +898,7 @@ export default function ExecutiveDashboard({
             />
           )}
           {activeTab === 'quality' && <QualityTab data={filteredData} config={config} setDetailModal={setDetailModal} />}
-          {activeTab === 'teams' && <TeamAnalysis data={filteredData} setDetailModal={setDetailModal} />}
+          {activeTab === 'teams' && <TeamAnalysis data={filteredData} tag0Filter={tag0Filter} dateFilter={dateFilter} priorityFilter={priorityFilter} statusFilter={statusFilter} testTypeFilter={testTypeFilter} attributeFilter={attributeFilter} testLevelFilter={testLevelFilter} ambienteFilter={ambienteFilter} setDetailModal={setDetailModal} />}
           {/* trends tab removed */}
           {activeTab === 'roadmap' && (
             <div className="pb-6 w-full min-h-screen">
@@ -1059,7 +1226,15 @@ function OverviewTab({
           const criticalCount = bugsByPriority?.['High']?.count || 0;
           const lowPriorityCount = bugsByPriority?.['Low']?.count || 0;
           const totalBugs = summary.totalBugs || 0;
-          
+
+          // Dynamic formula: iterate actual priorities with count > 0
+          const formulaParts = Object.entries(bugsByPriority || {})
+            .filter(([, v]) => (v?.count || 0) > 0)
+            .map(([p, v]) => `${v.count} ${p}`);
+          const formulaStr = formulaParts.length
+            ? `Total = ${formulaParts.join(' + ')}`
+            : `Total = 0`;
+
           return (
             <KPICard
               title="Findings Detected"
@@ -1090,7 +1265,7 @@ function OverviewTab({
                   <span>Breakdown by priority level</span>
                 </div>
               }
-              formula={`Total = ${criticalCount} High + ${bugsByPriority?.['Medium']?.count || 0} Medium + ${lowPriorityCount} Low`}
+              formula={formulaStr}
               tooltip={
                 <div>
                   <div className="font-semibold text-sm text-gray-800 mb-1">What it measures</div>
