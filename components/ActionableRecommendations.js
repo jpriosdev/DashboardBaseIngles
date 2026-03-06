@@ -25,34 +25,36 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
 
   // Robust calculation of main metrics
   const totalBugs = sprintsArray.reduce((acc, sprint) => acc + (sprint.bugs || sprint.bugs_encontrados || 0), 0);
-  const bugsClosed = sprintsArray.reduce((acc, sprint) => acc + (sprint.bugsResolved || sprint.bugs_resueltos || 0), 0);
   const totalTestCases = sprintsArray.reduce((acc, sprint) => acc + (sprint.testCases || sprint.casosEjecutados || sprint.test_cases || 0), 0);
 
-  // Resolution efficiency
-  const resolutionEfficiency = totalBugs > 0 ? Math.round((bugsClosed / totalBugs) * 100) : 0;
-  // Average test cases executed per sprint
+  // Execution pass rate: derived from summary data (passed / (passed + failed))
+  // This is the real measurable proxy for resolution quality in this dataset.
+  const summaryPassed = data?.summary?.passed ?? data?.executionSummary?.passed ?? 0;
+  const summaryFailed = data?.summary?.totalBugs ?? data?.executionSummary?.failed ?? totalBugs;
+  const summaryTotal  = summaryPassed + summaryFailed;
+  const resolutionEfficiency = summaryTotal > 0
+    ? Math.round((summaryPassed / summaryTotal) * 100)
+    : (totalTestCases > 0 ? Math.round(((totalTestCases - totalBugs) / totalTestCases) * 100) : 0);
+
+  // Average test cases per month
   const avgTestCasesPerSprint = sprintsArray.length > 0 ? Math.round(totalTestCases / sprintsArray.length) : 0;
 
-  // Calculation of critical bugs
-  const criticalBugsTotal = sprintsArray.reduce((acc, sprint) => {
-    const priorities = sprint.bugsByPriority || {};
-    return acc + (priorities['Más alta'] || priorities['Alta'] || 0);
-  }, 0);
+  // Critical bugs from actual bugsByPriority data (keys: 'High', 'Critical', 'Highest')
+  const bugsByPriorityMap = data?.bugsByPriority || {};
+  const criticalBugsTotal =
+    (bugsByPriorityMap['High']?.count     || 0) +
+    (bugsByPriorityMap['Critical']?.count || 0) +
+    (bugsByPriorityMap['Highest']?.count  || 0);
   const criticalBugsPercent = totalBugs > 0 ? (criticalBugsTotal / totalBugs) * 100 : 0;
 
-  // Estimated cycle time calculation
-  const sprintDays = 14;
-  const avgEfficiency = sprintsArray.reduce((acc, sprint) => {
-    const total = sprint.bugs || sprint.bugs_encontrados || 0;
-    const resolved = sprint.bugsResolved || sprint.bugs_resueltos || 0;
-    return acc + (total > 0 ? resolved / total : 0);
-  }, 0) / (sprintsArray.length || 1);
-  const cycleTime = Math.round(sprintDays * (1 - avgEfficiency * 0.5));
+  // Cycle time: use actual resolution time data when available
+  const cycleTime = data?.resolutionTimeData?.average ?? data?.resolutionTimeAvg ?? 7;
 
-  // Defect density
-  const estimatedHUsPerSprint = 6;
-  const totalHUs = sprintsArray.length * estimatedHUsPerSprint;
-  const defectDensity = totalBugs / (totalHUs || 1);
+  // Defect density: average findings per month (no hypothetical HU estimation)
+  const totalMonths = Object.keys(data?.bugsByMonth || {}).length || sprintsArray.length || 1;
+  const bugsPerMonth = parseFloat((totalBugs / totalMonths).toFixed(1));
+  // Normalize to a density index: 10 findings/month ≈ 1.0 (thresholds: >2.0 = high, >1.0 = med)
+  const defectDensity = bugsPerMonth / 10;
 
   // Generate recommendations based on thresholds and best practices
   const recommendations = [];
@@ -98,7 +100,8 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
       priority: 'high',
       icon: <Code className="w-5 h-5" />,
       title: 'Urgent Code Quality Improvement',
-      description: `A defect density of ${defectDensity.toFixed(2)} bugs/HU indicates serious quality issues.`,
+      description: `High defect injection rate: ${bugsPerMonth} findings/month on average, exceeding the recommended threshold of 20/month.`,
+
       actions: [
         'Enforce code reviews with at least 2 approvers',
         'Increase unit test coverage to at least 80%',
@@ -115,7 +118,7 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
       priority: 'medium',
       icon: <Code className="w-5 h-5" />,
       title: 'Strengthen Quality Practices',
-      description: `A defect density of ${defectDensity.toFixed(2)} bugs/HU suggests room for improvement.`,
+      description: `Finding rate of ${bugsPerMonth}/month is moderate. Stronger prevention practices would reduce this figure.`,
       actions: [
         'Establish a Definition of Done with quality criteria',
         'Increase integration test coverage',
@@ -127,14 +130,14 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
     });
   }
 
-  // Resolution Efficiency recommendations
-  if (resolutionEfficiency < 50) {
+  // Execution pass rate recommendations (replaces unreliable resolution efficiency calculation)
+  if (resolutionEfficiency < 80) {
     recommendations.push({
       category: 'efficiency',
       priority: 'high',
       icon: <Target className="w-5 h-5" />,
-      title: 'Improve Critical Resolution Efficiency',
-      description: `Only ${resolutionEfficiency}% of bugs are resolved - well below the 70% target.`,
+      title: 'Improve Test Execution Pass Rate',
+      description: `Only ${resolutionEfficiency}% of test executions are passing — below the 80% target. Focus on fixing root causes of failing test cases.`,
       actions: [
         'Analyze root causes of unresolved bugs (resource constraints, complexity, prioritization)',
         'Increase team capacity or redistribute workload',
@@ -145,13 +148,13 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
       impact: 'Critical',
       effort: 'High'
     });
-  } else if (resolutionEfficiency < 70) {
+  } else if (resolutionEfficiency < 90) {
     recommendations.push({
       category: 'efficiency',
       priority: 'medium',
       icon: <Target className="w-5 h-5" />,
-      title: 'Increase Resolution Rate',
-      description: `An efficiency of ${resolutionEfficiency}% is below the 70% target.`,
+      title: 'Increase Execution Pass Rate',
+      description: `Pass rate of ${resolutionEfficiency}% is acceptable but below the 90% target. Investigate recurring failures and their root causes.`,
       actions: [
         'Review bug backlog prioritization',
         'Allocate dedicated sprint time for bug resolution',
@@ -207,9 +210,8 @@ export default function ActionableRecommendations({ data, filteredSprintData }) 
       title: 'Increase Test Coverage',
       description: `Only ${avgTestCasesPerSprint} test cases executed per sprint - below the target of 200.`,
       actions: [
-        'Automatizar casos de prueba manuales repetitivos',
         'Automate repetitive manual test cases',
-        'Increase QA team or train developers in testing',
+        'Increase QA team capacity or cross-train developers in testing',
         'Implement CI/CD with automatic tests on every PR',
         'Create automated regression test suite'
       ],

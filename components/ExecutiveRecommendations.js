@@ -219,11 +219,11 @@ import {
           </div>
         </div>
   
-        {/* Plan de acción ejecutivo */}
+        {/* Executive Action Plan */}
         <div className="executive-card">
           <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
             <CheckCircle className="w-6 h-6 text-success-600 mr-2" />
-            Plan de Acción Ejecutivo
+            Executive Action Plan
           </h3>
           
           <div className="space-y-6">
@@ -253,9 +253,9 @@ import {
               </ul>
             </div>
   
-            {/* 1-3 meses */}
+            {/* 1-3 months */}
             <div className="border-l-4 border-blue-500 pl-4">
-              <h4 className="font-semibold text-blue-700 mb-2">1-3 Meses</h4>
+              <h4 className="font-semibold text-blue-700 mb-2">1-3 Months</h4>
               <ul className="space-y-2 text-sm text-gray-700">
                 {data.filter(r => r.type === 'Mediano Plazo').map((rec, index) => (
                   <li key={index} className="flex items-start">

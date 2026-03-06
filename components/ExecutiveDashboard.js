@@ -1259,7 +1259,12 @@ function OverviewTab({
               }
               icon={<Bug className="w-6 h-6 text-danger-600" />}
               trend={kpis.criticalBugsTrend || 0}
-              status={totalBugs <= 50 ? "success" : "danger"}
+              status={(() => {
+                // Status based on failure rate vs total executions (not raw count)
+                const totalExec = executionSummary?.total_executions || 0;
+                const failurePct = totalExec > 0 ? (totalBugs / totalExec) * 100 : 100;
+                return failurePct <= 8 ? 'success' : failurePct <= 15 ? 'warning' : 'danger';
+              })()}
               subtitle={
                 <div className="flex items-center gap-2">
                   <span>Breakdown by priority level</span>
